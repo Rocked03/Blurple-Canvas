@@ -1,0 +1,2 @@
+TOKEN = 'NDIwNjc1Mzk0MjI0NTIxMjQw.DdgfZQ.V9vEe5_Se21YvwUtWHxZE5ODGnw'
+BOT_PREFIX = 'p/'
