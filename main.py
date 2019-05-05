@@ -56,9 +56,16 @@ async def on_ready():
     await bot.change_presence(status=discord.Status.online, activity=discord.Activity(name="pixels", type=discord.ActivityType.watching))
     bot.uptime = datetime.datetime.utcnow()
 
+
+    bot.blurpleguild = bot.get_guild(412754940885467146)
+
 @bot.check
 async def globally_block_dms(ctx):
     return ctx.guild is not None
+
+@bot.check
+async def blacklist(ctx):
+    return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
 
 @bot.command(name='shutdown', aliases=["reboot"])
 @dev()
