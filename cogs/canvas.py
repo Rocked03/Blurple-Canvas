@@ -436,7 +436,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command(name="createboard", aliases=["cb"])
     @admin()
     async def createboard(self, ctx, x: int, y: int, seed: typing.Optional[boardspec] = None, *, name: str):
-        """Creates board"""
+        """Creates a board. Optional seed parameter. Must specify width (x), height (y), and name."""
         if not self.bot.initfinished: return await ctx.send('Please wait for the bot to finish retrieving boards from database.')
 
         if any(i < 5 for i in [x, y]):
@@ -525,15 +525,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command()
     @inteam()
     async def boards(self, ctx):
+        """Lists all available canvas boards"""
         await ctx.send(f'Boards ({len(self.bot.boards)}) - ' + ' | '.join(self.bot.boards.keys()))
 
     @commands.command()
     @inteam()
-    async def join(self, ctx, *, name: str):
-        """Joins a board"""
+    async def join(self, ctx, *, name: str = None):
+        """Joins a board. You need to have joined a board to start interacting with the canvas."""
+        if not name: return await ctx.send(f'{ctx.author.mention}, please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
+
         if name.lower() not in self.bot.boards.keys():
             return await ctx.send(
-                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
 
         self.bot.uboards[ctx.author.id] = name.lower()
@@ -556,29 +559,31 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 30, BucketType.user)
     @inteam()
     async def view(self, ctx, *, xyz: coordinates = None):
+        """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional. Usage: ^view <x> <y> [zoom]"""
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
+        if not xyz: return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
         if board.data == None:
-            return await ctx.send('There is currently no board created')
+            return await ctx.send('{ctx.author.mention}, there is currently no board created')
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
             return await ctx.send(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
+                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
 
-        if zoom == None:
-            if board.width > board.height: zoom = board.width
-            else: zoom = board.height
+        defaultzoom = 25
+
+        if zoom == None or zoom > board.width or zoom > board.height:
+            zoom = defaultzoom
         if zoom > board.width or zoom > board.height:
             if board.width > board.height: zoom = board.width
             else: zoom = board.height
         if zoom < 5:
-            return await ctx.send(f'Please have a minumum zoom of 5 tiles')
+            return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
 
         async with aiohttp.ClientSession() as session:
             async with ctx.typing():
@@ -601,19 +606,20 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 30, BucketType.user)
     @inteam()
     async def viewnav(self, ctx, *, xyz: coordinates):
+        """Views a section of the boards as an inline image created with emojis. Can be navigatable via interactive input. Must have xy coordinates. Usage: ^viewnav <x> <y>"""
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
+        if not xyz: return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
         if board.data == None:
-            return await ctx.send('There is currently no board created')
+            return await ctx.send('{ctx.author.mention}, there is currently no board created')
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
             return await ctx.send(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
+                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
 
         loc, emoji, raw, zoom = self.screen(board, x, y, 7)
@@ -710,13 +716,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
+        if not xyz: return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
             return await ctx.send(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
+                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
 
         if zoom == None:
@@ -726,7 +732,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if board.width > board.height: zoom = board.width
             else: zoom = board.height
         if zoom < 5:
-            return await ctx.send(f'Please have a minumum zoom of 5 tiles')
+            return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
 
         async with aiohttp.ClientSession() as session:
             async with ctx.typing():
@@ -794,25 +800,30 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     await msg.edit(embed=embed, file=image)
 
     @commands.command()
-    @commands.cooldown(1, 300, BucketType.user)  # 1 msg per 5 min
     @inteam()
+    @commands.cooldown(1, 300, BucketType.user)  # 1 msg per 5 min
     async def place(self, ctx, *, xyz: coordinates):
+        """Places a tile at specified location. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed. Usage: ^place <x> <y>"""
         board = await self.findboard(ctx)
-        if not board: return
+        if not board: 
+            self.bot.cd.add(ctx.author.id)
+            return
 
-        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
+        if not xyz: 
+            self.bot.cd.add(ctx.author.id)
+            return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`')
 
         x, y, zoom = xyz
 
         if board.data == None:
-            await ctx.send('There is currently no board created')
+            await ctx.send('{ctx.author.mention}, there is currently no board created')
             self.bot.cd.add(ctx.author.id)
             return
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
             self.bot.cd.add(ctx.author.id)
             await ctx.send(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
+                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
             return
 
@@ -990,6 +1001,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                for xk in board.data.values()])
         await ctx.message.add_reaction("👍")
 
+    @commands.command()
+    async def test(self, ctx):
+        print([guild.name for guild in self.bot.guilds])
 
 def setup(bot):
     bot.add_cog(CanvasCog(bot))

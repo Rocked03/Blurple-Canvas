@@ -66,7 +66,7 @@ async def on_ready():
 
     bot.blurpleguild = bot.get_guild(412754940885467146)
 
-    bot.appinfo = await self.bot.application_info()
+    bot.appinfo = await bot.application_info()
 
 @bot.check
 async def globally_block_dms(ctx):
@@ -110,6 +110,9 @@ async def ping(ctx):
     embed = discord.Embed(colour=0x7289da, timestamp=datetime.datetime.utcnow())
     embed.set_author(name="Ping!")
     embed.add_field(name='Bot latency', value=latency+"ms")
+    embed.set_footer(
+                    text=f"{str(ctx.author)} | {bot.user.name} | {ctx.prefix}{ctx.command.name}",
+                    icon_url=bot.user.avatar_url)
     await ctx.send(embed=embed)
 
 
