@@ -10,11 +10,10 @@ bot.allowedusers = {204778476102877187, 226595531844091904}
 bot.recentcog = None
 
 bot.modroles = {
-    "Admin":       0,
-    "Executive":   0,
-    "Senior Mod":  0,
-    "Moderator":   0,
-    "Helper":      0,
+    "Admin":       443013283977494539,
+    "Executive":   413213839866462220,
+    "Moderator":   569015549225598976,
+    "Helper":      442785212502507551,
 }
 
 def s(n : int): return 's' if n != 1 else ''
@@ -78,7 +77,7 @@ async def blacklist(ctx):
     return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
 
 @bot.check
-def isnew():
+def isnew(ctx):
     return ctx.author.created_at < datetime.datetime(2019, 5, 6, 12)
 
 @bot.command(name='shutdown', aliases=["reboot"])

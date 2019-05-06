@@ -111,6 +111,20 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 "guild": 349243932447604736,
                 "rgb": (165, 107, 77, 255),
             },
+            173184118492889089: { # Tatsumaki
+                "name": "Tatsu Emerald",
+                "tag": "ttsu",
+                "emoji": "pl_ttsu:57490745799501415",
+                "guild": 173184118492889089,
+                "rgb": (23, 161, 103, 255),
+            },
+            262077211526299648: { # Auttaja
+                "name": "Auttaja Blue",
+                "tag": "attj",
+                "emoji": "pl_attj:574907457915060224",
+                "guild": 262077211526299648,
+                "rgb": (0, 112, 250, 255),
+            },
         }
 
         self.bot.cd = set()
@@ -376,14 +390,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
             tlx = 1
             locx = x
         elif x > board.width - zoom / 2:
-            tlx = board.width - zoom
+            tlx = board.width - zoom + 1
             locx = zoom - (board.width - x)
 
         if y < zoom / 2:
             tly = 1
             locy = y
         elif y > board.height - zoom / 2:
-            tly = board.height - zoom
+            tly = board.height - zoom + 1
             locy = zoom - (board.height - y)
 
         loc = (int(locx), int(locy))
@@ -532,7 +546,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             self.bot.uboards[ctx.author.id]
         except KeyError:
             await ctx.send(
-                f"You haven't joined a board! Type `{ctx.prefix}join` to join a board!"
+                f"You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
             )
             return False
 
@@ -541,9 +555,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command(name="view", aliases=["see"])
     @commands.cooldown(1, 30, BucketType.user)
     @inteam()
-    async def view(self, ctx, *, xyz: coordinates):
+    async def view(self, ctx, *, xyz: coordinates = None):
         board = await self.findboard(ctx)
         if not board: return
+
+        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
 
         x, y, zoom = xyz
 
@@ -587,6 +603,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def viewnav(self, ctx, *, xyz: coordinates):
         board = await self.findboard(ctx)
         if not board: return
+
+        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
 
         x, y, zoom = xyz
 
@@ -692,6 +710,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
+        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
+
         x, y, zoom = xyz
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
@@ -779,6 +799,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def place(self, ctx, *, xyz: coordinates):
         board = await self.findboard(ctx)
         if not board: return
+
+        if not xyz: return await ctx.send('Please specify coordinates (e.g. `234 837` or `12 53`')
 
         x, y, zoom = xyz
 
