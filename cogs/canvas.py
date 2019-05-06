@@ -577,7 +577,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=ctx.author.avatar_url)
+                    icon_url=self.bot.user.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 await ctx.send(embed=embed, file=image)
 
@@ -622,7 +622,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=ctx.author.avatar_url)
+            icon_url=self.bot.user.avatar_url)
         msg = await ctx.send(display, embed=embed)
 
         arrows = ["⬅", "⬆", "⬇", "➡"]
@@ -721,7 +721,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=ctx.author.avatar_url)
+                    icon_url=self.bot.user.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 msg = await ctx.send(embed=embed, file=image)
 
@@ -820,7 +820,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=ctx.author.avatar_url)
+            icon_url=self.bot.user.avatar_url)
         msg = await ctx.send(display, embed=embed)
 
         arrows = ["⬅", "⬆", "⬇", "➡", "✔", "✖"]
