@@ -12,18 +12,17 @@ def dev():
 
 
 def inteam():
-    async def pred(ctx):
-        return any(elem in [v for k, v in ctx.bot.teams.items()]
-                   for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
-
-    return commands.check(pred)
+    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+    # return commands.check(pred)
+    return commands.check(True)
 
 
 def mod():
-    async def pred(ctx):
-        return any(elem in [v for k, v in ctx.bot.modroles.items()]
-                   for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+    return commands.check(pred)
 
+def admin():
+    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
     return commands.check(pred)
 
 
@@ -118,9 +117,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.teams = {
             "light": 568311855357886464,
             "dark": 479418564026171392,
-        }
-
-        self.bot.modroles = {  # FILL ME IN
         }
 
         self.bot.uboards = {}
@@ -423,7 +419,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 raise Exception
 
     @commands.command(name="createboard", aliases=["cb"])
-    @dev()
+    @admin()
     async def createboard(self, ctx, x: int, y: int, seed: typing.Optional[boardspec] = None, *, name: str):
         """Creates board"""
         if not self.bot.initfinished: return await ctx.send('Please wait for the bot to finish retrieving boards from database.')
@@ -579,7 +575,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     colour=0x7289da, timestamp=datetime.datetime.utcnow())
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
-                    text=f"{str(ctx.author)} - {ctx.prefix}{ctx.command.name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=ctx.author.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 await ctx.send(embed=embed, file=image)
@@ -624,7 +620,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             colour=0x7289da, timestamp=datetime.datetime.utcnow())
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
-            text=f"{str(ctx.author)} - {ctx.prefix}{ctx.command.name}",
+            text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
             icon_url=ctx.author.avatar_url)
         msg = await ctx.send(display, embed=embed)
 
@@ -723,7 +719,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     colour=0x7289da, timestamp=datetime.datetime.utcnow())
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
-                    text=f"{str(ctx.author)} - {ctx.prefix}{ctx.command.name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=ctx.author.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 msg = await ctx.send(embed=embed, file=image)
@@ -819,13 +815,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # display = "\n".join(["".join(i) for i in emoji])
         embed = discord.Embed(
             colour=0x7289da, timestamp=datetime.datetime.utcnow())
-        embed.set_author(
-            name=
-            "Use the arrow reactions to choose the location and to confirm or cancel."
-        )
+        embed.set_author(name = "Use the arrow reactions to choose the location and to confirm or cancel.")
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
-            text=f"{str(ctx.author)} - {ctx.prefix}{ctx.command.name}",
+            text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
             icon_url=ctx.author.avatar_url)
         msg = await ctx.send(display, embed=embed)
 

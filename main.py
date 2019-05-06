@@ -9,6 +9,14 @@ bot.allowedusers = {204778476102877187, 226595531844091904}
 
 bot.recentcog = None
 
+bot.modroles = {
+    "Admin":       0,
+    "Executive":   0,
+    "Senior Mod":  0,
+    "Moderator":   0,
+    "Helper":      0,
+}
+
 def s(n : int): return 's' if n != 1 else ''
 def areis(n : int): return 'are' if n != 1 else 'is'
 def cint(codeinfo): return "{:,}".format(codeinfo)
@@ -59,6 +67,8 @@ async def on_ready():
 
     bot.blurpleguild = bot.get_guild(412754940885467146)
 
+    bot.appinfo = await self.bot.application_info()
+
 @bot.check
 async def globally_block_dms(ctx):
     return ctx.guild is not None
@@ -66,6 +76,10 @@ async def globally_block_dms(ctx):
 @bot.check
 async def blacklist(ctx):
     return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
+
+@bot.check
+def isnew():
+    return ctx.author.created_at < datetime.datetime(2019, 5, 6, 12)
 
 @bot.command(name='shutdown', aliases=["reboot"])
 @dev()
