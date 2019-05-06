@@ -114,7 +114,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             173184118492889089: { # Tatsumaki
                 "name": "Tatsu Emerald",
                 "tag": "ttsu",
-                "emoji": "pl_ttsu:57490745799501415",
+                "emoji": "pl_ttsu:574907457995014154",
                 "guild": 173184118492889089,
                 "rgb": (23, 161, 103, 255),
             },
