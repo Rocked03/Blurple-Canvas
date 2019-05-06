@@ -13,8 +13,8 @@ def dev():
 
 def inteam():
     async def pred(ctx): 
-        return True
-        return any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+        return True 
+        return any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]) 
     return commands.check(pred)
 
 
