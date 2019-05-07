@@ -133,7 +133,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 "emoji": "pl_stwr:575279585130840102",
                 "guild": 228406572756369408,
                 "rgb": (254, 210, 24, 255),
-            }
+            },
+            145166056812576768: { # Ayana
+                "name": "Ayana Pink",
+                "tag": "ayna",
+                "emoji": "pl_ayna:575452605292216340",
+                "guild": 145166056812576768,
+                "rgb": (198, 59, 104, 255),
+            },
         }
 
         self.bot.cd = set()
