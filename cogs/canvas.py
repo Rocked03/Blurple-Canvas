@@ -128,7 +128,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             228406572756369408: { # r/StarWars
                 "name": "Opening Crawl Yellow",
                 "tag": "stwr",
-                "emoji": "pl_stwr:575279585130840102"
+                "emoji": "pl_stwr:575279585130840102",
                 "guild": 228406572756369408,
                 "rgb": (254, 210, 24, 255),
             }
