@@ -13,8 +13,10 @@ def dev():
 
 def inteam():
     async def pred(ctx): 
-        return True 
-        return any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]) 
+        return True
+        a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]) 
+        if not a: self.bot.cd.add(ctx.author.id)
+        return a
     return commands.check(pred)
 
 
@@ -553,7 +555,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def findboard(self, ctx):
         try:
-            self.bot.uboards[ctx.author.id]
+            self.bot.boards[self.bot.uboards[ctx.author.id]]
         except KeyError:
             await ctx.send(
                 f"You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
@@ -570,7 +572,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
@@ -612,12 +614,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command(name="viewnav", aliases=["seenav"])
     @commands.cooldown(1, 30, BucketType.user)
     @inteam()
-    async def viewnav(self, ctx, *, xyz: coordinates):
+    async def viewnav(self, ctx, *, xyz: coordinates = None):
         """Views a section of the boards as an inline image created with emojis. Can be navigatable via interactive input. Must have xy coordinates."""
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
@@ -719,7 +721,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command(hidden=True)
     @dev()
-    async def viewnavexp(self, ctx, *, xyz: coordinates):
+    async def viewnavexp(self, ctx, *, xyz: coordinates = None):
         board = await self.findboard(ctx)
         if not board: return
 
@@ -809,7 +811,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command()
     @inteam()
     @commands.cooldown(1, 300, BucketType.user)  # 1 msg per 5 min
-    async def place(self, ctx, *, xyz: coordinates):
+    async def place(self, ctx, *, xyz: coordinates = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
         if not board: 
@@ -818,7 +820,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if not xyz: 
             self.bot.cd.add(ctx.author.id)
-            return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`')
+            return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`')
 
         x, y, zoom = xyz
 

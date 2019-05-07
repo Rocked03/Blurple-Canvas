@@ -66,7 +66,9 @@ async def on_ready():
     bot.uptime = datetime.datetime.utcnow()
 
 
-    bot.blurpleguild = bot.get_guild(412754940885467146)
+    while True:
+        bot.blurpleguild = bot.get_guild(412754940885467146)
+        if bot.blurpleguild: break
 
     bot.appinfo = await bot.application_info()
 
