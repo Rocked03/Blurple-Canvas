@@ -84,11 +84,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 "rgb": (252, 194, 27, 255),
             },
             316720611453829121: { # N.I.T.R.O.
-                "name": "N.I.T.R.O. Dark Grey",
+                "name": "N.I.T.R.O. Orange",
                 "tag": "ntro",
-                "emoji": "pl_ntro:573101758411440128",
+                "emoji": "pl_ntro:575279584820330498",
                 "guild": 316720611453829121,
-                "rgb": (33, 35, 35, 255)
+                "rgb": (252, 150, 75, 255)
             },
             152517096104919042: { # Rocket League
                 "name": "Rocketeer Blue",
@@ -125,6 +125,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 "guild": 262077211526299648,
                 "rgb": (0, 112, 250, 255),
             },
+            228406572756369408: { # r/StarWars
+                "name": "Opening Crawl Yellow",
+                "tag": "stwr",
+                "emoji": "pl_stwr:575279585130840102"
+                "guild": 228406572756369408,
+                "rgb": (254, 210, 24, 255),
+            }
         }
 
         self.bot.cd = set()
@@ -559,7 +566,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 30, BucketType.user)
     @inteam()
     async def view(self, ctx, *, xyz: coordinates = None):
-        """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional. Usage: ^view <x> <y> [zoom]"""
+        """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional."""
         board = await self.findboard(ctx)
         if not board: return
 
@@ -606,7 +613,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 30, BucketType.user)
     @inteam()
     async def viewnav(self, ctx, *, xyz: coordinates):
-        """Views a section of the boards as an inline image created with emojis. Can be navigatable via interactive input. Must have xy coordinates. Usage: ^viewnav <x> <y>"""
+        """Views a section of the boards as an inline image created with emojis. Can be navigatable via interactive input. Must have xy coordinates."""
         board = await self.findboard(ctx)
         if not board: return
 
@@ -803,7 +810,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @inteam()
     @commands.cooldown(1, 300, BucketType.user)  # 1 msg per 5 min
     async def place(self, ctx, *, xyz: coordinates):
-        """Places a tile at specified location. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed. Usage: ^place <x> <y>"""
+        """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
         if not board: 
             self.bot.cd.add(ctx.author.id)
@@ -1001,7 +1008,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                for xk in board.data.values()])
         await ctx.message.add_reaction("👍")
 
-    @commands.command()
+    @commands.command(hidden = True)
     async def test(self, ctx):
         print([guild.name for guild in self.bot.guilds])
 

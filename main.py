@@ -1,5 +1,5 @@
 from config import *
-import discord, datetime
+import discord, datetime, re
 from discord.ext import commands
 
 description = "r/place for Discord" # fix
@@ -15,6 +15,8 @@ bot.modroles = {
     "Moderator":   569015549225598976,
     "Helper":      442785212502507551,
 }
+
+bot.help = bot.description
 
 def s(n : int): return 's' if n != 1 else ''
 def areis(n : int): return 'are' if n != 1 else 'is'
@@ -74,7 +76,8 @@ async def globally_block_dms(ctx):
 
 @bot.check
 async def blacklist(ctx):
-    return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
+    try: return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
+    except AttributeError: return False
 
 @bot.check
 def isnew(ctx):
@@ -114,6 +117,113 @@ async def ping(ctx):
                     text=f"{str(ctx.author)} | {bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=bot.user.avatar_url)
     await ctx.send(embed=embed)
+
+
+
+_mentions_transforms = {
+    '@everyone': '@\u200beveryone',
+    '@here': '@\u200bhere'
+}
+
+_mention_pattern = re.compile('|'.join(_mentions_transforms.keys()))
+
+bot.remove_command('help')
+
+@bot.command(name="help", aliases=['commands'])
+async def help(ctx, *commands : str):
+    """Displays this message."""
+    try:
+        def repl(obj):
+            return _mentions_transforms.get(obj.group(0), '')
+
+        if len(commands) == 0:
+            embed = await helpformatter(ctx, bot)
+        else:
+            name = _mention_pattern.sub(repl, commands[0])
+            command = bot.all_commands.get(name)
+            if command is None:
+                await ctx.send(bot.command_not_found.format(name))
+                return
+
+            for key in commands[1:]:
+                try:
+                    key = _mention_pattern.sub(repl, key)
+                    command = command.all_commands.get(key)
+                    if command is None:
+                        await ctx.send(bot.command_not_found.format(key))
+                        return
+                except AttributeError:
+                    await ctx.send(bot.command_has_no_subcommands.format(command, key))
+                    return
+
+            embed = await helpformatter(ctx, command)
+
+        await ctx.send(embed=embed)
+    except Exception as e:
+        print(e)
+
+async def helpformatter(ctx, command):
+    def spacestrip(x):
+        if x == '': return ''
+        else: return ' '
+
+    embed = discord.Embed(colour=discord.Colour.blurple(), description=command.help)
+    embed.set_footer(icon_url=self.bot.user.avatar_url)
+    try: 
+        embed.set_author(name=f'Bot command - {command.qualified_name}')
+        try:
+            command.commands
+            embed.set_footer(text=f'{str(ctx.author)} | {self.bot.user.name} | Showing commands for \'{command.qualified_name}\' | To see more info on a command, type {bot.command_prefix.strip()}help {command.qualified_name} <command>')
+        except Exception:  embed.set_footer(text=f'Showing commands for \'{command.qualified_name}\'')
+    except AttributeError: 
+        embed.set_author(name=f'Bot commands')
+        embed.set_footer(text=f'{str(ctx.author)} | {self.bot.user.name} | To see more info on a command, type {bot.command_prefix.strip()}help <command>')
+    try:
+        params = []
+        for param, specs in dict(command.clean_params).items():
+            spec = specs.replace(annotation=specs.empty)
+            if spec.default == None: spec = spec.replace(default=specs.empty)
+            params.append(f"<{spec}>")
+        paramsstr = " ".join(params)
+        commandname = command.name
+        if len(command.aliases) != 0: commandname = f'[{command.name}|{"|".join(command.aliases)}]'
+        embed.add_field(name="Usage", value=f"`{bot.command_prefix.strip()}{command.full_parent_name.strip()}{spacestrip(command.full_parent_name)}{commandname.strip()} {paramsstr}`", inline=False)
+    except Exception:
+        pass
+
+    try:
+        for subcommand in sorted(command.commands, key=lambda item: item.name):
+            if subcommand.hidden: continue
+            try: 
+                if not(await subcommand.can_run(ctx)): continue
+            except Exception: continue
+
+            if subcommand.help == None: desc = ''
+            else: desc = subcommand.help
+            params = []
+            for param, specs in dict(subcommand.clean_params).items():
+                spec = specs.replace(annotation=specs.empty)
+                if spec.default == None: spec = spec.replace(default=specs.empty)
+                params.append(f"<{spec}>")
+            paramsstr = " ".join(params)
+            paramsstr = f"{bot.command_prefix.strip()}{subcommand.full_parent_name.strip()}{spacestrip(subcommand.full_parent_name)}{subcommand.name.strip()} {paramsstr}"
+            try: 
+                subsubcommands = []
+                for c in sorted(subcommand.commands, key=lambda item: item.name):
+                    if (not(c.hidden) and await c.can_run(ctx)): subsubcommands.append(c.name)
+            except Exception: subsubcommands = None
+            if subsubcommands != None and len(subsubcommands) != 0: 
+                subsubcommandtxt = "`" + "` `".join(subsubcommands) + "`"
+                subsubcommandtxt = f"| {subsubcommandtxt}"
+            else: subsubcommandtxt = ''
+            embed.add_field(name=subcommand.name, value=f'{desc} \n`{paramsstr}` {subsubcommandtxt}', inline=False)
+    except Exception as e:
+        print(e)
+
+    return embed
+
+
+
 
 
 @bot.group(name="cogs", aliases=["cog"])
