@@ -604,7 +604,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
                 embed = discord.Embed(
                     colour=0x7289da, timestamp=datetime.datetime.utcnow())
-                embed.set_author(name=f"Image took {end - start:.2f}s to load")
+                embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar_url)
@@ -656,6 +656,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
             icon_url=self.bot.user.avatar_url)
+        embed.set_author(name=board.name)
         msg = await ctx.send(display, embed=embed)
 
         arrows = ["⬅", "⬆", "⬇", "➡"]
@@ -858,7 +859,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # display = "\n".join(["".join(i) for i in emoji])
         embed = discord.Embed(
             colour=0x7289da, timestamp=datetime.datetime.utcnow())
-        embed.set_author(name = "Use the arrow reactions to choose the location and to confirm or cancel.")
+        embed.set_author(name = f"{board.name} | Use the arrow reactions to choose the location and to confirm or cancel.")
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
