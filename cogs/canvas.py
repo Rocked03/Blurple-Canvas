@@ -107,9 +107,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 "rgb": (255, 64, 0, 255),
             },
             349243932447604736: { # r/Jailbreak
-                "name": "Cyndia Brown",
-                "tag": "cynd",
-                "emoji": "pl_cynd:574086064923475988",
+                "name": "Cydia Brown",
+                "tag": "jlbr",
+                "emoji": "pl_jlbr:574086064923475988",
                 "guild": 349243932447604736,
                 "rgb": (165, 107, 77, 255),
             },
