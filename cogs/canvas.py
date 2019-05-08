@@ -13,7 +13,7 @@ def dev():
 
 def inteam():
     async def pred(ctx): 
-        return True
+        # return True
         a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]) 
         if not a: self.bot.cd.add(ctx.author.id)
         return a
