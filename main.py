@@ -84,7 +84,7 @@ async def blacklist(ctx):
 
 @bot.check
 async def server(ctx):
-    return ctx.guild.id in list(bot.partners.keys()).append(bot.blurpleguild.id)
+    return ctx.guild.id in list(bot.partners.keys()).append(412754940885467146)
 
 @bot.check
 def isnew(ctx):
