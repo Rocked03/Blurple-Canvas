@@ -38,6 +38,7 @@ def mod():
 
 
 initial_extensions = [
+    'cogs.colours',
     'cogs.canvas',
 ]
 
@@ -80,6 +81,10 @@ async def globally_block_dms(ctx):
 async def blacklist(ctx):
     try: return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
     except AttributeError: return False
+
+@bot.check
+async def server(ctx):
+    return ctx.guild.id in list(bot.partners.keys()).append(bot.blurpleguild.id)
 
 @bot.check
 def isnew(ctx):
