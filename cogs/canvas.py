@@ -25,7 +25,8 @@ def mod():
     return commands.check(pred)
 
 def admin():
-    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]
     return commands.check(pred)
 
 
