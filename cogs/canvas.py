@@ -38,6 +38,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.initfinished = False
 
+        self.bot.modroles = {
+            "Admin":       443013283977494539,
+            "Executive":   413213839866462220,
+            "Moderator":   569015549225598976,
+            "Helper":      442785212502507551,
+        }
+
         self.bot.colours = {
             "brll": "pl_brll:541841828844929025",  # Brilliance Red
             "hpsq": "pl_hpsq:541841829969133571",  # Hypesquad Yellow
