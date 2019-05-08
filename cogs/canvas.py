@@ -149,6 +149,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 "guild": 145166056812576768,
                 "rgb": (198, 59, 104, 255),
             },
+            284447205358829570: { # The Furry Nexus
+                "name": "Paw Print Pink",
+                "tag": "frry",
+                "emoji": "pl_frry:575567782683607040",
+                "guild": 284447205358829570,
+                "rgb": (198, 118, 255, 255)
+            }
         }
 
         self.bot.cd = set()
@@ -826,7 +833,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command()
     @inteam()
-    @commands.cooldown(1, 300, BucketType.user)  # 1 msg per 5 min
+    @commands.cooldown(1, 60, BucketType.user)  # 1 msg per 1 min
     async def place(self, ctx, *, xyz: coordinates = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
