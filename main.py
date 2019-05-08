@@ -175,16 +175,16 @@ async def helpformatter(ctx, command):
         else: return ' '
 
     embed = discord.Embed(colour=discord.Colour.blurple(), description=command.help)
-    embed.set_footer(icon_url=self.bot.user.avatar_url)
+    embed.set_footer(icon_url=bot.user.avatar_url)
     try: 
         embed.set_author(name=f'Bot command - {command.qualified_name}')
         try:
             command.commands
-            embed.set_footer(text=f'{str(ctx.author)} | {self.bot.user.name} | Showing commands for \'{command.qualified_name}\' | To see more info on a command, type {bot.command_prefix.strip()}help {command.qualified_name} <command>')
+            embed.set_footer(text=f'{str(ctx.author)} | {bot.user.name} | Showing commands for \'{command.qualified_name}\' | To see more info on a command, type {bot.command_prefix.strip()}help {command.qualified_name} <command>')
         except Exception:  embed.set_footer(text=f'Showing commands for \'{command.qualified_name}\'')
     except AttributeError: 
         embed.set_author(name=f'Bot commands')
-        embed.set_footer(text=f'{str(ctx.author)} | {self.bot.user.name} | To see more info on a command, type {bot.command_prefix.strip()}help <command>')
+        embed.set_footer(text=f'{str(ctx.author)} | {bot.user.name} | To see more info on a command, type {bot.command_prefix.strip()}help <command>')
     try:
         params = []
         for param, specs in dict(command.clean_params).items():
