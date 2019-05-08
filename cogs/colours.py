@@ -115,14 +115,14 @@ class ColoursCog(commands.Cog, name="Colours"):
                 "emoji": "pl_frry:575567782683607040",
                 "guild": 284447205358829570,
                 "rgb": (198, 118, 255, 255)
-            }
+            },
             304383757975289857: { # Blob Hub
                 "name": "Butterfly Pink",
                 "tag": "nbhb",
                 "emoji": "pl_nbhb:575636279383949312",
                 "guild": 304383757975289857,
                 "rgb": (233, 160, 214, 255),
-            }
+            },
         }
 
 def setup(bot):
