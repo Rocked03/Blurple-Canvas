@@ -123,6 +123,13 @@ class ColoursCog(commands.Cog, name="Colours"):
                 "guild": 304383757975289857,
                 "rgb": (233, 160, 214, 255),
             },
+            416749164731301888: { # PUBG
+                "name": "Winner Winner Golden Dinner",
+                "tag": "pubg",
+                "emoji": "pl_pubg:575808438114844682",
+                "guild": 416749164731301888,
+                "rgb": (222, 141, 0, 255)
+            },
         }
 
 def setup(bot):
