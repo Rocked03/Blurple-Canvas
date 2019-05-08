@@ -15,7 +15,7 @@ def inteam():
     async def pred(ctx): 
         # return True
         a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]) 
-        if not a: self.bot.cd.add(ctx.author.id)
+        if not a: ctx.bot.cd.add(ctx.author.id)
         return a
     return commands.check(pred)
 
@@ -154,8 +154,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.cd = set()
 
         self.bot.teams = {
-            "light": 568311855357886464,
-            "dark": 479418564026171392,
+            "light": 573011450231259157,
+            "dark": 573011441683005440,
         }
 
         self.bot.uboards = {}
