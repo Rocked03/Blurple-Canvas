@@ -88,6 +88,7 @@ async def blacklist(ctx):
 
 @bot.check
 def isnew(ctx):
+    return True
     return ctx.author.created_at < datetime.datetime(2019, 5, 6, 12)
 
 @bot.command(name='shutdown', aliases=["reboot"])

@@ -292,6 +292,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
             return
 
+        if instance(error, commands.Forbidden):
+            return
+
         traceback.print_exception(
             type(error), error, error.__traceback__, file=sys.stderr)
 
