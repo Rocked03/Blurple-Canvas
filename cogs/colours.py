@@ -130,6 +130,13 @@ class ColoursCog(commands.Cog, name="Colours"):
                 "guild": 416749164731301888,
                 "rgb": (222, 141, 0, 255)
             },
+            478114566509821953: { # r/Google
+                "name": "Google Yellow",
+                "tag": "goog",
+                "emoji": "pl_goog:576591834529267732",
+                "guild": 478114566509821953,
+                "rgb": (251, 188, 5, 255),
+            }
         }
 
 def setup(bot):
