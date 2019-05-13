@@ -151,6 +151,13 @@ class ColoursCog(commands.Cog, name="Colours"):
                 "guild": 493351982887862283,
                 "rgb": (91, 144, 66, 255),
             },
+            446658603873730611: { # Raft
+                "name": "Raft Blue",
+                "tag": "raft",
+                "emoji": "pl_raft:577597652573749248",
+                "guild": 446658603873730611,
+                "rgb": (68, 174, 210, 255),
+            }
         }
 
 def setup(bot):
