@@ -136,7 +136,21 @@ class ColoursCog(commands.Cog, name="Colours"):
                 "emoji": "pl_goog:576591834529267732",
                 "guild": 478114566509821953,
                 "rgb": (251, 188, 5, 255),
-            }
+            },
+            # 360462032811851777: { # Something For Everybody
+            #     "name": "",
+            #     "tag": "sfeb",
+            #     "emoji": "pl_sfeb:",
+            #     "guild": 360462032811851777,
+            #     "rgb": ()
+            # },
+            493351982887862283: { # Pepe Emoji
+                "name": "Pepe Green",
+                "tag": "pepe",
+                "emoji": "pl_pepe:577471090973212683",
+                "guild": 493351982887862283,
+                "rgb": (91, 144, 66, 255),
+            },
         }
 
 def setup(bot):
