@@ -245,19 +245,26 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return image_file_object
 
     class coordinates(commands.Converter):
+        def __init__(self, colour: bool = False):
+            self.colour = colour
         async def convert(self, ctx, argument):
             try:
                 arg = argument.split()
 
                 if len(arg) < 3: zoom = None
-                else: zoom = int(arg[2])
+                else:
+                    if self.colour and len(arg) == 3: zoom = None
+                    else: zoom = int(arg[2])
+
+                if self.colour: colour = arg[-1]
 
                 x = int(arg[0].replace('(', '').replace(',', ''))
                 y = int(arg[1].replace(')', ''))
             except Exception as e:
-                x, y, zoom = (0, 0, None)
+                x, y, zoom, colour = (0, 0, None, None)
 
-            return (x, y, zoom)
+            if self.colour: return (x, y, zoom, colour)
+            else: return (x, y, zoom)
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
@@ -292,7 +299,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
             return
 
-        if instance(error, commands.Forbidden):
+        if isinstance(error, commands.Forbidden):
             return
 
         traceback.print_exception(
@@ -724,7 +731,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command()
     @inteam()
     @commands.cooldown(1, 60, BucketType.user)  # 1 msg per 1 min
-    async def place(self, ctx, *, xyz: coordinates = None):
+    async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
         if not board: 
@@ -735,7 +742,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             self.bot.cd.add(ctx.author.id)
             return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`')
 
-        x, y, zoom = xyz
+        x, y, zoom, colour = xyz
 
         if board.data == None:
             await ctx.send('{ctx.author.mention}, there is currently no board created')
@@ -749,8 +756,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
             return
 
+        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['blank', 'edit']] + [i['tag'] for i in self.bot.partners.values()]:
+            colour = colour.lower()
+        else: colour = None
+
         loc, emoji, raw, zoom = self.screen(board, x, y)
         locx, locy = loc
+        remoji = emoji[locy - 1][locx - 1]
         emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
 
         display = f"**Blurple Canvas - ({x}, {y})**\n"
@@ -758,6 +770,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
         emoji[locy - 1].append(f" **{y}** (y)")
         if locy < zoom: emoji[locy].append(" ⬇")
+
+        emoji[0].append(f"  {remoji} (Current pixel)")
 
         display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
@@ -819,9 +833,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 self.bot.cd.add(ctx.author.id)
                 return
             elif emojiname == "✔":
-                embed.set_author(name="Use the reactions to choose a colour.")
-                await msg.edit(embed=embed)
-                await msg.clear_reactions()
                 break
 
             if emojiname == "⬅" and x > 1: x -= 1
@@ -833,6 +844,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             locx, locy = loc
 
+            remoji = emoji[locy - 1][locx - 1]
             emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
 
             display = f"**Blurple Canvas - ({x}, {y})**\n"
@@ -840,6 +852,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
             emoji[locy - 1].append(f" **{y}** (y)")
             if locy < zoom: emoji[locy].append(" ⬇")
+
+            emoji[0].append(f" | {remoji} (Current pixel)")
 
             display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
@@ -856,40 +870,50 @@ class CanvasCog(commands.Cog, name="Canvas"):
             # await msg.edit(embed=embed)
             await msg.edit(content=display)
 
-        colours = []
-        if ctx.guild.id in self.bot.partners.keys():
-            colours.append(self.bot.partners[ctx.guild.id]['emoji'])
-        colours += [
-            emoji for name, emoji in self.bot.colours.items()
-            if name not in ['edit', 'blank']
-        ]
-        colours.append("✖")
-        for emoji in colours:
-            await msg.add_reaction(emoji)
+        await msg.clear_reactions()
 
-        def check(reaction, user):
-            return user == ctx.author and reaction.message.id == msg.id and str(
-                reaction.emoji).replace("<:", "").replace(">", "") in colours
+        if not colour:
+            embed.set_author(name="Use the reactions to choose a colour.")
+            await msg.edit(embed=embed)
 
-        try:
-            reaction, user = await self.bot.wait_for(
-                'reaction_add', timeout=30.0, check=check)
-        except asyncio.TimeoutError:
-            embed.set_author(name="User timed out.")
-        else:
-            if str(reaction.emoji) == "✖":
-                embed.set_author(name="Edit cancelled.")
-                self.bot.cd.add(ctx.author.id)
+            colours = []
+            if ctx.guild.id in self.bot.partners.keys():
+                colours.append(self.bot.partners[ctx.guild.id]['emoji'])
+            colours += [
+                emoji for name, emoji in self.bot.colours.items()
+                if name not in ['edit', 'blank']
+            ]
+            colours.append("✖")
+            for emoji in colours:
+                await msg.add_reaction(emoji)
+
+            def check(reaction, user):
+                return user == ctx.author and reaction.message.id == msg.id and str(
+                    reaction.emoji).replace("<:", "").replace(">", "") in colours
+
+            try:
+                reaction, user = await self.bot.wait_for(
+                    'reaction_add', timeout=30.0, check=check)
+            except asyncio.TimeoutError:
+                embed.set_author(name="User timed out.")
             else:
-                colour = reaction.emoji.name.replace("pl_", "")
-                board.data[str(y)][str(x)] = {
-                    "c": colour,
-                    "info": {
-                        "user": ctx.author.id,
-                        "time": datetime.datetime.utcnow()
-                    }
+                if str(reaction.emoji) == "✖":
+                    embed.set_author(name="Edit cancelled.")
+                    self.bot.cd.add(ctx.author.id)
+                else:
+                    colour = reaction.emoji.name.replace("pl_", "")
+
+        if colour:
+            board.data[str(y)][str(x)] = {
+                "c": colour,
+                "info": {
+                    "user": ctx.author.id,
+                    "time": datetime.datetime.utcnow()
                 }
-                embed.set_author(name="Pixel successfully set.")
+            }
+            embed.set_author(name="Pixel successfully set.")
+
+
         loc, emoji, raw, zoom = self.screen(board, x, y)
 
         display = f"**Blurple Canvas - ({x}, {y})**\n"
