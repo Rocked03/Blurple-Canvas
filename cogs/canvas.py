@@ -778,7 +778,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if locy < zoom: emoji[locy].append(" ⬇")
 
         emoji[0].append(f" | {remoji} (Current pixel)")
-        if colour: emoji[1].append(f" | <:{cllist[colour]}> (Selected colour)")
+        if colour: emoji[-1].append(f" | <:{cllist[colour]}> (Selected colour)")
 
         display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
@@ -862,7 +862,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if locy < zoom: emoji[locy].append(" ⬇")
 
             emoji[0].append(f" | {remoji} (Current pixel)")
-            if colour: emoji[1].append(f" | <:{cllist[colour]}> (Selected colour)")
+            if colour: emoji[-1].append(f" | <:{cllist[colour]}> (Selected colour)")
 
             display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
