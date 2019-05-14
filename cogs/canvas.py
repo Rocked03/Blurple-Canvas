@@ -73,6 +73,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             def loadboards(self):
                 colls = self.bot.pymongoog.boards.list_collection_names()
                 for name in colls:
+                    # if name == 'main': continue
                     board = self.bot.pymongoog.boards[name]
                     info = (board.find_one({'type': 'info'}))['info']
                     data = list(board.find({'type': 'data'}))
@@ -297,9 +298,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 await ctx.send(
                     f"{ctx.author.mention}, this command is on cooldown ({seconds}s)"
                 )
-            return
-
-        if isinstance(error, commands.Forbidden):
             return
 
         traceback.print_exception(
@@ -734,6 +732,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
+        
+        self.bot.cd.remove(ctx.author.id)
+
         if not board: 
             self.bot.cd.add(ctx.author.id)
             return
