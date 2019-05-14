@@ -760,6 +760,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             colour = colour.lower()
         else: colour = None
 
+        cllist = {}
+        for k, v in self.bot.partners.items():
+            cllist[v['tag']] = v['emoji']
+        for k, v in self.bot.colours.items():
+            cllist[k] = v
+
         loc, emoji, raw, zoom = self.screen(board, x, y)
         locx, locy = loc
         remoji = emoji[locy - 1][locx - 1]
@@ -771,7 +777,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         emoji[locy - 1].append(f" **{y}** (y)")
         if locy < zoom: emoji[locy].append(" ⬇")
 
-        emoji[0].append(f"  {remoji} (Current pixel)")
+        emoji[0].append(f" | {remoji} (Current pixel)")
+        if colour: emoji[1].append(f" | <:{cllist[colour]}> (Selected colour)")
 
         display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
@@ -816,6 +823,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 embed.set_author(name="User timed out.")
                 await msg.edit(embed=embed)
                 await msg.clear_reactions()
+                self.bot.cd.add(ctx.author.id)
                 for future in pending:
                     future.cancel()
                 return
@@ -854,6 +862,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if locy < zoom: emoji[locy].append(" ⬇")
 
             emoji[0].append(f" | {remoji} (Current pixel)")
+            if colour: emoji[1].append(f" | <:{cllist[colour]}> (Selected colour)")
 
             display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
@@ -896,6 +905,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     'reaction_add', timeout=30.0, check=check)
             except asyncio.TimeoutError:
                 embed.set_author(name="User timed out.")
+                self.bot.cd.add(ctx.author.id)
             else:
                 if str(reaction.emoji) == "✖":
                     embed.set_author(name="Edit cancelled.")
