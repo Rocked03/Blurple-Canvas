@@ -244,10 +244,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
                           fill=(255, 255, 255, 255))
             else:
                 tsx, tsy = draw.textsize(
-                    f"({aboard.name})", font=self.image.fontcoordinates)
+                    f"{aboard.name}", font=self.image.fontcoordinates)
                 draw.text((int(round(((borderwidth - tsx) / 2), 0)),
                            int(round(((borderwidth - tsy) / 2), 0))),
-                          f"({x}, {y})",
+                          f"{aboard.name}",
                           font=self.image.fontcoordinates,
                           fill=(255, 255, 255, 255))
 
