@@ -231,9 +231,6 @@ async def helpformatter(ctx, command):
     return embed
 
 
-
-
-
 @bot.group(name="cogs", aliases=["cog"])
 @dev()
 async def cogs(ctx):

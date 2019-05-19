@@ -102,7 +102,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         fonttitle = ImageFont.truetype("Uni Sans Heavy.otf", 18)
         fontcoordinates = ImageFont.truetype("Uni Sans Heavy.otf", 21)
 
-        def imager(self, aboard, x, y, zoom):
+        def imager(self, aboard, x, y, zoom, highlight = True):
             height = zoom
             width = zoom
 
@@ -154,68 +154,70 @@ class CanvasCog(commands.Cog, name="Canvas"):
                                          (yn + 1) + pixelsizey * (yn + 1)))],
                                    fill=colours[xc])  # Pixels
 
-            draw.rectangle([
-                (int(borderwidth + pixelwidth * (locx) + pixelsizex *
-                     (locx - 1)), int(borderwidth + pixelwidth *
-                                      (locy)) + pixelsizey * (locy - 1)),
-                (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
-                 int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
-            ],
-                           fill=None,
-                           outline=(255, 255, 255, 255))  # Location highlight
+            if highlight:
+                draw.rectangle([
+                    (int(borderwidth + pixelwidth * (locx) + pixelsizex *
+                         (locx - 1)), int(borderwidth + pixelwidth *
+                                          (locy)) + pixelsizey * (locy - 1)),
+                    (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
+                     int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
+                ],
+                               fill=None,
+                               outline=(255, 255, 255, 255))  # Location highlight
 
-            draw.rectangle(
-                [(int(borderwidth + pixelwidth * (locx) + pixelsizex *
-                      (locx - 1)), int(
-                          round(borderwidth - (pixelsizex / 3), 0))),
-                 (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
-                  borderwidth)],
-                fill=colours[raw[0][locx - 1]])
-            draw.line(
-                ((int(borderwidth + pixelwidth * (locx) + pixelsizex *
-                      (locx - 1)),
-                  int(round(borderwidth - (pixelsizex / 3), 0) - 1)),
-                 (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
-                  int(round(borderwidth - (pixelsizex / 3), 0) - 1))),
-                fill=(78, 93, 148, 255),
-                width=1)  # Highlight x
+                draw.rectangle(
+                    [(int(borderwidth + pixelwidth * (locx) + pixelsizex *
+                          (locx - 1)), int(
+                              round(borderwidth - (pixelsizex / 3), 0))),
+                     (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
+                      borderwidth)],
+                    fill=colours[raw[0][locx - 1]])
+                draw.line(
+                    ((int(borderwidth + pixelwidth * (locx) + pixelsizex *
+                          (locx - 1)),
+                      int(round(borderwidth - (pixelsizex / 3), 0) - 1)),
+                     (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
+                      int(round(borderwidth - (pixelsizex / 3), 0) - 1))),
+                    fill=(78, 93, 148, 255),
+                    width=1)  # Highlight x
 
-            draw.rectangle([
-                (int(round(borderwidth - (pixelsizey / 3), 0)),
-                 int(borderwidth + pixelwidth * (locy) + pixelsizey *
-                     (locy - 1))),
-                (borderwidth,
-                 int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
-            ],
-                           fill=colours[raw[locy - 1][0]])
-            draw.line(
-                ((int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
-                 int(borderwidth + pixelwidth * (locy) + pixelsizey *
-                     (locy - 1)),
-                 (int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
-                 int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy))),
-                fill=(78, 93, 148, 255),
-                width=1)  # Hightlight y
+                draw.rectangle([
+                    (int(round(borderwidth - (pixelsizey / 3), 0)),
+                     int(borderwidth + pixelwidth * (locy) + pixelsizey *
+                         (locy - 1))),
+                    (borderwidth,
+                     int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
+                ],
+                               fill=colours[raw[locy - 1][0]])
+                draw.line(
+                    ((int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
+                     int(borderwidth + pixelwidth * (locy) + pixelsizey *
+                         (locy - 1)),
+                     (int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
+                     int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy))),
+                    fill=(78, 93, 148, 255),
+                    width=1)  # Hightlight y
 
-            tsx, tsy = self.image.fontxy.getsize(f"{x}  =  x")
-            draw.text((sizex - tsx - ((borderwidth - tsy) / 2),
-                       (borderwidth - tsy) / 2),
-                      f"{x}  =  x",
-                      font=self.image.fontxy,
-                      fill=(185, 196, 237, 255))
+                tsx, tsy = self.image.fontxy.getsize(f"{x}  =  x")
+                draw.text((sizex - tsx - ((borderwidth - tsy) / 2),
+                           (borderwidth - tsy) / 2),
+                          f"{x}  =  x",
+                          font=self.image.fontxy,
+                          fill=(185, 196, 237, 255))
 
-            tsx, tsy = self.image.fontxy.getsize(f"y  =  {y}")
-            txt = Image.new('RGBA', (tsx, tsy))
-            ImageDraw.Draw(txt).text((0, 0),
-                                     f"y  =  {y}",
-                                     font=self.image.fontxy,
-                                     fill=(185, 196, 237, 255))
-            ftxt = txt.rotate(90, expand=1)
-            board.paste(
-                ftxt,
-                box=(int((borderwidth - tsy) / 2),
-                     int(sizey - tsx - ((borderwidth - tsy) / 2))),
-                mask=ftxt)
+                tsx, tsy = self.image.fontxy.getsize(f"y  =  {y}")
+                txt = Image.new('RGBA', (tsx, tsy))
+                ImageDraw.Draw(txt).text((0, 0),
+                                         f"y  =  {y}",
+                                         font=self.image.fontxy,
+                                         fill=(185, 196, 237, 255))
+                ftxt = txt.rotate(90, expand=1)
+                board.paste(
+                    ftxt,
+                    box=(int((borderwidth - tsy) / 2),
+                         int(sizey - tsx - ((borderwidth - tsy) / 2))),
+                    mask=ftxt)
+
 
             spacing = 30
             tsx, tsy = draw.textsize("Project", font=self.image.fonttitle)
@@ -231,13 +233,23 @@ class CanvasCog(commands.Cog, name="Canvas"):
                       font=self.image.fonttitle,
                       fill=(185, 196, 237, 255))
 
-            tsx, tsy = draw.textsize(
-                f"({x}, {y})", font=self.image.fontcoordinates)
-            draw.text((int(round(((borderwidth - tsx) / 2), 0)),
-                       int(round(((borderwidth - tsy) / 2), 0))),
-                      f"({x}, {y})",
-                      font=self.image.fontcoordinates,
-                      fill=(255, 255, 255, 255))
+
+            if highlight:
+                tsx, tsy = draw.textsize(
+                    f"({x}, {y})", font=self.image.fontcoordinates)
+                draw.text((int(round(((borderwidth - tsx) / 2), 0)),
+                           int(round(((borderwidth - tsy) / 2), 0))),
+                          f"({x}, {y})",
+                          font=self.image.fontcoordinates,
+                          fill=(255, 255, 255, 255))
+            else:
+                tsx, tsy = draw.textsize(
+                    f"({aboard.name})", font=self.image.fontcoordinates)
+                draw.text((int(round(((borderwidth - tsx) / 2), 0)),
+                           int(round(((borderwidth - tsy) / 2), 0))),
+                          f"({x}, {y})",
+                          font=self.image.fontcoordinates,
+                          fill=(255, 255, 255, 255))
 
             image_file_object = io.BytesIO()
             board.save(image_file_object, format='png')
@@ -733,7 +745,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
         
-        self.bot.cd.remove(ctx.author.id)
+        if ctx.author in self.bot.cd: self.bot.cd.remove(ctx.author.id)
 
         if not board: 
             self.bot.cd.add(ctx.author.id)
@@ -961,6 +973,54 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command(hidden = True)
     async def test(self, ctx):
         print([guild.name for guild in self.bot.guilds])
+
+
+    @commands.command(name="viewnh", aliases=["seenh"])
+    @commands.cooldown(1, 30, BucketType.user)
+    @inteam()
+    async def viewnh(self, ctx, *, xyz: coordinates = None):
+        """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional."""
+        board = await self.findboard(ctx)
+        if not board: return
+
+        if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+
+        x, y, zoom = xyz
+
+        if board.data == None:
+            return await ctx.send('{ctx.author.mention}, there is currently no board created')
+
+        if x < 1 or x > board.width or y < 1 or y > board.height:
+            return await ctx.send(
+                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            )
+
+        defaultzoom = 25
+
+        if zoom == None or zoom > board.width or zoom > board.height:
+            zoom = defaultzoom
+        if zoom > board.width or zoom > board.height:
+            if board.width > board.height: zoom = board.width
+            else: zoom = board.height
+        if zoom < 5:
+            return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
+
+        async with aiohttp.ClientSession() as session:
+            async with ctx.typing():
+                start = time.time()
+                image = await self.bot.loop.run_in_executor(
+                    None, self.image.imager, self, board, x, y, zoom, False)
+                end = time.time()
+                image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
+
+                embed = discord.Embed(
+                    colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
+                embed.set_footer(
+                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
+                    icon_url=self.bot.user.avatar_url)
+                embed.set_image(url=f"attachment://board_{x}-{y}.png")
+                await ctx.send(embed=embed, file=image)
 
 def setup(bot):
     bot.add_cog(CanvasCog(bot))
