@@ -1,6 +1,9 @@
 from config import *
 import discord, datetime, re
 from discord.ext import commands
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 description = "r/place for Discord" # fix
 bot = commands.Bot(command_prefix=BOT_PREFIX, description=description)
@@ -38,8 +41,8 @@ def mod():
 
 
 initial_extensions = [
-    'cogs.colours',
     'cogs.canvas',
+    'cogs.colours',
 ]
 
 if __name__ == '__main__':
@@ -290,4 +293,6 @@ async def cogrecentreload(ctx):
 
 
 try: bot.run(TOKEN)
-except Exception: print("Whoops, bot failed to connect to Discord.")
+except Exception as e:
+    print("Whoops, bot failed to connect to Discord.")
+    print(e)

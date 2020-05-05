@@ -51,6 +51,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
             "light": 573011450231259157,
             "dark": 573011441683005440,
         }
+        # self.bot.teams = {"blurple user": 705295796773584976}
+
+        self.bot.artistrole = 705295638216048681
+
+        self.bot.skipconfirm = []
 
         self.bot.uboards = {}
 
@@ -73,12 +78,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             def loadboards(self):
                 colls = self.bot.pymongoog.boards.list_collection_names()
                 for name in colls:
-                    # if name == 'main': continue
+                    if name == 'main2019': continue
                     board = self.bot.pymongoog.boards[name]
                     info = (board.find_one({'type': 'info'}))['info']
                     data = list(board.find({'type': 'data'}))
                     d = {k: v for d in data for k, v in d.items()}
-                    self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], data = d)
+                    self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d)
 
                     print(f"Loaded '{name}'")
                 print('All boards loaded')
@@ -91,11 +96,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 
     class board():
-        def __init__(self, *, name, width, height, data = dict()):
+        def __init__(self, *, name, width, height, locked, data = dict()):
             self.data = data
             self.name = name
             self.width = width
             self.height = height
+            self.locked = locked
 
     class image():
         fontxy = ImageFont.truetype("Uni Sans Heavy.otf", 60)
@@ -285,7 +291,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CommandOnCooldown):
-            if 546838861590953984 in [role.id for role in ctx.author.roles]:
+            if 706475186274172989 in [role.id for role in ctx.author.roles]:
                 if ctx.author.id in self.bot.cd:
                     self.bot.cd.remove(ctx.author.id)
                 await ctx.reinvoke()
@@ -394,7 +400,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         t1 = time.time()
 
         self.bot.boards[name.lower()] = self.board(
-            name=name, width=x, height=y)
+            name=name, width=x, height=y, locked=False)
         newboard = self.bot.boards[name.lower()]
 
         for yn in range(1, y + 1):
@@ -425,7 +431,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await self.bot.dbs.boards.create_collection(newboard.name.lower())
         dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
-        await dboard.insert_many([{'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height}}])
+        await dboard.insert_many([{'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False}}])
 
         limit = 200000
         n = newboard.width * newboard.height
@@ -492,6 +498,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return False
 
         return self.bot.boards[self.bot.uboards[ctx.author.id]]
+
+    @commands.command(name="toggleskip", aliases=["ts"])
+    @inteam()
+    async def toggleskip(self, ctx):
+        """Toggles p/place coordinate confirmation"""
+        if ctx.author.id in self.bot.skipconfirm:
+            self.bot.skipconfirm.remove(ctx.author.id)
+            await ctx.send(f'Re-enabled confirmation message for {ctx.author.mention}')
+        else:
+            self.bot.skipconfirm.append(ctx.author.id)
+            await ctx.send(f"Disabled confirmation message for {ctx.author.mention}")
 
     @commands.command(name="view", aliases=["see"])
     @commands.cooldown(1, 30, BucketType.user)
@@ -740,10 +757,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command()
     @inteam()
-    @commands.cooldown(1, 60, BucketType.user)  # 1 msg per 1 min
+    @commands.cooldown(1, 45, BucketType.user)  # 1 msg per 45s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
+
+        if board.locked == True:
+            return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
         
         if ctx.author in self.bot.cd: self.bot.cd.remove(ctx.author.id)
 
@@ -812,87 +832,90 @@ class CanvasCog(commands.Cog, name="Canvas"):
             icon_url=self.bot.user.avatar_url)
         msg = await ctx.send(display, embed=embed)
 
-        arrows = ["⬅", "⬆", "⬇", "➡", "✔", "✖"]
-        for emote in arrows:
-            await msg.add_reaction(emote)
+        if ctx.author.id not in self.bot.skipconfirm:
+            arrows = ["⬅", "⬆", "⬇", "➡", "blorpletick:436007034471710721", "blorplecross:436007034832551938"]
+            arrows2 = ["<:blorpletick:436007034471710721>", "<:blorplecross:436007034832551938>"]
+            for emote in arrows:
+                await msg.add_reaction(emote)
 
-        def check(payload):
-            return payload.user_id == ctx.author.id and payload.message_id == msg.id and str(
-                payload.emoji) in arrows
+            def check(payload):
+                return payload.user_id == ctx.author.id and payload.message_id == msg.id and (str(
+                    payload.emoji) in arrows or str(payload.emoji) in arrows2)
 
-        while True:
-            done, pending = await asyncio.wait(
-                [
-                    self.bot.wait_for(
-                        'raw_reaction_add', timeout=30.0, check=check),
-                    self.bot.wait_for(
-                        'raw_reaction_remove', timeout=30.0, check=check)
-                ],
-                return_when=asyncio.FIRST_COMPLETED)
 
-            try:
-                stuff = done.pop().result()
-            except asyncio.TimeoutError:
-                embed.set_author(name="User timed out.")
-                await msg.edit(embed=embed)
-                await msg.clear_reactions()
-                self.bot.cd.add(ctx.author.id)
+            while True:
+                done, pending = await asyncio.wait(
+                    [
+                        self.bot.wait_for(
+                            'raw_reaction_add', timeout=30.0, check=check),
+                        self.bot.wait_for(
+                            'raw_reaction_remove', timeout=30.0, check=check)
+                    ],
+                    return_when=asyncio.FIRST_COMPLETED)
+
+                try:
+                    stuff = done.pop().result()
+                except asyncio.TimeoutError:
+                    embed.set_author(name="User timed out.")
+                    await msg.edit(embed=embed)
+                    await msg.clear_reactions()
+                    self.bot.cd.add(ctx.author.id)
+                    for future in pending:
+                        future.cancel()
+                    return
                 for future in pending:
                     future.cancel()
-                return
-            for future in pending:
-                future.cancel()
 
-            payload = stuff
+                payload = stuff
 
-            emojiname = str(payload.emoji)
+                emojiname = str(payload.emoji)
 
-            if emojiname == "✖":
-                embed.set_author(name="Edit cancelled.")
-                await msg.edit(embed=embed)
-                await msg.clear_reactions()
-                self.bot.cd.add(ctx.author.id)
-                return
-            elif emojiname == "✔":
-                break
+                if emojiname == "<:blorplecross:436007034832551938>":
+                    embed.set_author(name="Edit cancelled.")
+                    await msg.edit(embed=embed)
+                    await msg.clear_reactions()
+                    self.bot.cd.add(ctx.author.id)
+                    return
+                elif emojiname == "<:blorpletick:436007034471710721>":
+                    break
 
-            if emojiname == "⬅" and x > 1: x -= 1
-            elif emojiname == "➡" and x < board.width: x += 1
-            elif emojiname == "⬇" and y < board.height: y += 1
-            elif emojiname == "⬆" and y > 1: y -= 1
+                if emojiname == "⬅" and x > 1: x -= 1
+                elif emojiname == "➡" and x < board.width: x += 1
+                elif emojiname == "⬇" and y < board.height: y += 1
+                elif emojiname == "⬆" and y > 1: y -= 1
 
-            loc, emoji, raw, zoom = self.screen(board, x, y)
+                loc, emoji, raw, zoom = self.screen(board, x, y)
 
-            locx, locy = loc
+                locx, locy = loc
 
-            remoji = emoji[locy - 1][locx - 1]
-            emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
+                remoji = emoji[locy - 1][locx - 1]
+                emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
 
-            display = f"**Blurple Canvas - ({x}, {y})**\n"
+                display = f"**Blurple Canvas - ({x}, {y})**\n"
 
-            if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-            emoji[locy - 1].append(f" **{y}** (y)")
-            if locy < zoom: emoji[locy].append(" ⬇")
+                if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
+                emoji[locy - 1].append(f" **{y}** (y)")
+                if locy < zoom: emoji[locy].append(" ⬇")
 
-            emoji[0].append(f" | {remoji} (Current pixel)")
-            if colour: emoji[-1].append(f" | <:{cllist[colour]}> (Selected colour)")
+                emoji[0].append(f" | {remoji} (Current pixel)")
+                if colour: emoji[-1].append(f" | <:{cllist[colour]}> (Selected colour)")
 
-            display += "\n".join(["".join(i) for i in emoji]) + "\n"
+                display += "\n".join(["".join(i) for i in emoji]) + "\n"
 
-            if locx - 2 < 0:
-                display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
-            elif locx > zoom - 1:
-                display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
-            else:
-                display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
+                if locx - 2 < 0:
+                    display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
+                elif locx > zoom - 1:
+                    display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
+                else:
+                    display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
 
-            # display = "\n".join(["".join(i) for i in emoji])
-            # print(display)
-            # embed.set_field_at(0, name = "Board", value = display)
-            # await msg.edit(embed=embed)
-            await msg.edit(content=display)
+                # display = "\n".join(["".join(i) for i in emoji])
+                # print(display)
+                # embed.set_field_at(0, name = "Board", value = display)
+                # await msg.edit(embed=embed)
+                await msg.edit(content=display)
 
-        await msg.clear_reactions()
+            await msg.clear_reactions()
 
         if not colour:
             embed.set_author(name="Use the reactions to choose a colour.")
@@ -901,12 +924,22 @@ class CanvasCog(commands.Cog, name="Canvas"):
             colours = []
             if ctx.guild.id in self.bot.partners.keys():
                 colours.append(self.bot.partners[ctx.guild.id]['emoji'])
-            colours += [
-                emoji for name, emoji in self.bot.colours.items()
+            dcolours = [
+                name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
             ]
-            colours.append("✖")
+            l = ['brll', 'hpsq', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'brvy', 'bstp', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl']
+            d = {n: i for n, i in zip(l, range(len(l)))}
+            def sorter(i): 
+                print(i, d[i])
+                return d[i]
+            dcolours.sort(key=sorter)
+            ecolours = [self.bot.colours[i] for i in dcolours]
+            print(ecolours)
+            colours += ecolours
+            colours.append("blorplecross:436007034832551938")
             for emoji in colours:
+                print(emoji)
                 await msg.add_reaction(emoji)
 
             def check(reaction, user):
@@ -920,13 +953,25 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 embed.set_author(name="User timed out.")
                 self.bot.cd.add(ctx.author.id)
             else:
-                if str(reaction.emoji) == "✖":
+                if str(reaction.emoji) == "<:blorplecross:436007034832551938>":
                     embed.set_author(name="Edit cancelled.")
                     self.bot.cd.add(ctx.author.id)
                 else:
                     colour = reaction.emoji.name.replace("pl_", "")
 
         if colour:
+            colours = []
+            if ctx.guild.id in self.bot.partners.keys():
+                colours.append(self.bot.partners[ctx.guild.id]['tag'])
+            colours += [
+                name for name, emoji in self.bot.colours.items()
+                if name not in ['edit', 'blank']
+            ]
+
+            if colour not in colours:
+                return await ctx.send(f"{ctx.author.mention}, that colour is not available within this server!")
+
+
             board.data[str(y)][str(x)] = {
                 "c": colour,
                 "info": {
@@ -956,6 +1001,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await msg.edit(content=display, embed=embed)
         await msg.clear_reactions()
+
+        member = ctx.bot.blurpleguild.get_member(ctx.author.id)
+        if self.bot.artistrole not in [i.id for i in member.roles]:
+            await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
+            t = ""
+            if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
+            await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
 
         await self.bot.dbs.boards[board.name.lower()].update_one({'row': y}, {'$set': {str(y): board.data[str(y)]}})
 
