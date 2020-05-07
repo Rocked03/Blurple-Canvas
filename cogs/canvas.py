@@ -933,7 +933,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             d = {n: i for n, i in zip(l, range(len(l)))}
             def sorter(i): 
                 # print(i, d[i])
-                return d[i]
+                if i in d.keys()
+                    return d[i]
+                else: return random.randint(100, 200)
             dcolours.sort(key=sorter)
             ecolours = [self.bot.colours[i] for i in dcolours]
             # print(ecolours)
