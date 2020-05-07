@@ -288,8 +288,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError, commands.CheckFailure)
+        ignored = (commands.CommandNotFound, commands.UserInputError)
         if isinstance(error, ignored): return
+
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
+            return
 
         if isinstance(error, commands.CommandOnCooldown):
             if 706475186274172989 in [role.id for role in ctx.author.roles]:
