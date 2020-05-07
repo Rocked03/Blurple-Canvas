@@ -2,6 +2,7 @@ import aiohttp, asyncio, datetime, discord, io, math, motor.motor_asyncio, PIL, 
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from PIL import Image, ImageDraw, ImageFont
+# pillow, motor, pymongo, discord.py
 
 
 def dev():
@@ -47,11 +48,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.cd = set()
 
-        self.bot.teams = {
-            "light": 573011450231259157,
-            "dark": 573011441683005440,
-        }
-        # self.bot.teams = {"blurple user": 705295796773584976}
+        # self.bot.teams = {
+        #     "light": 573011450231259157,
+        #     "dark": 573011441683005440,
+        # }
+        self.bot.teams = {"blurple user": 705295796773584976}
 
         self.bot.artistrole = 705295638216048681
 
@@ -441,7 +442,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         while n > limit:
             ndata = []
             lines = math.floor(limit / newboard.width)
-            print(lines)
+            # print(lines)
             for i in range(lines):
                 try: ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
                 except KeyError: pass
@@ -450,7 +451,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             n -= lines * newboard.width
 
-        print(n / newboard.width)
+        # print(n / newboard.width)
         ndata = []
         for i in range(n):
             try: ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
@@ -931,15 +932,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
             l = ['brll', 'hpsq', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'brvy', 'bstp', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl']
             d = {n: i for n, i in zip(l, range(len(l)))}
             def sorter(i): 
-                print(i, d[i])
+                # print(i, d[i])
                 return d[i]
             dcolours.sort(key=sorter)
             ecolours = [self.bot.colours[i] for i in dcolours]
-            print(ecolours)
+            # print(ecolours)
             colours += ecolours
             colours.append("blorplecross:436007034832551938")
             for emoji in colours:
-                print(emoji)
+                # print(emoji)
                 await msg.add_reaction(emoji)
 
             def check(reaction, user):
