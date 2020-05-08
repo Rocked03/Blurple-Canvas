@@ -765,7 +765,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 45, BucketType.user)  # 1 msg per 45s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
-        board = await self.findboard(ctx)
+        try:
+            board = await self.findboard(ctx)
+        except Exception:
+            return
 
         if board.locked == True:
             return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
@@ -794,7 +797,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
             return
 
-        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['blank', 'edit']] + [i['tag'] for i in self.bot.partners.values()]:
+        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['blank']] + [i['tag'] for i in self.bot.partners.values()]:
             colour = colour.lower()
         else: colour = None
 
