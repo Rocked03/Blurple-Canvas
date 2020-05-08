@@ -61,7 +61,7 @@ class ColoursCog(commands.Cog, name="Colours"):
             "name": name,
             "tag": tag,
             "emoji": emoji[2:][:-1],
-            "guild": int(guildid),
+            "guild": str(guildid),
             "rgb": rgbformatted
         }
 
