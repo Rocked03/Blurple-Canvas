@@ -928,7 +928,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             colours = []
             if str(ctx.guild.id) in self.bot.partners.keys():
-                colours.append(self.bot.partners[ctx.guild.id]['emoji'])
+                colours.append(self.bot.partners[str(ctx.guild.id)]['emoji'])
             dcolours = [
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
