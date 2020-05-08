@@ -37,11 +37,11 @@ class ColoursCog(commands.Cog, name="Colours"):
 
         c = {}
         for i in mydict.find():
-            c[i['guild']] = {
+            c[str(i['guild'])] = {
                 "name": i['name'],
-                "tag": i['tag'],
+                "tag": str(i['tag']),
                 "emoji": i['emoji'],
-                "guild": i['guild'],
+                "guild": str(i['guild']),
                 "rgb": tuple(i['rgb']),
             }
 
