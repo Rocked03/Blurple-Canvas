@@ -795,7 +795,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
             return
 
-        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['blank']] + [i['tag'] for i in self.bot.partners.values()]:
+        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in self.bot.partners.values()]:
             colour = colour.lower()
         else: colour = None
 
