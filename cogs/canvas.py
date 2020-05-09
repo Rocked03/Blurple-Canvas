@@ -795,7 +795,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
             return
 
-        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in self.bot.partners.values()]:
+        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in self.bot.partners.values()] + ['empty']:
             colour = colour.lower()
         else: colour = None
 
@@ -804,6 +804,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             cllist[v['tag']] = v['emoji']
         for k, v in self.bot.colours.items():
             cllist[k] = v
+        cllist['empty'] = self.bot.empty.replace('<:','').replace('>','')
 
         loc, emoji, raw, zoom = self.screen(board, x, y)
         locx, locy = loc
