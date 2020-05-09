@@ -3,7 +3,7 @@ import discord, datetime, re
 from discord.ext import commands
 import logging
 
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 description = "r/place for Discord" # fix
 bot = commands.Bot(command_prefix=BOT_PREFIX, description=description)

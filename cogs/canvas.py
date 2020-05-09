@@ -765,10 +765,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 45, BucketType.user)  # 1 msg per 45s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
-        try:
-            board = await self.findboard(ctx)
-        except Exception:
-            return
+        board = await self.findboard(ctx)
+        if not board: return
 
         if board.locked == True:
             return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
