@@ -1234,7 +1234,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await msg.edit(content=display, embed=embed)
         await msg.clear_reactions()
 
-        member = ctx.bot.blurpleguild.fetch_member(ctx.author.id)
+        member = await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
         if self.bot.artistrole not in [i.id for i in member.roles]:
             await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
             # t = ""
