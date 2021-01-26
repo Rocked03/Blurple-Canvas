@@ -483,7 +483,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return
 
         if isinstance(error, commands.CommandOnCooldown):
-            if 706475186274172989 in [role.id for role in ctx.author.roles]:
+            if any(i in [706475186274172989, 803595727175155723] for i in [role.id for role in ctx.author.roles]):
                 if ctx.author.id in self.bot.cd:
                     self.bot.cd.remove(ctx.author.id)
                 await ctx.reinvoke()
