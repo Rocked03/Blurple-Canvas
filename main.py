@@ -18,6 +18,7 @@ bot.recentcog = None
 bot.modroles = {
     "Admin":       443013283977494539,
     "Executive":   413213839866462220,
+    "Exec Assist": 470272155876065280,
     "Moderator":   569015549225598976,
     "Helper":      442785212502507551,
 }

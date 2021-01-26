@@ -25,6 +25,10 @@ def mod():
     async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
     return commands.check(pred)
 
+def executive():
+    async def pred(ctx): return any(i in [ctx.bot.modroles['Admin'], ctx.bot.modroles['Executive'], ctx.bot.modroles['Exec Assist']] for i in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+    return commands.check(pred)
+
 def admin():
     # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
     async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]
@@ -42,6 +46,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.modroles = {
             "Admin":       443013283977494539,
             "Executive":   413213839866462220,
+            "Exec Assist": 470272155876065280,
             "Moderator":   569015549225598976,
             "Helper":      442785212502507551,
         }
@@ -1241,7 +1246,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
 
     @commands.command()
-    @admin()
+    @executive()
     async def paste(self, ctx, x: int, y: int, source):
         board = await self.findboard(ctx)
         if not board: return
