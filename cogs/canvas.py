@@ -67,6 +67,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.boards = dict()
 
+        self.bot.partnercolourlock = True
+
 
         self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
         self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
@@ -1197,7 +1199,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 if name not in ['edit']
             ]
 
-            if colour not in colours:
+            if colour not in colours and self.bot.partnercolourlock:
                 return await ctx.send(f"{ctx.author.mention}, that colour is not available within this server!")
 
             olddata = copy.copy(board.data[str(y)][str(x)])
@@ -1310,7 +1312,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
         }
         await ctx.send("Done")
-        
+
+    @commands.command(aliases=['tpcel'])
+    @executive()
+    async def togglepartnercolourexclusivitylock(self, ctx):
+        self.bot.partnercolourlock = not self.bot.partnercolourlock
+        await ctx.send(f"Set the partner colour exclusivity lock to {self.bot.partnercolourlock}")
 
     @commands.command()
     @dev()
