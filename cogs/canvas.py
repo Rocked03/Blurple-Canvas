@@ -1255,7 +1255,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 raw = await r.text()
 
         rows = raw.split('\n')
-        array = [i.split(' ') for i in rows]
+        array = [i.split() for i in rows]
 
         width = len(sorted(array, key = len, reverse = True)[0])
         height = len(array)
