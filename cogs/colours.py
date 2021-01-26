@@ -1,10 +1,16 @@
+import copy, discord, io, pymongo
 from discord.ext import commands
-import pymongo
+from PIL import Image, ImageDraw, ImageFont
 
 def dev():
     async def pred(ctx):
         return ctx.author.id in ctx.bot.allowedusers
 
+    return commands.check(pred)
+
+def admin():
+    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
+    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]
     return commands.check(pred)
 
 class ColoursCog(commands.Cog, name="Colours"):
@@ -15,22 +21,65 @@ class ColoursCog(commands.Cog, name="Colours"):
         a = pymongo.MongoClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
         self.colourscoll = a.colours
 
-        self.bot.colours, self.bot.coloursrgb = self.defaultcolours()
+        self.bot.colours, self.bot.coloursrgb, self.bot.coloursdict = self.defaultcolours()
         self.bot.empty = "<:empty:541914164235337728>"
         self.bot.partners = self.partnercolours()
 
+    class image():
+        def colouremoji(self, colour, size = 885):
+            if len(colour) == 3: colour += [255]
+
+            percent = 0.1
+            img = self.image.round_rectangle(
+                self, (size, size),
+                int(round(size * percent, 0)),
+                tuple(colour), allcorners = True
+            )
+
+            image_file_object = io.BytesIO()
+            img.save(image_file_object, format='png')
+            image_file_object.seek(0)
+
+            return image_file_object
+
+
+        def round_corner(self, radius, fill):
+            """Draw a round corner"""
+            corner = Image.new('RGBA', (radius, radius), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(corner)
+            draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
+            return corner
+
+        def round_rectangle(self, size, radius, fill, topleft=False, topright=False, bottomleft=False, bottomright=False, allcorners=False):
+            """Draw a rounded rectangle"""
+            if allcorners: topleft = topright = bottomleft = bottomright = True
+
+            width, height = size
+            rectangle = Image.new('RGBA', size, fill)
+            corner = self.image.round_corner(self, radius, fill)
+            if topleft: rectangle.paste(corner, (0, 0))
+            if bottomleft: rectangle.paste(corner.rotate(90), (0, height - radius))  # Rotate the corner and paste it
+            if bottomright: rectangle.paste(corner.rotate(180), (width - radius, height - radius))
+            if topright: rectangle.paste(corner.rotate(270), (width - radius, 0))
+            return rectangle
 
     def defaultcolours(self):
         mydict = self.colourscoll.default
 
         c = {}
         crgb = {}
+        cdict = {}
         for i in mydict.find():
             c[i['code']] = i['emoji']
             if i['code'] != "edit":
                 crgb[i['code']] = tuple(i['rgb'])
+            cdict[i['name']] = {
+                "name": i['name'],
+                "tag": i['code'],
+                "rgb": tuple(i['rgb'])
+            }
 
-        return c, crgb
+        return c, crgb, cdict
 
     def partnercolours(self):
         mydict = self.colourscoll.partner
@@ -48,7 +97,7 @@ class ColoursCog(commands.Cog, name="Colours"):
         return c
 
     @commands.command(name="addpcolour")
-    @dev()
+    @admin()
     async def addpcolour(self, ctx, guildid, tag, emoji, rgb, *, name):
         """Adds a new partner colour to the list"""
         try:
@@ -56,6 +105,11 @@ class ColoursCog(commands.Cog, name="Colours"):
             if len(rgbformatted) != 4: raise Exception('no')
         except Exception as e:
             return await ctx.send('Not correct rgb formatting - type `R,G,B` (not `(R, G, B)`)')
+
+        if emoji.lower() in ['generate', 'gen']:
+            img = await self.bot.loop.run_in_executor(None, self.image.colouremoji, self, rgbformatted)
+            emoji = await self.uploademoji(copy.copy(img), f"pl_{tag}")
+            emoji = str(emoji)
 
         mydict = {
             "name": name,
@@ -77,7 +131,29 @@ class ColoursCog(commands.Cog, name="Colours"):
 
         self.colourscoll.partner.insert_many([mydict])
         self.bot.partners = self.partnercolours()
-        await ctx.send("Ok, done.")
+        await ctx.send(f"{emoji} Ok, done.")
+
+    @commands.command(aliases=['genemoji'])
+    @admin()
+    async def generateemoji(self, ctx, code, *rgb):
+        rgb = [int(i) for i in rgb]
+        if len(code) != 4: return await ctx.send(f"The code must be 4 letters long")
+
+        img = await self.bot.loop.run_in_executor(None, self.image.colouremoji, self, rgb)
+        emoji = await self.uploademoji(copy.copy(img), f"pl_{code}")
+
+        image = discord.File(fp = copy.copy(img), filename = f"pl_{code}.png")
+
+        await ctx.send(str(emoji), file=image)
+
+    async def uploademoji(self, img, name):
+        guild = self.bot.get_guild(559341262302347314)
+
+        toupload = img.read()
+
+        emoji = await guild.create_custom_emoji(name=name, image=toupload)
+
+        return emoji
 
     @commands.command(hidden = True)
     @dev()

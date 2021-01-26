@@ -1,4 +1,4 @@
-import aiohttp, asyncio, datetime, discord, io, math, motor.motor_asyncio, PIL, pymongo, random, sys, time, traceback, typing
+import aiohttp, asyncio, colorsys, copy, datetime, discord, io, math, motor.motor_asyncio, PIL, pymongo, random, sys, textwrap, time, traceback, typing
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from PIL import Image, ImageDraw, ImageFont
@@ -15,19 +15,19 @@ def dev():
 def inteam():
     async def pred(ctx): 
         # return True
-        a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]) 
+        a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]) 
         if not a: ctx.bot.cd.add(ctx.author.id)
         return a
     return commands.check(pred)
 
 
 def mod():
-    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
+    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
     return commands.check(pred)
 
 def admin():
-    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles])
-    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in ctx.bot.blurpleguild.get_member(ctx.author.id).roles]
+    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
+    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]
     return commands.check(pred)
 
 
@@ -79,12 +79,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
             def loadboards(self):
                 colls = self.bot.pymongoog.boards.list_collection_names()
                 for name in colls:
-                    if name == 'main2019': continue
+                    if name in ['mini', 'main2019', 'main2020']: continue
                     board = self.bot.pymongoog.boards[name]
                     info = (board.find_one({'type': 'info'}))['info']
+                    history = (board.find_one({'type': 'history'}))['history']
                     data = list(board.find({'type': 'data'}))
                     d = {k: v for d in data for k, v in d.items()}
-                    self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d)
+                    self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, history = history)
 
                     print(f"Loaded '{name}'")
                 print('All boards loaded')
@@ -93,21 +94,31 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.loop.create_task(getboards(self))
 
+
+        async def loadcolourimg(self):
+            self.bot.colourimg = {
+                x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
+            }
+        self.bot.loop.create_task(loadcolourimg(self))
+
         self.bot.initfinished = True
 
 
     class board():
-        def __init__(self, *, name, width, height, locked, data = dict()):
+        def __init__(self, *, name, width, height, locked, data = dict(), history = dict()):
             self.data = data
             self.name = name
             self.width = width
             self.height = height
             self.locked = locked
+            self.history = history
 
     class image():
-        fontxy = ImageFont.truetype("Uni Sans Heavy.otf", 60)
-        fonttitle = ImageFont.truetype("Uni Sans Heavy.otf", 18)
-        fontcoordinates = ImageFont.truetype("Uni Sans Heavy.otf", 21)
+        font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
+        fontxy =  font(60)
+        fonttitle = font(18)
+        fontcoordinates = font(21)
+        fontcolourtitle = font(120)
 
         def imager(self, aboard, x, y, zoom, highlight = True):
             height = zoom
@@ -203,7 +214,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                      (int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
                      int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy))),
                     fill=(78, 93, 148, 255),
-                    width=1)  # Hightlight y
+                    width=1)  # Highlight y
 
                 tsx, tsy = self.image.fontxy.getsize(f"{x}  =  x")
                 draw.text((sizex - tsx - ((borderwidth - tsy) / 2),
@@ -264,6 +275,181 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             return image_file_object
 
+        def colours(self, palettes='all'):
+            squaresize = 300
+            borderwidth = 100
+            textspacing = 200
+            squaren = {
+                'all': 8,
+                'main': 4,
+                'partner': 6
+            }[palettes]
+
+            namefont = self.image.font(int(round(squaresize / 6.5, 0)))
+            codefont = self.image.font(int(round(squaresize / 9, 0)))
+
+            basecorners = 50
+            squarecorners = 50
+
+            namewidth = 10
+
+
+            def hsl(x):
+                if len(x) > 3: x = x[:3]
+                to_float = lambda x : x / 255.0
+                (r, g, b) = map(to_float, x)
+                h, s, l = colorsys.rgb_to_hsv(r,g,b)
+                h = h if 0 < h else 1 # 0 -> 1
+                return h, s, l
+            rainbow = lambda x: {k: v for k, v in sorted(x.items(), key = lambda kv: hsl(kv[1]['rgb']))}
+
+            shuffle = lambda x: {k: v for k, v in sorted(x.items(), key = lambda kv: random.randint(1, 99999999))}
+
+            allcolours = {}
+            
+            if palettes in ['all', 'main']:
+                allcolours['Main Colours'] = rainbow({k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']})
+            if palettes in ['all', 'partner']:
+                allcolours['Partner Colours'] = rainbow(self.bot.partners)
+
+
+            height = 2 * borderwidth
+            for i in allcolours.values():
+                height += textspacing
+                height += squaresize * math.ceil(len(i) / squaren)
+            height += borderwidth * (len(allcolours) - 1)
+            
+            width = 2 * borderwidth + squaren * squaresize
+
+            # img = Image.new('RGBA', (width, height), (114, 137, 218, 127))
+            img = self.image.round_rectangle(self, (width, height), basecorners, (114, 137, 218, 75), allcorners = True)
+            draw = ImageDraw.Draw(img)
+
+            space = 0
+            for name, cs in allcolours.items():
+                bg = self.image.round_rectangle(self,
+                        (squaren * squaresize, textspacing + squaresize * math.ceil(len(cs) / squaren)),
+                        squarecorners, (78, 93, 148, 255), allcorners = True
+                    )
+                img.paste(bg, (borderwidth, borderwidth + space), bg)
+
+                tsx, tsy = draw.textsize(name, font=self.image.fontcolourtitle)
+
+                draw.text((int(round(((width - tsx) / 2), 0)),
+                       int(round(((textspacing - tsy) / 2 + space + borderwidth), 0))),
+                      name,
+                      font=self.image.fontcolourtitle,
+                      fill=(255, 255, 255, 255))
+
+                rows = [[] for i in range(math.ceil(len(i) / squaren))]
+                for n, (k, c) in enumerate(cs.items()):
+                    rows[math.floor(n / squaren)].append(c)
+                if not rows[-1]: rows.pop(len(rows) - 1)
+
+                def roundrect(img, colour, coords, corners):
+                    a = self.image.round_rectangle(
+                        self, (squaresize, squaresize), squarecorners, colour,
+                        topleft=corners['tl'], topright=corners['tr'], bottomleft=corners['bl'], bottomright=corners['br']
+                    )
+                    img.paste(a, coords, a)
+                    return img
+
+                for rown, row in enumerate(rows):
+                    for pos, cdict in enumerate(row):
+                        xpos = borderwidth + pos * squaresize #+ (squaren - len(row)) * squaresize / 2
+                        ypos = space + borderwidth + textspacing + rown * squaresize
+
+                        roundcorners = {
+                            'tl': rown == 0 and pos == 0,
+                            'tr': rown == 0 and pos == squaren - 1,
+                            'bl': rown == len(rows) - 1 and pos == 0,
+                            'br': rown == len(rows) - 1 and pos == squaren - 1
+                        }
+                        
+                        if any(list(roundcorners.values())):
+                            img = roundrect(img, cdict['rgb'], (xpos, ypos), roundcorners)
+                        else:
+                            draw.rectangle([
+                                    (xpos, ypos),
+                                    (xpos + squaresize - 1, ypos + squaresize - 1)
+                                ],
+                                fill = cdict['rgb']
+                            )
+
+
+                        tcolour = (0, 0, 0, 255) if hsl(cdict['rgb'])[2] == 1 else (255, 255, 255, 255)
+
+                        cname = '\n'.join(textwrap.wrap(cdict['name'], width=namewidth))
+                        tsnx, tsny = draw.textsize(cname, font=namefont)
+                        draw.multiline_text(
+                            (
+                                int(round(xpos + (squaresize - tsnx) / 2, 0)),
+                                int(round(ypos + (squaresize - tsny) / 2, 0))
+                            ),
+                            cname,
+                            font = namefont,
+                            fill = tcolour,
+                            align = 'center',
+                            spacing = int(round(squaresize / 30))
+
+
+                        )
+
+                        rgbtxt = ', '.join([str(i) for i in cdict['rgb'][:3]])
+                        tsnx, tsny = draw.textsize(rgbtxt, font=codefont)
+                        draw.text(
+                            (
+                                int(round(xpos + (squaresize - tsnx) / 2, 0)),
+                                int(round(ypos + squaresize / 10, 0))
+                            ),
+                            rgbtxt,
+                            font = codefont,
+                            fill = tcolour,
+                        )
+
+                        tsnx, tsny = draw.textsize(cdict['tag'], font=codefont)
+                        draw.text(
+                            (
+                                int(round(xpos + (squaresize - tsnx) / 2, 0)),
+                                int(round(ypos + (squaresize - tsny) - squaresize / 10, 0))
+                            ),
+                            cdict['tag'],
+                            font = codefont,
+                            fill = tcolour,
+                        )
+
+
+
+                space += textspacing + squaresize * math.ceil(len(cs) / squaren) + borderwidth
+
+
+            image_file_object = io.BytesIO()
+            img.save(image_file_object, format='png')
+            image_file_object.seek(0)
+
+            return image_file_object
+
+
+        def round_corner(self, radius, fill):
+            """Draw a round corner"""
+            corner = Image.new('RGBA', (radius, radius), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(corner)
+            draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
+            return corner
+
+        def round_rectangle(self, size, radius, fill, topleft=False, topright=False, bottomleft=False, bottomright=False, allcorners=False):
+            """Draw a rounded rectangle"""
+            if allcorners: topleft = topright = bottomleft = bottomright = True
+
+            width, height = size
+            rectangle = Image.new('RGBA', size, fill)
+            corner = self.image.round_corner(self, radius, fill)
+            if topleft: rectangle.paste(corner, (0, 0))
+            if bottomleft: rectangle.paste(corner.rotate(90), (0, height - radius))  # Rotate the corner and paste it
+            if bottomright: rectangle.paste(corner.rotate(180), (width - radius, height - radius))
+            if topright: rectangle.paste(corner.rotate(270), (width - radius, 0))
+            return rectangle
+
     class coordinates(commands.Converter):
         def __init__(self, colour: bool = False):
             self.colour = colour
@@ -292,6 +478,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
+            print(error)
             await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
             return
 
@@ -366,8 +553,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 dr = []
                 for xn, pixel in xs.items():
                     if tlx <= int(xn) < tlx + zoom:
-                        de.append("<:" + pt[pixel["c"]] + ">")
-                        dr.append(pixel["c"])
+                        # de.append("<:" + pt[pixel["c"]] + ">")
+                        # dr.append(pixel["c"])
+                        de.append("<:" + pt[pixel] + ">")
+                        dr.append(pixel)
                 if dr:
                     demoji.append(de)
                     draw.append(dr)
@@ -381,6 +570,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 return seed.lower()
             else:
                 raise Exception
+
+    async def history(self, board, colour, author, coords):
+        time = str(datetime.datetime.utcnow().timestamp()).replace('.', '_')
+        try:
+            board.history[time].append([coords, colour, author])
+        except KeyError:
+            # await asyncio.sleep(random.randint(1, 10) / 100)
+            # try:
+            #     board.history[time].append([coords, colour, author])
+            # except KeyError:
+            board.history[time] = [[coords, colour, author]]
 
     @commands.command(name="createboard", aliases=["cb"])
     @admin()
@@ -412,31 +612,41 @@ class CanvasCog(commands.Cog, name="Canvas"):
             newboard.data[str(yn)] = {}
             for xn in range(1, x + 1):
                 if seed == "random":
-                    newboard.data[str(yn)][str(xn)] = {
-                        "c":
-                            random.choice([
+                    colour = random.choice([
                                 name for name in self.bot.colours.keys()
                                 if name not in ['edit', 'blank']
-                            ]),
-                        "info": {
-                            "user": "Automatic",
-                            "time": datetime.datetime.utcnow()
-                        }
-                    }
+                            ])
+                    # newboard.data[str(yn)][str(xn)] = {
+                    #     "c": colour,
+                    #     # "info": [{
+                    #     #     "user": "Automatic",
+                    #     #     "time": datetime.datetime.utcnow()
+                    #     # }]
+                    # }
+                    newboard.data[str(yn)][str(xn)] = colour
+
                 else:
-                    newboard.data[str(yn)][str(xn)] = {
-                        "c": "blank",
-                        "info": {
-                            "user": "Automatic",
-                            "time": datetime.datetime.utcnow()
-                        }
-                    }
+                    # newboard.data[str(yn)][str(xn)] = {
+                    #     "c": "blank",
+                    #     # "info": [{
+                    #     #     "user": "Automatic",
+                    #     #     "time": datetime.datetime.utcnow()
+                    #     # }]
+                    # }
+                    colour = "blank"
+                    newboard.data[str(yn)][str(xn)] = colour
+
+                # newboard.history[datetime.datetime.utcnow().timestamp()] = [colour, "Automatic"]
+                await self.history(newboard, colour, "Automatic", (xn, yn))
 
         await ctx.send("Created board, saving to database")
 
         await self.bot.dbs.boards.create_collection(newboard.name.lower())
         dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
-        await dboard.insert_many([{'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False}}])
+        await dboard.insert_many([
+            {'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False}},
+            {'type': 'history', 'history': newboard.history},
+        ])
 
         limit = 200000
         n = newboard.width * newboard.height
@@ -497,10 +707,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         try:
             self.bot.boards[self.bot.uboards[ctx.author.id]]
         except KeyError:
-            await ctx.send(
-                f"You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
-            )
-            return False
+            defaultcanvas = 'canvas'.lower()
+            if defaultcanvas in self.bot.boards.keys():
+                self.bot.uboards[ctx.author.id] = defaultcanvas
+                await ctx.send(f"{ctx.author.mention}, you weren't added to a board, so I've automatically added you to the default '{defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
+            else:
+                await ctx.send(
+                    f"{ctx.author.mention}, You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
+                )
+                return False
 
         return self.bot.boards[self.bot.uboards[ctx.author.id]]
 
@@ -935,7 +1150,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
             ]
-            l = ['brll', 'hpsq', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'brvy', 'bstp', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl']
+            l = ['brll', 'hpsq', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'brvy', 'bstp', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl'] # Order
             d = {n: i for n, i in zip(l, range(len(l)))}
             def sorter(i): 
                 # print(i, d[i])
@@ -980,14 +1195,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if colour not in colours:
                 return await ctx.send(f"{ctx.author.mention}, that colour is not available within this server!")
 
+            olddata = copy.copy(board.data[str(y)][str(x)])
 
-            board.data[str(y)][str(x)] = {
-                "c": colour,
-                "info": {
-                    "user": ctx.author.id,
-                    "time": datetime.datetime.utcnow()
-                }
-            }
+            # board.data[str(y)][str(x)] = {
+            #     "c": colour,
+            #     # "info": olddata['info'] + [{
+            #     #     "user": ctx.author.id,
+            #     #     "time": datetime.datetime.utcnow()
+            #     # }]
+            # }
+            board.data[str(y)][str(x)] = colour
+            await self.history(board, colour, ctx.author.id, (x, y))
             embed.set_author(name="Pixel successfully set.")
 
 
@@ -1011,14 +1229,83 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await msg.edit(content=display, embed=embed)
         await msg.clear_reactions()
 
-        member = ctx.bot.blurpleguild.get_member(ctx.author.id)
+        member = ctx.bot.blurpleguild.fetch_member(ctx.author.id)
         if self.bot.artistrole not in [i.id for i in member.roles]:
             await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
-            t = ""
-            if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
-            await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
+            # t = ""
+            # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
+            # await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
+            await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
 
         await self.bot.dbs.boards[board.name.lower()].update_one({'row': y}, {'$set': {str(y): board.data[str(y)]}})
+        await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
+
+    @commands.command()
+    @admin()
+    async def paste(self, ctx, x: int, y: int, source):
+        board = await self.findboard(ctx)
+        if not board: return
+
+        if board.locked == True:
+            return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
+
+
+        async with aiohttp.ClientSession() as cs:
+            async with cs.get(source) as r:
+                raw = await r.text()
+
+        rows = raw.split('\n')
+        array = [i.split(' ') for i in rows]
+
+        width = len(sorted(array, key = len, reverse = True)[0])
+        height = len(array)
+
+        empty = '----'
+
+        colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items() if name not in ['edit']] + [empty]
+
+        if any([any([not v in colours for v in r]) for r in array]):
+            return await ctx.send(f"{ctx.author.mention}, the source paste that you linked does not appear to be valid.")
+
+        if board.width - x + 1 < width or board.height - y + 1 < height:
+            return await ctx.send(f"{ctx.author.mention}, the paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
+
+        for row, i in enumerate(array):
+            for n, pixel in enumerate(i):
+                if pixel == empty: continue
+                board.data[str(y + row)][str(x + n)] = pixel
+
+                await self.history(board, pixel, ctx.author.id, (x + n, y + n))
+
+        await ctx.send(f"{ctx.author.mention}, pasted!")
+
+        for row, i in enumerate(array):
+            await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
+        await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
+
+    @commands.command(aliases = ['colors'])
+    async def colours(self, ctx, palettes = 'all'):
+        palettes = palettes.lower()
+        if palettes not in ['all', 'main', 'partner']: palettes = 'all'
+
+        image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
+        
+        embed = discord.Embed(
+            title="Blurple Canvas Colour Palette", colour=0x7289da, timestamp=datetime.datetime.utcnow())
+        embed.set_footer(
+            text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
+            icon_url=self.bot.user.avatar_url)
+        embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
+        await ctx.send(embed=embed, file=image)
+
+    @commands.command(aliases = ['reloadcolors'])
+    @admin()
+    async def reloadcolours(self, ctx):
+        self.bot.colourimg = {
+            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
+        }
+        await ctx.send("Done")
+        
 
     @commands.command()
     @dev()
@@ -1027,14 +1314,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if not board: return
 
         print(board.data)
-        print([[xv["c"] for xv in xk.values()]
-               for xk in board.data.values()])
+        # print([[xv["c"] for xv in xk.values()]
+        #        for xk in board.data.values()])
+        print([list(xk.values()) for xk in board.data.values()])
         await ctx.message.add_reaction("👍")
 
     @commands.command(hidden = True)
     async def test(self, ctx):
         print([guild.name for guild in self.bot.guilds])
-
 
     @commands.command(name="viewnh", aliases=["seenh"])
     @commands.cooldown(1, 30, BucketType.user)

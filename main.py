@@ -1,12 +1,15 @@
 from config import *
-import discord, datetime, re
+import discord, datetime, re, asyncio
 from discord.ext import commands
 import logging
 
 # logging.basicConfig(level=logging.INFO)
 
-description = "r/place for Discord" # fix
-bot = commands.Bot(command_prefix=BOT_PREFIX, description=description)
+intents = discord.Intents.default()
+intents.members = True
+
+description = "Blurple Canvas for Project Blurple" # fix
+bot = commands.Bot(command_prefix=BOT_PREFIX, description=description, intents=intents)
 
 bot.allowedusers = {204778476102877187, 226595531844091904}
 
@@ -71,6 +74,7 @@ async def on_ready():
 
 
     while True:
+        await asyncio.sleep(1)
         bot.blurpleguild = bot.get_guild(412754940885467146)
         if bot.blurpleguild: break
 
@@ -82,7 +86,7 @@ async def globally_block_dms(ctx):
 
 @bot.check
 async def blacklist(ctx):
-    try: return 573392328912404480 not in [r.id for r in bot.blurpleguild.get_member(ctx.author.id).roles]
+    try: return 573392328912404480 not in [r.id for r in (await bot.blurpleguild.fetch_member(ctx.author.id)).roles]
     except AttributeError: return False
 
 # @bot.check
