@@ -69,6 +69,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.partnercolourlock = True
 
+        self.bot.defaultcanvas = "Staff"
+
 
         self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
         self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
@@ -714,10 +716,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         try:
             self.bot.boards[self.bot.uboards[ctx.author.id]]
         except KeyError:
-            defaultcanvas = 'canvas'.lower()
-            if defaultcanvas in self.bot.boards.keys():
-                self.bot.uboards[ctx.author.id] = defaultcanvas
-                await ctx.send(f"{ctx.author.mention}, you weren't added to a board, so I've automatically added you to the default '{defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
+            if self.bot.defaultcanvas.lower() in [i.lower() for i in self.bot.boards.keys()]:
+                self.bot.uboards[ctx.author.id] = self.bot.defaultcanvas.lower()
+                await ctx.send(f"{ctx.author.mention}, you weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
             else:
                 await ctx.send(
                     f"{ctx.author.mention}, You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
@@ -738,40 +739,43 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await ctx.send(f"Disabled confirmation message for {ctx.author.mention}")
 
     @commands.command(name="view", aliases=["see"])
-    @commands.cooldown(1, 30, BucketType.user)
+    # @commands.cooldown(1, 10, BucketType.user)
     @inteam()
     async def view(self, ctx, *, xyz: coordinates = None):
         """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional."""
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        # if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
-        x, y, zoom = xyz
+        if xyz:
+            x, y, zoom = xyz
 
-        if board.data == None:
-            return await ctx.send('{ctx.author.mention}, there is currently no board created')
+            if board.data == None:
+                return await ctx.send('{ctx.author.mention}, there is currently no board created')
 
-        if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.send(
-                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
-            )
+            if x < 1 or x > board.width or y < 1 or y > board.height:
+                return await ctx.send(
+                    f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+                )
 
-        defaultzoom = 25
+            defaultzoom = 25
 
-        if zoom == None or zoom > board.width or zoom > board.height:
-            zoom = defaultzoom
-        if zoom > board.width or zoom > board.height:
-            if board.width > board.height: zoom = board.width
-            else: zoom = board.height
-        if zoom < 5:
-            return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
+            if zoom == None or zoom > board.width or zoom > board.height:
+                zoom = defaultzoom
+            if zoom > board.width or zoom > board.height:
+                if board.width > board.height: zoom = board.width
+                else: zoom = board.height
+            if zoom < 5:
+                return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
+        else:
+            x, y, zoom = (1, 1, board.width)
 
         async with aiohttp.ClientSession() as session:
             async with ctx.typing():
                 start = time.time()
                 image = await self.bot.loop.run_in_executor(
-                    None, self.image.imager, self, board, x, y, zoom)
+                    None, self.image.imager, self, board, x, y, zoom, bool(xyz))
                 end = time.time()
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
@@ -984,7 +988,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command()
     @inteam()
-    @commands.cooldown(1, 45, BucketType.user)  # 1 msg per 45s
+    # @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
