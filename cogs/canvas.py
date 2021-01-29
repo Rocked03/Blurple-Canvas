@@ -1,8 +1,8 @@
-import aiohttp, asyncio, colorsys, copy, datetime, discord, io, math, motor.motor_asyncio, PIL, pymongo, random, sys, textwrap, time, traceback, typing
+import aiohttp, asyncio, colorsys, copy, datetime, discord, io, math, motor.motor_asyncio, numpy, PIL, pymongo, random, sys, textwrap, time, traceback, typing
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from PIL import Image, ImageDraw, ImageFont
-# pillow, motor, pymongo, discord.py
+# pillow, motor, pymongo, discord.py, numpy
 
 
 def dev():
@@ -1253,30 +1253,35 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command()
     @executive()
-    async def paste(self, ctx, x: int, y: int, source):
+    async def paste(self, ctx, x: int, y: int, source = None):
         board = await self.findboard(ctx)
         if not board: return
 
         if board.locked == True:
             return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
 
-
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get(source) as r:
-                raw = await r.text()
-
-        rows = raw.split('\n')
-        array = [i.split() for i in rows]
-
-        width = len(sorted(array, key = len, reverse = True)[0])
-        height = len(array)
-
         empty = '----'
 
-        colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items() if name not in ['edit']] + [empty]
+        if ctx.message.attachments:
+            arraywh = await self.bot.loop.run_in_executor(None, self.pastefrombytes, io.BytesIO(await ctx.message.attachments[0].read()))
+            if isinstance(arraywh, str): return await ctx.send(f"{ctx.author.mention}, {arraywh}")
+            else: array, width, height = arraywh
 
-        if any([any([not v in colours for v in r]) for r in array]):
-            return await ctx.send(f"{ctx.author.mention}, the source paste that you linked does not appear to be valid.")
+        elif source:
+            async with aiohttp.ClientSession() as cs:
+                async with cs.get(source) as r:
+                    raw = await r.text()
+
+            rows = raw.split('\n')
+            array = [i.split() for i in rows]
+
+            width = len(sorted(array, key = len, reverse = True)[0])
+            height = len(array)
+
+            colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items() if name not in ['edit']] + [empty]
+
+            if any([any([not v in colours for v in r]) for r in array]):
+                return await ctx.send(f"{ctx.author.mention}, the source paste that you linked does not appear to be valid.")
 
         if board.width - x + 1 < width or board.height - y + 1 < height:
             return await ctx.send(f"{ctx.author.mention}, the paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
@@ -1293,6 +1298,38 @@ class CanvasCog(commands.Cog, name="Canvas"):
         for row, i in enumerate(array):
             await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
         await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
+
+    
+    def pastefrombytes(self, imgbytes):
+        image = Image.open(imgbytes, 'r')
+        # image = Image.open("canvaspastetest.png", "r")
+        width, height = image.size
+        pixel_values = list(image.getdata())
+        
+        channels = 4
+
+        pixel_values = numpy.array(pixel_values).reshape((width, height, channels))
+
+
+        colours = {**{v['rgb'][:3]: v['tag'] for v in self.bot.partners.values()}, **{v['rgb'][:3]: v['tag'] for v in self.bot.coloursdict.values() if v['tag'] not in ['edit', 'blank']}}
+
+        empty = '----'
+
+        array = []
+        for row, i in enumerate(pixel_values):
+            array.append([])
+            for n, pixel in enumerate(i):
+                if len(pixel) == 4:
+                    if pixel[3] == 0:
+                        array[row].append(empty)
+                        continue
+                
+                p = tuple(pixel[:3])
+                if p not in colours.keys(): return f"invalid pixel at ({n+1}, {row+1})"
+                
+                array[row].append(colours[p])
+
+        return array, width, height
 
     @commands.command(aliases = ['colors'])
     async def colours(self, ctx, palettes = 'all'):
