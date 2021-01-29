@@ -97,6 +97,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, history = history)
 
                     print(f"Loaded '{name}'")
+
                 print('All boards loaded')
 
             some_stuff = await bot.loop.run_in_executor(None, loadboards, self)
@@ -547,8 +548,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         loc = (int(locx), int(locy))
 
-        demoji = []
-        draw = []
+        demoji = draw = [[] for i in range(zoom)]
         pt = {}
         for k, v in self.bot.partners.items():
             pt[v['tag']] = v['emoji']
@@ -567,8 +567,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                         de.append("<:" + pt[pixel] + ">")
                         dr.append(pixel)
                 if dr:
-                    demoji.append(de)
-                    draw.append(dr)
+                    demoji[int(yn) - 1] = de
+                    draw[int(yn) - 1] = dr
 
         return loc, demoji, draw, zoom
 
