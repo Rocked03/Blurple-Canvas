@@ -14,7 +14,7 @@ def dev():
 
 def inteam():
     async def pred(ctx): 
-        # return True
+        return True
         a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]) 
         if not a: ctx.bot.cd.add(ctx.author.id)
         return a
@@ -67,9 +67,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.boards = dict()
 
-        self.bot.partnercolourlock = True
+        self.bot.partnercolourlock = False
 
-        self.bot.defaultcanvas = "Staff"
+        self.bot.defaultcanvas = "Main"
+        self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big']
 
 
         self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
@@ -88,7 +89,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             def loadboards(self):
                 colls = self.bot.pymongoog.boards.list_collection_names()
                 for name in colls:
-                    if name in ['mini', 'main2019', 'main2020']: continue
+                    if name in self.bot.ignoredcanvases: continue
                     board = self.bot.pymongoog.boards[name]
                     info = (board.find_one({'type': 'info'}))['info']
                     history = (board.find_one({'type': 'history'}))['history']
@@ -548,7 +549,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         loc = (int(locx), int(locy))
 
-        demoji = draw = [[] for i in range(zoom)]
+        demoji = [[] for i in range(zoom)]
+        draw = [[] for i in range(zoom)]
         pt = {}
         for k, v in self.bot.partners.items():
             pt[v['tag']] = v['emoji']
@@ -567,8 +569,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                         de.append("<:" + pt[pixel] + ">")
                         dr.append(pixel)
                 if dr:
-                    demoji[int(yn) - 1] = de
-                    draw[int(yn) - 1] = dr
+                    demoji[int(yn) - tly] = de
+                    draw[int(yn) - tly] = dr
 
         return loc, demoji, draw, zoom
 
@@ -1241,7 +1243,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await msg.clear_reactions()
 
         member = await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
-        if self.bot.artistrole not in [i.id for i in member.roles]:
+        if member and self.bot.artistrole not in [i.id for i in member.roles]:
             await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
             # t = ""
             # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
@@ -1333,6 +1335,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command(aliases = ['colors'])
     async def colours(self, ctx, palettes = 'all'):
+        """Shows the full colour palette available. Type 'main' or 'partner' after the command to see a specific group of colours."""
         palettes = palettes.lower()
         if palettes not in ['all', 'main', 'partner']: palettes = 'all'
 
