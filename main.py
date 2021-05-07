@@ -9,7 +9,7 @@ intents = discord.Intents.default()
 intents.members = True
 
 description = "Blurple Canvas for Project Blurple" # fix
-bot = commands.Bot(command_prefix=BOT_PREFIX, description=description, intents=intents)
+bot = commands.Bot(command_prefix=BOT_PREFIX, description=description, intents=intents, chunk_guilds_at_startup=False)
 
 bot.allowedusers = {204778476102877187, 226595531844091904}
 
