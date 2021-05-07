@@ -1014,7 +1014,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if not xyz: 
             self.bot.cd.add(ctx.author.id)
-            return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`')
+            return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom, colour = xyz
 
