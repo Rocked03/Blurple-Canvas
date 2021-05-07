@@ -72,7 +72,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.partnercolourlock = True
 
         self.bot.defaultcanvas = "Canvas"
-        self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big']
+        self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
 
 
         self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
