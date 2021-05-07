@@ -748,7 +748,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await ctx.send(f"Disabled confirmation message for {ctx.author.mention}")
 
     @commands.command(name="view", aliases=["see"])
-    # @commands.cooldown(1, 10, BucketType.user)
+    @commands.cooldown(1, 10, BucketType.user)
     @inteam()
     async def view(self, ctx, *, xyz: coordinates = None):
         """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional."""
@@ -997,7 +997,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.command()
     @inteam()
-    # @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
+    @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
         board = await self.findboard(ctx)
