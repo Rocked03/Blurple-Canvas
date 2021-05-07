@@ -90,7 +90,7 @@ async def globally_block_dms(ctx):
 @bot.check
 async def blacklist(ctx):
     try: return 573392328912404480 not in [r.id for r in (await bot.blurpleguild.fetch_member(ctx.author.id)).roles]
-    except AttributeError: return False
+    except Exception: return False
 
 # @bot.check
 # async def server(ctx):
