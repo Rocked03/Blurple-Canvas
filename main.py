@@ -192,11 +192,11 @@ async def helpformatter(ctx, command):
         embed.set_author(name=f'Bot command - {command.qualified_name}')
         try:
             command.commands
-            embed.set_footer(text=f'{str(ctx.author)} | {bot.user.name} | Showing commands for \'{command.qualified_name}\' | To see more info on a command, type {bot.command_prefix.strip()}help {command.qualified_name} <command>')
+            embed.set_footer(text=f'{str(ctx.author)} | {bot.user.name} | Showing commands for \'{command.qualified_name}\' | To see more info on a command, type {ctx.prefix}help {command.qualified_name} <command>')
         except Exception:  embed.set_footer(text=f'Showing commands for \'{command.qualified_name}\'')
     except AttributeError: 
         embed.set_author(name=f'Bot commands')
-        embed.set_footer(text=f'{str(ctx.author)} | {bot.user.name} | To see more info on a command, type {bot.command_prefix.strip()}help <command>')
+        embed.set_footer(text=f'{str(ctx.author)} | {bot.user.name} | To see more info on a command, type {ctx.prefix}help <command>')
     try:
         params = []
         for param, specs in dict(command.clean_params).items():
@@ -206,7 +206,7 @@ async def helpformatter(ctx, command):
         paramsstr = " ".join(params)
         commandname = command.name
         if len(command.aliases) != 0: commandname = f'[{command.name}|{"|".join(command.aliases)}]'
-        embed.add_field(name="Usage", value=f"`{bot.command_prefix.strip()}{command.full_parent_name.strip()}{spacestrip(command.full_parent_name)}{commandname.strip()} {paramsstr}`", inline=False)
+        embed.add_field(name="Usage", value=f"`{ctx.prefix}{command.full_parent_name.strip()}{spacestrip(command.full_parent_name)}{commandname.strip()} {paramsstr}`", inline=False)
     except Exception:
         pass
 
@@ -225,7 +225,7 @@ async def helpformatter(ctx, command):
                 if spec.default == None: spec = spec.replace(default=specs.empty)
                 params.append(f"<{spec}>")
             paramsstr = " ".join(params)
-            paramsstr = f"{bot.command_prefix.strip()}{subcommand.full_parent_name.strip()}{spacestrip(subcommand.full_parent_name)}{subcommand.name.strip()} {paramsstr}"
+            paramsstr = f"{ctx.prefix}{subcommand.full_parent_name.strip()}{spacestrip(subcommand.full_parent_name)}{subcommand.name.strip()} {paramsstr}"
             try: 
                 subsubcommands = []
                 for c in sorted(subcommand.commands, key=lambda item: item.name):
