@@ -15,10 +15,11 @@ def dev():
 def inteam():
     async def pred(ctx):
         # return True
-        return await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
-        a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]) 
-        if not a: ctx.bot.cd.add(ctx.author.id)
-        return a
+        return ctx.author.id in [i.id for i in ctx.bot.blurpleguild.members]
+
+        # a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]) 
+        # if not a: ctx.bot.cd.add(ctx.author.id)
+        # return a
     return commands.check(pred)
 
 
@@ -60,7 +61,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # }
         self.bot.teams = {"blurple user": 705295796773584976}
 
-        self.bot.artistrole = 705295638216048681
+        self.bot.artistrole = 799240276542619649
 
         self.bot.skipconfirm = []
 
@@ -484,6 +485,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if self.colour: return (x, y, zoom, colour)
             else: return (x, y, zoom)
 
+    
+    async def cog_check(self, ctx):
+        return ctx.guild.id in [self.bot.blurpleguild.id] + [int(i) for i in self.bot.partners.keys()]
+
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
         ignored = (commands.CommandNotFound, commands.UserInputError)
@@ -491,7 +496,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if isinstance(error, commands.CheckFailure):
             print(error)
-            await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
+            # await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
+            await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
             return
 
         if isinstance(error, commands.CommandOnCooldown):
@@ -1338,7 +1344,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def colours(self, ctx, palettes = 'all'):
         """Shows the full colour palette available. Type 'main' or 'partner' after the command to see a specific group of colours."""
         palettes = palettes.lower()
-        if palettes not in ['all', 'main', 'partner']: palettes = 'all'
+        if palettes in ['main', 'default']: palettes = 'main'
+        elif palettes in ['partner', 'partners']: palettes = 'partner'
+        else: palettes = 'all'
 
         image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
         

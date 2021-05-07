@@ -79,7 +79,7 @@ async def on_ready():
         bot.blurpleguild = bot.get_guild(412754940885467146)
         if bot.blurpleguild: break
 
-    await bot.request_offline_members(bot.blurpleguild)
+    await bot.blurpleguild.chunk()
 
     bot.appinfo = await bot.application_info()
 
@@ -296,6 +296,13 @@ async def cogrecentreload(ctx):
     print('---')
     print(f'{bot.recentcog} was reloaded.')
     print('---')
+
+
+@bot.command()
+@commands.is_owner()
+async def servers(ctx):
+    await ctx.send('\n'.join([i.name for i in bot.guilds]))
+
 
 
 
