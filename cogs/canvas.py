@@ -1030,6 +1030,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
             return
 
+        success = False
+
+        if colour.lower() == 'blnk': colour = 'blank'
         if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in self.bot.partners.values()] + ['empty']:
             colour = colour.lower()
         else: colour = None
@@ -1227,6 +1230,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             board.data[str(y)][str(x)] = colour
             await self.history(board, colour, ctx.author.id, (x, y))
             embed.set_author(name="Pixel successfully set.")
+            success = True
 
 
         loc, emoji, raw, zoom = self.screen(board, x, y)
@@ -1249,13 +1253,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await msg.edit(content=display, embed=embed)
         await msg.clear_reactions()
 
-        member = await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
-        if member and self.bot.artistrole not in [i.id for i in member.roles]:
-            await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
-            # t = ""
-            # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
-            # await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
-            await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
+        if success:
+            member = await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
+            if member and self.bot.artistrole not in [i.id for i in member.roles]:
+                await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
+                # t = ""
+                # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
+                # await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
+                await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
 
         await self.bot.dbs.boards[board.name.lower()].update_one({'row': y}, {'$set': {str(y): board.data[str(y)]}})
         await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
@@ -1308,7 +1313,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
         await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
 
-    
+
     def pastefrombytes(self, imgbytes):
         image = Image.open(imgbytes, 'r')
         # image = Image.open("canvaspastetest.png", "r")
