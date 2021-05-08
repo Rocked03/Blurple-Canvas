@@ -1,7 +1,8 @@
-import aiohttp, asyncio, colorsys, copy, datetime, discord, io, math, motor.motor_asyncio, numpy, PIL, pymongo, random, sys, textwrap, time, traceback, typing
+import aiohttp, asyncio, colorsys, copy, datetime, discord, io, json, math, motor.motor_asyncio, numpy, PIL, pymongo, random, sys, textwrap, time, traceback, typing
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from PIL import Image, ImageDraw, ImageFont
+from pymongo import UpdateOne
 # pillow, motor, pymongo, discord.py, numpy
 
 
@@ -92,10 +93,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 colls = self.bot.pymongoog.boards.list_collection_names()
                 for name in colls:
                     if name in self.bot.ignoredcanvases: continue
+                    print(f"Loading '{name}'...")
                     board = self.bot.pymongoog.boards[name]
-                    info = (board.find_one({'type': 'info'}))['info']
-                    history = (board.find_one({'type': 'history'}))['history']
-                    data = list(board.find({'type': 'data'}))
+                    # info = (board.find_one({'type': 'info'}))['info']
+                    # history = (board.find_one({'type': 'history'}))['history']
+                    # print(f"Loading data...")
+                    # data = list(board.find({'type': 'data'}))
+                    boarddata = list(board.find({}))
+                    info = next(x for x in boarddata if x['type'] == 'info')['info']
+                    history = next(x for x in boarddata if x['type'] == 'history')['history']
+                    print(info)
+                    data = [x for x in boarddata if x['type'] == 'data']
+                    print(f"Saving data...")
                     d = {k: v for d in data for k, v in d.items()}
                     self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, history = history)
 
@@ -105,6 +114,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             some_stuff = await bot.loop.run_in_executor(None, loadboards, self)
 
+            for b in self.bot.boards.keys():
+                self.bot.loop.create_task(self.backup(b))
+
         self.bot.loop.create_task(getboards(self))
 
 
@@ -113,6 +125,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
             }
         self.bot.loop.create_task(loadcolourimg(self))
+
 
         self.bot.initfinished = True
 
@@ -599,6 +612,89 @@ class CanvasCog(commands.Cog, name="Canvas"):
             #     board.history[time].append([coords, colour, author])
             # except KeyError:
             board.history[time] = [[coords, colour, author]]
+
+
+    async def backup(self, boardname):
+        n = 1
+        nbackups = 4
+        period = 300 # seconds // 5 minutes
+        while True:
+            print(f"Starting backup of {boardname}_{n}")
+            async with aiohttp.ClientSession() as session:
+                with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
+                    data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
+                    data['data'].pop('_id')
+                    json.dump(data, f)
+
+            print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
+            n = n + 1 if n < nbackups else 1
+            await asyncio.sleep(period)
+
+    @commands.command()
+    @admin()
+    async def loadbackup(self, ctx, n:int, boardname):
+        async with aiohttp.ClientSession() as session:
+            with open(f'backups/backup_{boardname}_{n}.json', 'rt') as f:
+                data = json.load(f)
+            board = self.board(**data)
+
+        async with aiohttp.ClientSession() as session:
+            async with ctx.typing():
+                start = time.time()
+                x, y, zoom = (1, 1, board.width)
+                image = await self.bot.loop.run_in_executor(
+                    None, self.image.imager, self, board, x, y, zoom, False)
+                end = time.time()
+                image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
+
+                embed = discord.Embed(
+                    colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
+                embed.set_footer(
+                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
+                    icon_url=self.bot.user.avatar_url)
+                embed.set_image(url=f"attachment://board_{x}-{y}.png")
+                await ctx.send(embed=embed, file=image)
+
+        await ctx.send("Is this what you're looking for?")
+
+        def check(message):
+            return ctx.author == message.author and message.content.lower() in ['yes', 'no', 'y', 'n'] and message.channel == ctx.message.channel
+
+        msg = await self.bot.wait_for('message', check=check)
+        
+        if msg.content in ['no', 'n']:
+            return await ctx.send("Ok, cancelled")
+
+        await ctx.send("Ok, pushing to db - please make sure the board exists so I can update it")
+
+
+        t1 = time.time()
+
+        newboard = board
+
+        self.bot.boards[boardname] = newboard
+
+        await ctx.send('Writing to db')
+        print('Writing to db')
+
+        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
+        await dboard.bulk_write([
+            UpdateOne({'type': 'info'}, {'$set': {'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False}}}),
+            UpdateOne({'type': 'history'}, {'$set': {'history': newboard.history}}),
+        ])
+
+        print('Info done')
+        await ctx.send('Info done')
+
+        await self.bot.dbs.boards[board.name.lower()].bulk_write([UpdateOne({'row': y+1}, {'$set': {str(y+1): newboard.data[str(y+1)]}}) for y in range(newboard.height)])
+
+        t2 = time.time()
+
+        print('Board saved')
+        await ctx.send(f"Board saved ({round((t2 - t1), 4)}s)")
+
+
 
     @commands.command(name="createboard", aliases=["cb"])
     @admin()
