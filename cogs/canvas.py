@@ -619,6 +619,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         nbackups = 4
         period = 300 # seconds // 5 minutes
         while True:
+            await asyncio.sleep(period)
             print(f"Starting backup of {boardname}_{n}")
             async with aiohttp.ClientSession() as session:
                 with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
@@ -629,7 +630,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
             n = n + 1 if n < nbackups else 1
-            await asyncio.sleep(period)
 
     @commands.command()
     @admin()
