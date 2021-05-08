@@ -133,3 +133,5 @@ dmypy.json
 
 # config
 config.py
+
+backups/
