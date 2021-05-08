@@ -38,6 +38,15 @@ def admin():
     return commands.check(pred)
 
 
+
+
+# a la blob emoji, cooldown expiry ping
+
+
+
+
+
+
 class CanvasCog(commands.Cog, name="Canvas"):
     """Canvas Module"""
 
@@ -504,7 +513,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, concurrent.futures._base.TimeoutError)
+        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
