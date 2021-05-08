@@ -623,7 +623,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             async with aiohttp.ClientSession() as session:
                 with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
                     data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
-                    data['data'].pop('_id')
+                    try: data['data'].pop('_id')
+                    except KeyError: pass
                     json.dump(data, f)
 
             print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
