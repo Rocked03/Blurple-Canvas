@@ -39,8 +39,10 @@ def admin():
 
 
 
-
+# todo
 # a la blob emoji, cooldown expiry ping
+# persistent ts, board
+# reload bot without breaking stuff
 
 
 
@@ -513,7 +515,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError)
+        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
@@ -634,16 +636,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
         period = 300 # seconds // 5 minutes
         while True:
             await asyncio.sleep(period)
-            print(f"Starting backup of {boardname}_{n}")
-            async with aiohttp.ClientSession() as session:
-                with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
-                    data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
-                    try: data['data'].pop('_id')
-                    except KeyError: pass
-                    json.dump(data, f)
+            try:
+                print(f"Starting backup of {boardname}_{n}")
+                async with aiohttp.ClientSession() as session:
+                    with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
+                        data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
+                        try: data['data'].pop('_id')
+                        except KeyError: pass
+                        json.dump(data, f)
 
-            print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
-            n = n + 1 if n < nbackups else 1
+                print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
+                n = n + 1 if n < nbackups else 1
+            except Exception as e: print(e)
 
     @commands.command()
     @admin()
