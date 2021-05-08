@@ -504,11 +504,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError)
+        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, concurrent.futures._base.TimeoutError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
-            print(error)
+            # print(error)
             # await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
             await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
             return
@@ -540,6 +540,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     f"{ctx.author.mention}, this command is on cooldown ({seconds}s)"
                 )
             return
+
+        if isinstance(error, commands.CommandInvokeError):
+            await ctx.send(
+                f"{ctx.author.mention}, I don't seem to have the right permissions to do that. Please check with the mods of this server that I have Embed Links // Send Images perms!"
+            )
 
         traceback.print_exception(
             type(error), error, error.__traceback__, file=sys.stderr)
