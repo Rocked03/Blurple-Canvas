@@ -177,7 +177,8 @@ async def help(ctx, *commands : str):
 
             embed = await helpformatter(ctx, command)
 
-        await ctx.send(embed=embed)
+        await ctx.author.send(embed=embed)
+        await ctx.send(f"{ctx.author.mention}, sent to your DMs!")
     except Exception as e:
         print(e)
 
