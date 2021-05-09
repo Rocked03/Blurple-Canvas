@@ -145,6 +145,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.loop.create_task(loadcolourimg(self))
 
 
+        async def fetchserver(self):
+            self.bot.blurpleguild = await self.bot.fetch_guild(412754940885467146)
+            await asyncio.sleep(60)
+        self.bot.loop.create_task(fetchserver(self))
+
+
+
         self.bot.initfinished = True
 
 
