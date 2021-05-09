@@ -18,7 +18,7 @@ class ColoursCog(commands.Cog, name="Colours"):
     def __init__(self, bot):
         self.bot = bot
 
-        a = pymongo.MongoClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
+        a = pymongo.MongoClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
         self.colourscoll = a.colours
 
         self.bot.colours, self.bot.coloursrgb, self.bot.coloursdict = self.defaultcolours()

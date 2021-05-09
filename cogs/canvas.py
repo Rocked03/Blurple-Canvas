@@ -87,8 +87,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
 
 
-        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
-        self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:qKuAVNAqCH7fZVpx@blurple-canvas-lj40x.mongodb.net/test?retryWrites=true")
+        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
+        self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
 
         async def getboards(self):
             print('Loading boards off DB')
@@ -515,7 +515,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
+        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError, commands.CommandInvokeError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
@@ -552,9 +552,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
             return
 
-        if isinstance(error, commands.CommandInvokeError):
+        if isinstance(error, discord.Forbidden):
             await ctx.send(
-                f"{ctx.author.mention}, I don't seem to have the right permissions to do that. Please check with the mods of this server that I have Embed Links // Send Images perms!"
+                f"{ctx.author.mention}, I don't seem to have the right permissions to do that. Please check with the mods of this server that I have Embed Links // Send Images // Manage Message (for clearing reactions) perms!"
             )
 
         traceback.print_exception(
@@ -1218,11 +1218,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 except asyncio.TimeoutError:
                     embed.set_author(name="User timed out.")
                     await msg.edit(embed=embed)
-                    await msg.clear_reactions()
+                    try: await msg.clear_reactions()
+                    except discord.Forbidden: pass
                     self.bot.cd.add(ctx.author.id)
-                    for future in pending:
-                        future.cancel()
+                    try:
+                        for future in done:
+                            future.exception()
+                        for future in pending:
+                            future.cancel()
+                    except asyncio.TimeoutError:
+                        pass
                     return
+                for future in done:
+                    future.exception()
                 for future in pending:
                     future.cancel()
 
