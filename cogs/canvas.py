@@ -650,7 +650,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         period = 300 # seconds // 5 minutes
         while True:
             await asyncio.sleep(period)
-            await dobackup(boardname, n)
+            await self.dobackup(boardname, n)
 
     async def dobackup(self, boardname, n):
         try:
