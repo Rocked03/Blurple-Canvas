@@ -135,7 +135,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 await asyncio.sleep(300) # 5 minutes
                 self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
                 self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
-        self.bot.loop.create_task(reloadpymongo(self))
+        # self.bot.loop.create_task(reloadpymongo(self))
 
 
         async def loadcolourimg(self):
