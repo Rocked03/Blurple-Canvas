@@ -146,8 +146,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 
         async def fetchserver(self):
-            self.bot.blurpleguild = await self.bot.fetch_guild(412754940885467146)
             await asyncio.sleep(60)
+            self.bot.blurpleguild = await self.bot.fetch_guild(412754940885467146)
         self.bot.loop.create_task(fetchserver(self))
 
 
@@ -650,18 +650,21 @@ class CanvasCog(commands.Cog, name="Canvas"):
         period = 300 # seconds // 5 minutes
         while True:
             await asyncio.sleep(period)
-            try:
-                print(f"Starting backup of {boardname}_{n}")
-                async with aiohttp.ClientSession() as session:
-                    with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
-                        data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
-                        try: data['data'].pop('_id')
-                        except KeyError: pass
-                        json.dump(data, f)
+            await dobackup(boardname, n)
 
-                print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
-                n = n + 1 if n < nbackups else 1
-            except Exception as e: print(e)
+    async def dobackup(self, boardname, n):
+        try:
+            print(f"Starting backup of {boardname}_{n}")
+            async with aiohttp.ClientSession() as session:
+                with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
+                    data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
+                    try: data['data'].pop('_id')
+                    except KeyError: pass
+                    json.dump(data, f)
+
+            print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
+            n = n + 1 if n < nbackups else 1
+        except Exception as e: print(e)
 
     @commands.command()
     @admin()
@@ -726,6 +729,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         print('Board saved')
         await ctx.send(f"Board saved ({round((t2 - t1), 4)}s)")
+
+    @commands.command()
+    @admin()
+    async def forcebackup(self, ctx, boardname):
+        await self.dobackup(boardname, 0)
+        await ctx.send("Done")
 
 
 
