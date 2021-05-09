@@ -87,8 +87,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
 
 
-        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority", ssl_cert_reqs=ssl.CERT_NONE)
-        self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority", ssl_cert_reqs=ssl.CERT_NONE)
+        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
+        self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
 
         async def getboards(self):
             print('Loading boards off DB')
