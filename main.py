@@ -78,7 +78,7 @@ async def on_ready():
     while True:
         await asyncio.sleep(1)
         try:
-            bot.blurpleguild = await bot.fetch_guild(412754940885467146)
+            bot.blurpleguild = bot.get_guild(412754940885467146)
             if bot.blurpleguild: break
         except AttributeError:
             pass

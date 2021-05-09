@@ -147,7 +147,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         async def fetchserver(self):
             await asyncio.sleep(60)
-            self.bot.blurpleguild = await self.bot.fetch_guild(412754940885467146)
+            self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
         self.bot.loop.create_task(fetchserver(self))
 
 
