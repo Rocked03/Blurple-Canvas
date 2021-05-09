@@ -651,6 +651,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         while True:
             await asyncio.sleep(period)
             await self.dobackup(boardname, n)
+            n = n + 1 if n < nbackups else 1
 
     async def dobackup(self, boardname, n):
         try:
@@ -663,7 +664,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     json.dump(data, f)
 
             print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
-            n = n + 1 if n < nbackups else 1
         except Exception as e: print(e)
 
     @commands.command()
