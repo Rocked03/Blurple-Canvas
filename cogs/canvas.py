@@ -369,7 +369,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 height += textspacing
                 height += squaresize * math.ceil(len(i) / squaren)
             height += borderwidth * (len(allcolours) - 1)
-            
+
             width = 2 * borderwidth + squaren * squaresize
 
             # img = Image.new('RGBA', (width, height), (114, 137, 218, 127))
@@ -529,7 +529,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError, commands.CommandInvokeError)
+        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
@@ -1497,23 +1497,50 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         return array, width, height
 
-    @commands.command(aliases = ['colors'])
+    @commands.command(aliases = ['colors', 'colour', 'color'])
     async def colours(self, ctx, palettes = 'all'):
         """Shows the full colour palette available. Type 'main' or 'partner' after the command to see a specific group of colours."""
         palettes = palettes.lower()
         if palettes in ['main', 'default']: palettes = 'main'
         elif palettes in ['partner', 'partners']: palettes = 'partner'
-        else: palettes = 'all'
+        else:
+            cd = {k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']}
+            cp = self.bot.partners
+            colours = {v['tag']: v for k, v in {**cd, **cp}.items()}
 
-        image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
-        
-        embed = discord.Embed(
-            title="Blurple Canvas Colour Palette", colour=0x7289da, timestamp=datetime.datetime.utcnow())
-        embed.set_footer(
-            text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=self.bot.user.avatar_url)
-        embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
-        await ctx.send(embed=embed, file=image)
+            if palettes not in colours.keys():
+                palettes = 'all'
+
+        if palettes in ['main', 'partner', 'all']:
+            image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
+            
+            embed = discord.Embed(
+                title="Blurple Canvas Colour Palette", colour=0x7289da, timestamp=datetime.datetime.utcnow())
+            embed.set_footer(
+                text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
+                icon_url=self.bot.user.avatar_url)
+            embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
+            await ctx.send(embed=embed, file=image)
+
+        else:
+            c = colours[palettes]
+            hexcode = '%02x%02x%02x' % c['rgb'][:-1]
+            hexint = int(hexcode, 16)
+
+            embed = discord.Embed(title=c['name'], colour=hexint)
+            embed.set_footer(
+                text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
+                icon_url=self.bot.user.avatar_url)
+            embed.add_field(name=f"RGB{c['rgb'][:-1]}", value=f"<:{c['emoji']}> - #{hexcode.upper()}", inline=False)
+            if c['guild']:
+                g = self.bot.get_guild(int(c['guild']))
+                if g: server = f"This colour is only available in the **{g.name}** ({g.id}) server!"
+                else: server = f"This colour is only available in {c['guild']}... that I can't seem to see? Please let Rocked03#3304 know!!"
+            else:
+                server = f"This is a default colour, it's available to use everywhere!"
+            embed.add_field(name=f"Usability", value=server)
+            await ctx.send(embed=embed)
+
 
     @commands.command(aliases = ['reloadcolors'])
     @admin()

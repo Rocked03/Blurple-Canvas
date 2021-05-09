@@ -76,6 +76,8 @@ class ColoursCog(commands.Cog, name="Colours"):
             cdict[i['name']] = {
                 "name": i['name'],
                 "tag": i['code'],
+                "emoji": i['emoji'],
+                "guild": None,
                 "rgb": tuple(i['rgb'])
             }
 
