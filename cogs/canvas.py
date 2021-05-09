@@ -982,9 +982,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 stuff = done.pop().result()
             except asyncio.TimeoutError:
                 await msg.clear_reactions()
+                for future in done:
+                    future.exception()
                 for future in pending:
                     future.cancel()
                 return
+            for future in done:
+                future.exception()
             for future in pending:
                 future.cancel()
 
@@ -1085,6 +1089,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             except asyncio.TimeoutError:
                 await msg.clear_reactions()
                 return
+            for future in done:
+                future.exception()
             for future in pending:
                 future.cancel()
 
