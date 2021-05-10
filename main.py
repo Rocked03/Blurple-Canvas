@@ -12,7 +12,7 @@ description = "Blurple Canvas for Project Blurple" # fix
 async def get_pre(bot, message): return BOT_PREFIX
 bot = commands.Bot(command_prefix=get_pre, description=description, intents=intents, chunk_guilds_at_startup=False)
 
-bot.allowedusers = {204778476102877187, 226595531844091904}
+bot.allowedusers = {204778476102877187, 226595531844091904, 248245568004947969}
 
 bot.recentcog = None
 
