@@ -43,6 +43,7 @@ def admin():
 # a la blob emoji, cooldown expiry ping
 # persistent ts, board
 # reload bot without breaking stuff
+# lock board command
 
 
 
@@ -1536,9 +1537,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 icon_url=self.bot.user.avatar_url)
             embed.add_field(name=f"RGB{c['rgb'][:-1]}", value=f"<:{c['emoji']}> - #{hexcode.upper()}", inline=False)
             if c['guild']:
-                g = self.bot.get_guild(int(c['guild']))
-                if g: server = f"This colour is only available in the **{g.name}** ({g.id}) server!"
-                else: server = f"This colour is only available in {c['guild']}... that I can't seem to see? Please let Rocked03#3304 know!!"
+                if self.bot.partnercolourlock:
+                    g = self.bot.get_guild(int(c['guild']))
+                    if g: server = f"This colour is only available in the **{g.name}** ({g.id}) server!"
+                    else: server = f"This colour is only available in {c['guild']}... that I can't seem to see? Please let Rocked03#3304 know!!"
+                else:
+                    server = f"This is a partnered server colour, however it's been set to be able to be used anywhere!"
             else:
                 server = f"This is a default colour, it's available to use everywhere!"
             embed.add_field(name=f"Usability", value=server)
