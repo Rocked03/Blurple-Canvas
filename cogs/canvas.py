@@ -86,6 +86,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.defaultcanvas = "Canvas"
         self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
 
+        self.bot.dblock = asyncio.Lock()
 
         self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
         self.bot.pymongoog = pymongo.MongoClient("mongodb+srv://Rocked03:eem8yFOpEnm5dW1Y@blurple-canvas.lj40x.mongodb.net/test?retryWrites=true&w=majority")
@@ -1414,8 +1415,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 # await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
                 await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
 
-        await self.bot.dbs.boards[board.name.lower()].update_one({'row': y}, {'$set': {str(y): board.data[str(y)]}})
-        await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
+        async with self.bot.dblock:
+            await self.bot.dbs.boards[board.name.lower()].update_one({'row': y}, {'$set': {str(y): board.data[str(y)]}})
+            await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
 
     @commands.command()
     @executive()
@@ -1461,9 +1463,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await ctx.send(f"{ctx.author.mention}, pasted!")
 
-        for row, i in enumerate(array):
-            await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
-        await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
+        async with self.bot.dblock:
+            for row, i in enumerate(array):
+                await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
+            await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
 
 
     def pastefrombytes(self, imgbytes):
