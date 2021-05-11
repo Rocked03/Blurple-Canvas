@@ -769,13 +769,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
         resp = history.find({'coords': (x, y)})
         resp.sort('created', pymongo.DESCENDING)
         message = f"History for Pixel ({x}, {y}) on {boardname}:"
-        for i,r in enumerate(resp[:10]):
+        counter = 1
+        async for r in resp:
             try: 
                 user = self.bot.get_user(r['author']) or await self.bot.fetch_user(r['author']) 
                 user_str = f"{user.mention} (`{r['author']}`)"
             except Exception:
                 user_str = r['author']
-            message += f"\n{i+1}. {user_str} placed {r['colour']} at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
+            message += f"\n{counter}. {user_str} placed {r['colour']} at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
+            counter += 1
+            if counter >= 10:
+                break
 
         await ctx.send(message)
 
@@ -800,8 +804,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         resp = history.find({'author': user.id})
         resp.sort('created', pymongo.DESCENDING)
         message = f"History for User {user.mention} (`{user.id}`) on {boardname}:"
-        for i,r in enumerate(resp[:10]):
-            message += f"\n{i+1}. Placed {r['colour']} on ({r['coords'][0]}, {r['coords'][1]}) at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
+        counter = 1
+        async for r in resp:
+            message += f"\n{counter}. Placed {r['colour']} on ({r['coords'][0]}, {r['coords'][1]}) at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
+            counter += 1
+            if counter >= 10:
+                break
         
         await ctx.send(message)
         
