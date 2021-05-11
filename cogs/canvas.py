@@ -1433,7 +1433,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         async with self.bot.dblock:
             await self.bot.dbs.boards[board.name.lower()].bulk_write([
                 UpdateOne({'row': y}, {'$set': {str(y): board.data[str(y)]}}),
-                UpdateOne({'type': 'info'}, {'$set': {'info.last_updated', board.last_updated}})
+                UpdateOne({'type': 'info'}, {'$set': {'info.last_updated': board.last_updated}})
             ])
 
     @commands.command()
