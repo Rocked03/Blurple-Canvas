@@ -749,7 +749,61 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.dobackup(boardname, 0)
         await ctx.send("Done")
 
+    @commands.command()
+    @mod()
+    async def show_pixel_history(self, ctx: commands.Context, boardname: str, x: int, y: int):
+        
+        if boardname.lower() not in self.bot.boards.keys():
+            return await ctx.send(
+                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            )
+        board = self.bot.boards[boardname.lower()]
+        if x < 1 or x > board.width or y < 1 or y > board.height:
+            self.bot.cd.add(ctx.author.id)
+            return await ctx.send(
+                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            )
+            
+        history = self.bot.dbs.history[boardname.lower()] # type: Collection
+        resp = history.find({'coords': (x, y)})
+        resp.sort('created', pymongo.DESCENDING)
+        message = f"History for Pixel ({x}, {y}) on {boardname}:"
+        for i,r in enumerate(resp[:10]):
+            try: 
+                user = self.bot.get_user(r['author']) or await self.bot.fetch_user(r['author']) 
+                user_str = f"{user.mention} (`{r['author']}`)"
+            except Exception:
+                user_str = r['author']
+            message += f"\n{i+1}. {user_str} placed {r['colour']} at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
 
+        await ctx.send(message)
+        
+    @commands.command()
+    @mod()
+    async def show_user_history(self, ctx: commands.Context, boardname: str, user):
+        
+        if boardname.lower() not in self.bot.boards.keys():
+            return await ctx.send(
+                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            )
+        try:
+            user = self.bot.get_user(user) or await self.bot.fetch_user(user) 
+        except Exception:
+            return await ctx.send(
+                f'{ctx.author.mention}, user is not found.'
+            )
+        
+        board = self.bot.boards[boardname.lower()]
+
+        history = self.bot.dbs.history[boardname.lower()] # type: Collection
+        resp = history.find({'author': user.id})
+        resp.sort('created', pymongo.DESCENDING)
+        message = f"History for User {user.mention} (`{user.id}`) on {boardname}:"
+        for i,r in enumerate(resp[:10]):
+            message += f"\n{i+1}. Placed {r['colour']} on ({r['coords'][0]}, {r['coords'][1]}) at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
+        
+        await ctx.send(message)
+        
 
     @commands.command(name="createboard", aliases=["cb"])
     @admin()
