@@ -3,6 +3,8 @@ from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from PIL import Image, ImageDraw, ImageFont
 from pymongo import UpdateOne
+from pymongo.collection import Collection
+from pymongo.database import Database
 # pillow, motor, pymongo, discord.py, numpy
 
 
@@ -49,12 +51,17 @@ def admin():
 
 
 
+class dbs():
+    def __init__(self, mongo_instance: motor.motor_asyncio.AsyncIOMotorClient):
+        self.users = mongo_instance.users # type: Database
+        self.boards = mongo_instance.boards # type: Database
+        self.history = mongo_instance.history # type: Database
 
 class CanvasCog(commands.Cog, name="Canvas"):
     """Canvas Module"""
 
     def __init__(self, bot):
-        self.bot = bot
+        self.bot = bot 
 
         self.bot.initfinished = False
 
@@ -77,7 +84,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.artistrole = 799240276542619649
 
         self.bot.skipconfirm = []
-
+        
         self.bot.uboards = {}
 
         self.bot.boards = dict()
@@ -89,82 +96,85 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.dblock = asyncio.Lock()
 
-        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
+        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority") 
         self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
 
-        async def getboards(self):
-            print('Loading boards off DB')
+       
+        self.bot.loop.create_task(self.getboards())
 
-            class dbs():
-                def __init__(self, bot):
-                    self.users = bot.pymongo.users
-                    self.boards = bot.pymongo.boards
-
-            self.bot.dbs = dbs(self.bot)
-
-            def loadboards(self):
-                colls = self.bot.pymongoog.boards.list_collection_names()
-                for name in colls:
-                    if name in self.bot.ignoredcanvases: continue
-                    print(f"Loading '{name}'...")
-                    board = self.bot.pymongoog.boards[name]
-                    # info = (board.find_one({'type': 'info'}))['info']
-                    # history = (board.find_one({'type': 'history'}))['history']
-                    # print(f"Loading data...")
-                    # data = list(board.find({'type': 'data'}))
-                    boarddata = list(board.find({}))
-                    info = next(x for x in boarddata if x['type'] == 'info')['info']
-                    history = next(x for x in boarddata if x['type'] == 'history')['history']
-                    print(info)
-                    data = [x for x in boarddata if x['type'] == 'data']
-                    print(f"Saving data...")
-                    d = {k: v for d in data for k, v in d.items()}
-                    self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, history = history)
-
-                    print(f"Loaded '{name}'")
-
-                print('All boards loaded')
-
-            some_stuff = await bot.loop.run_in_executor(None, loadboards, self)
-
-            for b in self.bot.boards.keys():
-                self.bot.loop.create_task(self.backup(b))
-
-        self.bot.loop.create_task(getboards(self))
-
-        async def reloadpymongo(self):
-            while True:
-                await asyncio.sleep(300) # 5 minutes
-                self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
-                self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majorityssl_cert_reqs=CERT_NONE")
+        
         # self.bot.loop.create_task(reloadpymongo(self))
 
 
-        async def loadcolourimg(self):
-            self.bot.colourimg = {
-                x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
-            }
-        self.bot.loop.create_task(loadcolourimg(self))
+        
+        self.bot.loop.create_task(self.loadcolourimg())
 
 
-        async def fetchserver(self):
-            await asyncio.sleep(60)
-            self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
-        self.bot.loop.create_task(fetchserver(self))
+       
+        self.bot.loop.create_task(self.fetchserver())
 
 
 
         self.bot.initfinished = True
+    
+    def loadboards(self):
+            colls = self.bot.pymongoog.boards.list_collection_names()
+            for name in colls:
+                if name in self.bot.ignoredcanvases: continue
+                print(f"Loading '{name}'...")
+                board = self.bot.pymongoog.boards[name]
+                # info = (board.find_one({'type': 'info'}))['info']
+                # history = (board.find_one({'type': 'history'}))['history']
+                # print(f"Loading data...")
+                # data = list(board.find({'type': 'data'}))
+                boarddata = list(board.find({'type': {'$ne': 'history'}}))
+                info = next(x for x in boarddata if x['type'] == 'info')['info']
+                print(info)
+                data = [x for x in boarddata if x['type'] == 'data']
+                print(f"Saving data...")
+                d = {k: v for d in data for k, v in d.items()}
+                self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, last_updated = info['last_updated'])
 
+                print(f"Loaded '{name}'")
+
+            print('All boards loaded')
+
+    async def getboards(self):
+        print('Loading boards off DB')
+
+        
+        self.bot.dbs = dbs(self.bot.pymongo) 
+
+        
+
+        some_stuff = await self.bot.loop.run_in_executor(None, self.loadboards, self)
+
+        for b in self.bot.boards.keys():
+            self.bot.loop.create_task(self.backup(b))
+
+    async def reloadpymongo(self):
+            while True:
+                await asyncio.sleep(300) # 5 minutes
+                self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
+                self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majorityssl_cert_reqs=CERT_NONE")
+
+    async def loadcolourimg(self):
+        self.bot.colourimg = {
+            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
+        }
+    
+    async def fetchserver(self):
+        await asyncio.sleep(60)
+        self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
 
     class board():
-        def __init__(self, *, name, width, height, locked, data = dict(), history = dict()):
+        def __init__(self, *, name, width, height, locked, data = dict(), last_updated = datetime.datetime.utcnow()):
             self.data = data
             self.name = name
             self.width = width
             self.height = height
             self.locked = locked
-            self.history = history
+            self.last_updated = last_updated
 
     class image():
         font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
@@ -634,17 +644,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
             else:
                 raise Exception
 
-    async def history(self, board, colour, author, coords):
-        time = str(datetime.datetime.utcnow().timestamp()).replace('.', '_')
-        try:
-            board.history[time].append([coords, colour, author])
-        except KeyError:
-            # await asyncio.sleep(random.randint(1, 10) / 100)
-            # try:
-            #     board.history[time].append([coords, colour, author])
-            # except KeyError:
-            board.history[time] = [[coords, colour, author]]
+    async def update_history(self, board, colour, author, coords):
+        time = datetime.datetime.utcnow()
+        board_history = self.bot.dbs.history[board.name.lower()] # type: Collection
+        board_history.insert_one({'colour': colour, 'author': author, 'coords': coords,  'created': time})
+        board.last_updated = time
 
+       
 
     async def backup(self, boardname):
         n = 1
@@ -660,7 +666,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             print(f"Starting backup of {boardname}_{n}")
             async with aiohttp.ClientSession() as session:
                 with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
-                    data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'history']}
+                    data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'last_updated']}
                     try: data['data'].pop('_id')
                     except KeyError: pass
                     json.dump(data, f)
@@ -716,14 +722,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await ctx.send('Writing to db')
         print('Writing to db')
 
-        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
-        await dboard.bulk_write([
-            UpdateOne({'type': 'info'}, {'$set': {'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False}}}),
-            UpdateOne({'type': 'history'}, {'$set': {'history': newboard.history}}),
+        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower()) # type: Collection
+        dboard.bulk_write([
+            UpdateOne({'type': 'info'}, {'$set': {'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False, 'last_updated': newboard.last_updated}}}),
         ])
 
         print('Info done')
         await ctx.send('Info done')
+
+        board_history = self.bot.dbs.history[newboard.name.lower()] # type: Collection
+        board_history.delete_many({'created': {'$gt': newboard.last_updated}})
+
+        print('History done')
+        await ctx.send('History done')
 
         await self.bot.dbs.boards[board.name.lower()].bulk_write([UpdateOne({'row': y+1}, {'$set': {str(y+1): newboard.data[str(y+1)]}}) for y in range(newboard.height)])
 
@@ -795,16 +806,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     newboard.data[str(yn)][str(xn)] = colour
 
                 # newboard.history[datetime.datetime.utcnow().timestamp()] = [colour, "Automatic"]
-                await self.history(newboard, colour, "Automatic", (xn, yn))
+                async with self.bot.dblock:
+                    await self.update_history(newboard, colour, "Automatic", (xn, yn))
 
         await ctx.send("Created board, saving to database")
 
         await self.bot.dbs.boards.create_collection(newboard.name.lower())
         dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
         await dboard.insert_many([
-            {'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False}},
-            {'type': 'history', 'history': newboard.history},
+            {'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False, 'last_updated': newboard.last_updated}},
         ])
+
+        self.bot.dbs.history[newboard.name.lower()] # type: Collection
 
         limit = 200000
         n = newboard.width * newboard.height
@@ -874,7 +887,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
                 return False
 
-        return self.bot.boards[self.bot.uboards[ctx.author.id]]
+        return self.bot.boards[self.bot.uboards[ctx.author.id]] # type: CanvasCog.board
 
     @commands.command(name="toggleskip", aliases=["ts"])
     @inteam()
@@ -1146,7 +1159,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
-        board = await self.findboard(ctx)
+        board = await self.findboard(ctx) 
         if not board: return
 
         if board.locked == True:
@@ -1382,7 +1395,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             #     # }]
             # }
             board.data[str(y)][str(x)] = colour
-            await self.history(board, colour, ctx.author.id, (x, y))
+            async with self.bot.dblock:
+                await self.update_history(board, colour, ctx.author.id, (x, y))
             embed.set_author(name="Pixel successfully set.")
             success = True
 
@@ -1417,8 +1431,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
 
         async with self.bot.dblock:
-            await self.bot.dbs.boards[board.name.lower()].update_one({'row': y}, {'$set': {str(y): board.data[str(y)]}})
-            await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
+            await self.bot.dbs.boards[board.name.lower()].bulk_write(
+                UpdateOne({'row': y}, {'$set': {str(y): board.data[str(y)]}}),
+                UpdateOne({'type': 'info'}, {'$set': {'info.last_updated', board.last_updated}})
+                )
 
     @commands.command()
     @executive()
@@ -1459,15 +1475,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
             for n, pixel in enumerate(i):
                 if pixel == empty: continue
                 board.data[str(y + row)][str(x + n)] = pixel
-
-                await self.history(board, pixel, ctx.author.id, (x + n, y + n))
+                async with self.bot.dblock:
+                    await self.update_history(board, pixel, ctx.author.id, (x + n, y + n))
 
         await ctx.send(f"{ctx.author.mention}, pasted!")
 
         async with self.bot.dblock:
             for row, i in enumerate(array):
                 await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
-            await self.bot.dbs.boards[board.name.lower()].update_one({'type': 'history'}, {'$set': {'history': board.history}})
 
 
     def pastefrombytes(self, imgbytes):
