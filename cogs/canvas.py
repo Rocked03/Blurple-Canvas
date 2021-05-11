@@ -748,33 +748,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @admin()
     async def forcebackup(self, ctx, boardname):
         await self.dobackup(boardname, 0)
-        await ctx.send("Done")
-
-    @commands.command()
-    @executive()
-    async def convert_old_history(self, ctx, boardname):
-        if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.send(
-                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
-            )
-        board = self.bot.pymongoog.boards[boardname]
-        history = board.find_one({"type": "history"})
-        additions = []
-        index = 0
-        
-        for timestamp in history['history']:
-            print(index)
-            created = datetime.datetime.fromtimestamp(float(timestamp.replace('_','.')))
-            additions += [{'colour': h[1], 'author': h[2], 'coords': (h[0][0], h[0][1]),  'created': created} for h in history['history'][timestamp]]
-            index += 1
-        
-        history_table = self.bot.dbs.history[boardname] # type: Collection
-        history_table.bulk_write([InsertOne(addition) for addition in additions])
-
-        await ctx.send(f"{len(additions)} items converted.")
-        
+        await ctx.send("Done")        
             
-
         
 
 
