@@ -761,10 +761,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         history = board.find_one({"type": "history"})
         additions = []
         index = 0
-        async for timestamp, items in history['history'].items():
+        async for timestamp in history['history']:
             print(index)
             created = datetime.datetime.fromtimestamp(float(timestamp.replace('_','.')))
-            additions += [{'colour': h[1], 'author': h[2], 'coords': (h[0][0], h[0][1]),  'created': created} for h in items]
+            additions += [{'colour': h[1], 'author': h[2], 'coords': (h[0][0], h[0][1]),  'created': created} for h in history['history'][timestamp]]
             index += 1
         
         history_table = self.bot.dbs.history[boardname] # type: Collection
