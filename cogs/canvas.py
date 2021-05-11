@@ -147,7 +147,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         
 
-        some_stuff = await self.bot.loop.run_in_executor(None, self.loadboards, self)
+        some_stuff = await self.bot.loop.run_in_executor(None, self.loadboards)
 
         for b in self.bot.boards.keys():
             self.bot.loop.create_task(self.backup(b))
