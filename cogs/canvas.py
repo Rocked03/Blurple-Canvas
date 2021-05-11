@@ -133,7 +133,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 data = [x for x in boarddata if x['type'] == 'data']
                 print(f"Saving data...")
                 d = {k: v for d in data for k, v in d.items()}
-                self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, last_updated = info['last_updated'])
+                self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, last_updated = info['last_updated'] if 'last_updated' in info else datetime.datetime.utcnow() )
 
                 print(f"Loaded '{name}'")
 
