@@ -1,6 +1,7 @@
 import aiohttp, asyncio, colorsys, copy, datetime, discord, io, json, math, motor.motor_asyncio, numpy, PIL, pymongo, random, sys, textwrap, time, traceback, typing
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
+from bson import json_util
 from PIL import Image, ImageDraw, ImageFont
 from pymongo import UpdateOne
 from pymongo.collection import Collection
@@ -669,7 +670,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'last_updated']}
                     try: data['data'].pop('_id')
                     except KeyError: pass
-                    json.dump(data, f)
+                    json.dump(data, f, default=json_util.default)
 
             print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
         except Exception as e: print(e)
@@ -679,7 +680,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def loadbackup(self, ctx, n:int, boardname):
         async with aiohttp.ClientSession() as session:
             with open(f'backups/backup_{boardname}_{n}.json', 'rt') as f:
-                data = json.load(f)
+                data = json.load(f, object_hook=json_util.object_hook)
             board = self.board(**data)
 
         async with aiohttp.ClientSession() as session:
@@ -777,7 +778,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             message += f"\n{i+1}. {user_str} placed {r['colour']} at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
 
         await ctx.send(message)
-        
+
     @commands.command()
     @mod()
     async def show_user_history(self, ctx: commands.Context, boardname: str, user):
