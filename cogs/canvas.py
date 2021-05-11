@@ -757,11 +757,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return await ctx.send(
                 f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
-        board = self.bot.dbs.boards[boardname]
+        board = self.bot.pymongoog.boards[boardname]
         history = board.find_one({"type": "history"})
         additions = []
         index = 0
-        async for timestamp in history['history']:
+        
+        for timestamp in history['history']:
             print(index)
             created = datetime.datetime.fromtimestamp(float(timestamp.replace('_','.')))
             additions += [{'colour': h[1], 'author': h[2], 'coords': (h[0][0], h[0][1]),  'created': created} for h in history['history'][timestamp]]
