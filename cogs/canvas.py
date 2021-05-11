@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from bson import json_util
 from PIL import Image, ImageDraw, ImageFont
-from pymongo import UpdateOne
+from pymongo import UpdateOne, InsertOne
 from pymongo.collection import Collection
 from pymongo.database import Database
 # pillow, motor, pymongo, discord.py, numpy
@@ -749,6 +749,30 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def forcebackup(self, ctx, boardname):
         await self.dobackup(boardname, 0)
         await ctx.send("Done")
+
+    @commands.command()
+    @admin()
+    async def convert_old_history(self, ctx, boardname):
+        if boardname.lower() not in self.bot.boards.keys():
+            return await ctx.send(
+                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            )
+        board = self.bot.dbs.boards[boardname]
+        history = board.find_one({"type": "history"})
+        additions = []
+        for timestamp, items in history['history'].items():
+            created = datetime.datetime.fromtimestamp(float(timestamp.replace('_','.')))
+            additions += [{'colour': h[1], 'author': h[2], 'coords': (h[0][0], h[0][1]),  'created': created} for h in items]
+        
+        history_table = self.bot.dbs.history[boardname] # type: Collection
+        history_table.bulk_write([InsertOne(addition) for addition in additions])
+
+        await ctx.send(f"{len(additions)} items converted.")
+        
+            
+
+        
+
 
     @commands.command()
     @mod()
