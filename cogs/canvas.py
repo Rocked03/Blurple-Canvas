@@ -751,7 +751,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await ctx.send("Done")
 
     @commands.command()
-    @admin()
+    @executive()
     async def convert_old_history(self, ctx, boardname):
         if boardname.lower() not in self.bot.boards.keys():
             return await ctx.send(
@@ -760,9 +760,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = self.bot.dbs.boards[boardname]
         history = board.find_one({"type": "history"})
         additions = []
+        index = 0
         for timestamp, items in history['history'].items():
+            print(index)
             created = datetime.datetime.fromtimestamp(float(timestamp.replace('_','.')))
             additions += [{'colour': h[1], 'author': h[2], 'coords': (h[0][0], h[0][1]),  'created': created} for h in items]
+            index += 1
         
         history_table = self.bot.dbs.history[boardname] # type: Collection
         history_table.bulk_write([InsertOne(addition) for addition in additions])
