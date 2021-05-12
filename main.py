@@ -5,12 +5,20 @@ import logging
 
 # logging.basicConfig(level=logging.INFO)
 
+class CanvasBot(commands.Bot):
+    async def is_owner(self, user: discord.User):
+        if user.id in self.allowedusers:  # Implement your own conditions here
+            return True
+
+        # Else fall back to the original
+        return await super().is_owner(user)
+
 intents = discord.Intents.default()
 intents.members = True
 
 description = "Blurple Canvas for Project Blurple" # fix
 async def get_pre(bot, message): return BOT_PREFIX
-bot = commands.Bot(command_prefix=get_pre, description=description, intents=intents, chunk_guilds_at_startup=False)
+bot = CanvasBot(command_prefix=get_pre, description=description, intents=intents, chunk_guilds_at_startup=False)
 
 bot.allowedusers = {204778476102877187, 226595531844091904, 248245568004947969}
 
@@ -48,8 +56,8 @@ def mod():
 initial_extensions = [
     'cogs.canvas',
     'cogs.colours',
+    'jishaku'
 ]
-
 if __name__ == '__main__':
     for extension in initial_extensions:
         bot.load_extension(extension)
