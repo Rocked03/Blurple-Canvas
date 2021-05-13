@@ -88,7 +88,7 @@ class ColoursCog(commands.Cog, name="Colours"):
 
         c = {}
         for i in mydict.find():
-            c[str(i['guild'])] = {
+            c[str(i['name'])] = {
                 "name": i['name'],
                 "tag": str(i['tag']),
                 "emoji": i['emoji'],

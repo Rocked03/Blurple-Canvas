@@ -538,7 +538,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     
     async def cog_check(self, ctx):
-        return ctx.guild.id in [self.bot.blurpleguild.id] + [int(i) for i in self.bot.partners.keys()]
+        return ctx.guild.id in [self.bot.blurpleguild.id] + [int(i['guild']) for i in self.bot.partners.values()]
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
@@ -1400,8 +1400,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await msg.edit(embed=embed)
 
             colours = []
-            if str(ctx.guild.id) in self.bot.partners.keys():
-                colours.append(self.bot.partners[str(ctx.guild.id)]['emoji'])
+            for i in self.bot.partners.values():
+                if ctx.guild.id == i['guild']:
+                    colours.append(i['emoji'])
             dcolours = [
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
@@ -1441,8 +1442,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if colour:
             colours = []
-            if str(ctx.guild.id) in self.bot.partners.keys():
-                colours.append(self.bot.partners[str(ctx.guild.id)]['tag'])
+            for i in self.bot.partners.values():
+                if ctx.guild.id == i['guild']:
+                    colours.append(i['tag'])
             colours += [
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit']
