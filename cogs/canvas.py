@@ -1401,7 +1401,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             colours = []
             for i in self.bot.partners.values():
-                if ctx.guild.id == i['guild']:
+                if ctx.guild.id == int(i['guild']):
                     colours.append(i['emoji'])
             dcolours = [
                 name for name, emoji in self.bot.colours.items()
@@ -1443,7 +1443,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if colour:
             colours = []
             for i in self.bot.partners.values():
-                if ctx.guild.id == i['guild']:
+                if ctx.guild.id == int(i['guild']):
                     colours.append(i['tag'])
             colours += [
                 name for name, emoji in self.bot.colours.items()
