@@ -1584,6 +1584,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         colours = {**{v['rgb'][:3]: v['tag'] for v in self.bot.partners.values()}, **{v['rgb'][:3]: v['tag'] for v in self.bot.coloursdict.values() if v['tag'] not in ['edit', 'blank']}}
 
         empty = '----'
+        blank = 'blnk'
+        blankcode = (1, 1, 1)
 
         array = []
         for row, i in enumerate(pixel_values):
@@ -1595,6 +1597,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                         continue
                 
                 p = tuple(pixel[:3])
+
+                if p == blankcode:
+                    array[row].append(blank)
+                    continue
+
                 if p not in colours.keys(): return f"invalid pixel at ({n+1}, {row+1})"
                 
                 array[row].append(colours[p])
