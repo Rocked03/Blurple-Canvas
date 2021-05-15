@@ -752,6 +752,24 @@ class CanvasCog(commands.Cog, name="Canvas"):
             
         
 
+    @commands.command(aliases=['unlockboard'])
+    @admin()
+    async def lockboard(self, ctx, boardname: str):
+        if boardname.lower() not in self.bot.boards.keys():
+            return await ctx.send(
+                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            )
+        board = self.bot.boards[boardname.lower()]
+
+        current = board.locked
+
+        await self.bot.dbs.board[board.name.lower()].update_one({'type': 'info'}, {'$set': {'info.locked': not current}})
+
+        board.locked = not current
+
+        await ctx.send(f"Set **{board.name}** locked state to `{not current}`")
+
+
 
     @commands.command()
     @mod()
@@ -763,7 +781,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
         board = self.bot.boards[boardname.lower()]
         if x < 1 or x > board.width or y < 1 or y > board.height:
-            self.bot.cd.add(ctx.author.id)
             return await ctx.send(
                 f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
@@ -1224,7 +1241,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @inteam()
     @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
-        """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 5 minutes per tile placed."""
+        """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 30 seconds per tile placed."""
         board = await self.findboard(ctx) 
         if not board: return
 
