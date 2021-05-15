@@ -771,7 +771,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 
 
-    @commands.command()
+    @commands.command(aliases=['showpixelhistory', 'sph'])
     @mod()
     async def show_pixel_history(self, ctx: commands.Context, boardname: str, x: int, y: int):
         
@@ -803,7 +803,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await ctx.send(message)
 
-    @commands.command()
+    @commands.command(aliases=['showuserhistory', 'suh'])
     @mod()
     async def show_user_history(self, ctx: commands.Context, boardname: str, user):
         
