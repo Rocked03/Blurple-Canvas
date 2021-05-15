@@ -1584,7 +1584,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         colours = {**{v['rgb'][:3]: v['tag'] for v in self.bot.partners.values()}, **{v['rgb'][:3]: v['tag'] for v in self.bot.coloursdict.values() if v['tag'] not in ['edit', 'blank']}}
 
         empty = '----'
-        blank = 'blnk'
+        blank = 'blank'
         blankcode = (1, 1, 1)
 
         array = []
