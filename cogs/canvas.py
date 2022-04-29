@@ -8,6 +8,8 @@ from pymongo.collection import Collection
 from pymongo.database import Database
 # pillow, motor, pymongo, discord.py, numpy
 
+from skippersist import SkipPersist
+
 
 def dev():
     async def pred(ctx):
@@ -93,7 +95,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.artistrole = 799240276542619649
 
-        self.bot.skipconfirm = []
+        self.skippersist = SkipPersist()
+        self.bot.loop.create_task(self.skippersist.c('setup'))
+        self.bot.loop.create_task(self.getskips())
         
         self.bot.uboards = {}
 
@@ -176,6 +180,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def fetchserver(self):
         await asyncio.sleep(60)
         self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
+
+    async def getskips(self):
+        self.bot.skipconfirm = await self.skippersist.c('get_all')
 
     class board():
         def __init__(self, *, name, width, height, locked, data = dict(), last_updated = datetime.datetime.utcnow()):
@@ -991,6 +998,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @inteam()
     async def toggleskip(self, ctx):
         """Toggles p/place coordinate confirmation"""
+        await self.skippersist.c('toggle', ctx.author.id)
+        print(self.bot.skipconfirm)
         if ctx.author.id in self.bot.skipconfirm:
             self.bot.skipconfirm.remove(ctx.author.id)
             await ctx.send(f'Re-enabled confirmation message for {ctx.author.mention}')
