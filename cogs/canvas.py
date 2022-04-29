@@ -47,7 +47,6 @@ def admin():
 
 # todo
 # a la blob emoji, cooldown expiry ping
-# persistent ts, board
 # reload bot without breaking stuff
 # lock board command
 # individual colour info graphic things
@@ -576,8 +575,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if isinstance(error, commands.CheckFailure):
             # print(error)
-            # await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
-            await ctx.send(f"{ctx.author.mention}, It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
+            # await ctx.reply(f"It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
+            await ctx.reply(f"It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
             return
 
         if isinstance(error, commands.CommandOnCooldown):
@@ -599,18 +598,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     return
 
             if minutes:
-                await ctx.send(
-                    f"{ctx.author.mention}, this command is on cooldown ({minutes}m, {seconds}s)"
+                await ctx.reply(
+                    f"This command is on cooldown ({minutes}m, {seconds}s)"
                 )
             else:
-                await ctx.send(
-                    f"{ctx.author.mention}, this command is on cooldown ({seconds}s)"
+                await ctx.reply(
+                    f"This command is on cooldown ({seconds}s)"
                 )
             return
 
         if isinstance(error, discord.Forbidden):
-            await ctx.send(
-                f"{ctx.author.mention}, I don't seem to have the right permissions to do that. Please check with the mods of this server that I have Embed Links // Send Images // Manage Message (for clearing reactions) perms!"
+            await ctx.reply(
+                f"I don't seem to have the right permissions to do that. Please check with the mods of this server that I have Embed Links // Send Images // Manage Message (for clearing reactions) perms!"
             )
 
         traceback.print_exception(
@@ -728,9 +727,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                await ctx.send(embed=embed, file=image)
+                await ctx.reply(embed=embed, file=image)
 
-        await ctx.send("Is this what you're looking for?")
+        await ctx.reply("Is this what you're looking for?")
 
         def check(message):
             return ctx.author == message.author and message.content.lower() in ['yes', 'no', 'y', 'n'] and message.channel == ctx.message.channel
@@ -738,9 +737,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         msg = await self.bot.wait_for('message', check=check)
         
         if msg.content in ['no', 'n']:
-            return await ctx.send("Ok, cancelled")
+            return await msg.reply("Ok, cancelled")
 
-        await ctx.send("Ok, pushing to db - please make sure the board exists so I can update it")
+        await msg.reply("Ok, pushing to db - please make sure the board exists so I can update it")
 
 
         t1 = time.time()
@@ -771,13 +770,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         t2 = time.time()
 
         print('Board saved')
-        await ctx.send(f"Board saved ({round((t2 - t1), 4)}s)")
+        await msg.reply(f"Board saved ({round((t2 - t1), 4)}s)")
 
     @commands.command()
     @admin()
     async def forcebackup(self, ctx, boardname):
         await self.dobackup(boardname, 0)
-        await ctx.send("Done")        
+        await ctx.reply("Done")        
             
         
 
@@ -785,8 +784,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @admin()
     async def lockboard(self, ctx, boardname: str):
         if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.send(
-                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            return await ctx.reply(
+                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
         board = self.bot.boards[boardname.lower()]
 
@@ -796,7 +795,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         board.locked = not current
 
-        await ctx.send(f"Set **{board.name}** locked state to `{not current}`")
+        await ctx.reply(f"Set **{board.name}** locked state to `{not current}`")
 
 
 
@@ -805,13 +804,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def show_pixel_history(self, ctx: commands.Context, boardname: str, x: int, y: int):
         
         if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.send(
-                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            return await ctx.reply(
+                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
         board = self.bot.boards[boardname.lower()]
         if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.send(
-                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            return await ctx.reply(
+                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
             
         history = self.bot.dbs.history[boardname.lower()] # type: Collection
@@ -830,22 +829,20 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if counter >= 10:
                 break
 
-        await ctx.send(message)
+        await ctx.reply(message)
 
     @commands.command(aliases=['showuserhistory', 'suh'])
     @mod()
     async def show_user_history(self, ctx: commands.Context, boardname: str, user):
         
         if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.send(
-                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            return await ctx.reply(
+                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
         try:
             user = self.bot.get_user(user) or await self.bot.fetch_user(user) 
         except Exception:
-            return await ctx.send(
-                f'{ctx.author.mention}, user is not found.'
-            )
+            return await ctx.reply(f'User is not found.')
         
         board = self.bot.boards[boardname.lower()]
 
@@ -860,19 +857,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if counter >= 10:
                 break
         
-        await ctx.send(message)
+        await ctx.reply(message)
         
 
     @commands.command(name="createboard", aliases=["cb"])
     @admin()
     async def createboard(self, ctx, x: int, y: int, seed: typing.Optional[boardspec] = None, *, name: str):
         """Creates a board. Optional seed parameter. Must specify width (x), height (y), and name."""
-        if not self.bot.initfinished: return await ctx.send('Please wait for the bot to finish retrieving boards from database.')
+        if not self.bot.initfinished: return await ctx.reply('Please wait for the bot to finish retrieving boards from database.')
 
         if any(i < 5 for i in [x, y]):
-            return await ctx.send("Please have a minimum of 5.")
+            return await ctx.reply("Please have a minimum of 5.")
 
-        await ctx.send("Creating board...")
+        await ctx.reply("Creating board...")
 
         fill = "blank"
 
@@ -881,7 +878,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         except Exception:
             pass
         else:
-            return await ctx.send("There's already a board with that name!")
+            return await ctx.reply("There's already a board with that name!")
 
         t1 = time.time()
 
@@ -921,7 +918,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 async with self.bot.dblock:
                     await self.update_history(newboard, colour, "Automatic", (xn, yn))
 
-        await ctx.send("Created board, saving to database")
+        await ctx.reply("Created board, saving to database")
 
         await self.bot.dbs.boards.create_collection(newboard.name.lower())
         dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
@@ -962,19 +959,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         t2 = time.time()
 
-        await ctx.send(f"Board created ({round((t2 - t1), 4)}s)")
+        await ctx.reply(f"Board created ({round((t2 - t1), 4)}s)")
 
     @commands.command()
     @inteam()
     async def boards(self, ctx):
         """Lists all available canvas boards"""
-        await ctx.send(f'Boards ({len(self.bot.boards)}) - ' + ' | '.join(self.bot.boards.keys()))
+        await ctx.reply(f'Boards ({len(self.bot.boards)}) - ' + ' | '.join(self.bot.boards.keys()))
 
     @commands.command()
     @inteam()
     async def join(self, ctx, *, name: str = None):
         """Joins a board. You need to have joined a board to start interacting with the canvas."""
-        if not name: return await ctx.send(f'{ctx.author.mention}, please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
+        if not name: return await ctx.reply(f'Please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
 
         if name.lower() not in self.bot.boards.keys():
             return await ctx.reply(
@@ -1007,12 +1004,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if self.bot.defaultcanvas.lower() in [i.lower() for i in self.bot.boards.keys()]:
                 self.bot.uboards[ctx.author.id] = self.bot.defaultcanvas.lower()
                 await self.boardpersist.c('update', ctx.author.id, self.bot.defaultcanvas.lower())
-                await ctx.send(f"{ctx.author.mention}, you weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
+                await ctx.reply(f"You weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
             else:
                 if ctx.author.id in self.bot.uboards.keys(): self.bot.uboards.pop(ctx.author.id)
                 await self.boardpersist.c('update', ctx.author.id, False)
-                await ctx.send(
-                    f"{ctx.author.mention}, You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
+                await ctx.reply(
+                    f"You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
                 )
                 return False
 
@@ -1025,10 +1022,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.skippersist.c('toggle', ctx.author.id)
         if ctx.author.id in self.bot.skipconfirm:
             self.bot.skipconfirm.remove(ctx.author.id)
-            await ctx.send(f'Re-enabled confirmation message for {ctx.author.mention}')
+            await ctx.reply(f'Re-enabled confirmation message for {ctx.author.mention}')
         else:
             self.bot.skipconfirm.append(ctx.author.id)
-            await ctx.send(f"Disabled confirmation message for {ctx.author.mention}")
+            await ctx.reply(f"Disabled confirmation message for {ctx.author.mention}")
 
     @commands.command(name="view", aliases=["see"])
     @commands.cooldown(1, 10, BucketType.user)
@@ -1038,17 +1035,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
-        # if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        # if not xyz: return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
 
         if xyz:
             x, y, zoom = xyz
 
             if board.data == None:
-                return await ctx.send('{ctx.author.mention}, there is currently no board created')
+                return await ctx.reply('There is currently no board created')
 
             if x < 1 or x > board.width or y < 1 or y > board.height:
-                return await ctx.send(
-                    f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+                return await ctx.reply(
+                    f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
                 )
 
             defaultzoom = 25
@@ -1059,7 +1056,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 if board.width > board.height: zoom = board.width
                 else: zoom = board.height
             if zoom < 5:
-                return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
+                return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
         else:
             x, y, zoom = (1, 1, board.width)
 
@@ -1078,7 +1075,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                await ctx.send(embed=embed, file=image)
+                await ctx.reply(embed=embed, file=image)
 
     @commands.command(name="viewnav", aliases=["seenav"])
     @commands.cooldown(1, 30, BucketType.user)
@@ -1088,16 +1085,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        if not xyz: return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
         if board.data == None:
-            return await ctx.send('{ctx.author.mention}, there is currently no board created')
+            return await ctx.reply('There is currently no board created')
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.send(
-                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            return await ctx.reply(
+                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
 
         loc, emoji, raw, zoom = self.screen(board, x, y, 7)
@@ -1126,7 +1123,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
             icon_url=self.bot.user.avatar_url)
         embed.set_author(name=board.name)
-        msg = await ctx.send(display, embed=embed)
+        msg = await ctx.reply(display, embed=embed)
 
         arrows = ["⬅", "⬆", "⬇", "➡"]
         for emote in arrows:
@@ -1199,13 +1196,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send('{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        if not xyz: return await ctx.reply('Please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.send(
-                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            return await ctx.reply(
+                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
 
         if zoom == None:
@@ -1215,7 +1212,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if board.width > board.height: zoom = board.width
             else: zoom = board.height
         if zoom < 5:
-            return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
+            return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
 
         async with aiohttp.ClientSession() as session:
             async with ctx.typing():
@@ -1232,7 +1229,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                msg = await ctx.send(embed=embed, file=image)
+                msg = await ctx.reply(embed=embed, file=image)
 
         arrows = ["⬅", "⬆", "⬇", "➡"]
         for emote in arrows:
@@ -1289,12 +1286,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 30 seconds per tile placed."""
+        cdexpiry = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+
         board = await self.findboard(ctx) 
         if not board: 
             return self.bot.cd.add(ctx.author.id)
 
         if board.locked == True:
-            return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
+            return await ctx.reply(f'This board is locked (view only)')
         
         if ctx.author in self.bot.cd: self.bot.cd.remove(ctx.author.id)
 
@@ -1304,19 +1303,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if not xyz: 
             self.bot.cd.add(ctx.author.id)
-            return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+            return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom, colour = xyz
 
         if board.data == None:
-            await ctx.send('{ctx.author.mention}, there is currently no board created')
+            await ctx.reply('There is currently no board created')
             self.bot.cd.add(ctx.author.id)
             return
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
             self.bot.cd.add(ctx.author.id)
-            await ctx.send(
-                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            await ctx.reply(
+                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
             return
 
@@ -1365,7 +1364,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
             icon_url=self.bot.user.avatar_url)
-        msg = await ctx.send(display, embed=embed)
+        msg = await ctx.reply(display, embed=embed)
 
         if ctx.author.id not in self.bot.skipconfirm:
             arrows = ["⬅", "⬆", "⬇", "➡", "blorpletick:436007034471710721", "blorplecross:436007034832551938"]
@@ -1516,7 +1515,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             ]
 
             if colour not in colours and self.bot.partnercolourlock:
-                return await ctx.send(f"{ctx.author.mention}, that colour is not available within this server!")
+                return await ctx.reply(f"That colour is not available within this server!")
 
             olddata = copy.copy(board.data[str(y)][str(x)])
 
@@ -1560,14 +1559,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
                 # t = ""
                 # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
-                # await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{t}!")
-                await ctx.send(f"{ctx.author.mention}, that was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
+                # await ctx.reply(f"That was your first pixel placed! For that, you have received the **Artist** role{t}!")
+                await ctx.reply(f"That was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
 
         async with self.bot.dblock:
             await self.bot.dbs.boards[board.name.lower()].bulk_write([
                 UpdateOne({'row': y}, {'$set': {str(y): board.data[str(y)]}}),
                 UpdateOne({'type': 'info'}, {'$set': {'info.last_updated': board.last_updated}})
             ])
+
+        timeleft = cdexpiry - datetime.datetime.utcnow()
+        if timeleft.days < 0: return
+        else: await asyncio.sleep(timeleft.seconds)
+        await ctx.reply("Your cooldown has expired! You can now place another pixel.")
 
     @commands.command()
     @executive()
@@ -1576,13 +1580,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if not board: return
 
         if board.locked == True:
-            return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
+            return await ctx.reply(f'This board is locked (view only)')
 
         empty = '----'
 
         if ctx.message.attachments:
             arraywh = await self.bot.loop.run_in_executor(None, self.pastefrombytes, io.BytesIO(await ctx.message.attachments[0].read()))
-            if isinstance(arraywh, str): return await ctx.send(f"{ctx.author.mention}, {arraywh}")
+            if isinstance(arraywh, str): return await ctx.reply(f"{arraywh}")
             else: array, width, height = arraywh
 
         elif source:
@@ -1599,10 +1603,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items() if name not in ['edit']] + [empty]
 
             if any([any([not v in colours for v in r]) for r in array]):
-                return await ctx.send(f"{ctx.author.mention}, the source paste that you linked does not appear to be valid.")
+                return await ctx.reply(f"The source paste that you linked does not appear to be valid.")
 
         if board.width - x + 1 < width or board.height - y + 1 < height:
-            return await ctx.send(f"{ctx.author.mention}, the paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
+            return await ctx.reply(f"The paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
 
         for row, i in enumerate(array):
             for n, pixel in enumerate(i):
@@ -1611,7 +1615,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 async with self.bot.dblock:
                     await self.update_history(board, pixel, ctx.author.id, (x + n, y + n))
 
-        await ctx.send(f"{ctx.author.mention}, pasted!")
+        await ctx.reply(f"Pasted!")
 
         async with self.bot.dblock:
             for row, i in enumerate(array):
@@ -1679,7 +1683,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                 icon_url=self.bot.user.avatar_url)
             embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
-            await ctx.send(embed=embed, file=image)
+            await ctx.reply(embed=embed, file=image)
 
         else:
             c = colours[palettes]
@@ -1701,7 +1705,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             else:
                 server = f"This is a default colour, it's available to use everywhere!"
             embed.add_field(name=f"Usability", value=server)
-            await ctx.send(embed=embed)
+            await ctx.reply(embed=embed)
 
 
     @commands.command(aliases = ['reloadcolors'])
@@ -1710,13 +1714,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.colourimg = {
             x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['main', 'partner']
         }
-        await ctx.send("Done")
+        await ctx.reply("Done")
 
     @commands.command(aliases=['tpcel'])
     @executive()
     async def togglepartnercolourexclusivitylock(self, ctx):
         self.bot.partnercolourlock = not self.bot.partnercolourlock
-        await ctx.send(f"Set the partner colour exclusivity lock to {self.bot.partnercolourlock}")
+        await ctx.reply(f"Set the partner colour exclusivity lock to {self.bot.partnercolourlock}")
 
     @commands.command()
     @dev()
@@ -1742,16 +1746,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
         board = await self.findboard(ctx)
         if not board: return
 
-        if not xyz: return await ctx.send(f'{ctx.author.mention}, please specify coordinates (e.g. `234 837` or `12 53`)')
+        if not xyz: return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
 
         x, y, zoom = xyz
 
         if board.data == None:
-            return await ctx.send('{ctx.author.mention}, there is currently no board created')
+            return await ctx.reply('There is currently no board created')
 
         if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.send(
-                f'{ctx.author.mention}, please send coordinates between (1, 1) and ({board.width}, {board.height})'
+            return await ctx.reply(
+                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
 
         defaultzoom = 25
@@ -1762,7 +1766,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if board.width > board.height: zoom = board.width
             else: zoom = board.height
         if zoom < 5:
-            return await ctx.send(f'{ctx.author.mention}, please have a minumum zoom of 5 tiles')
+            return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
 
         async with aiohttp.ClientSession() as session:
             async with ctx.typing():
@@ -1779,7 +1783,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar_url)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                await ctx.send(embed=embed, file=image)
+                await ctx.reply(embed=embed, file=image)
 
 def setup(bot):
     bot.add_cog(CanvasCog(bot))
