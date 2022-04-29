@@ -47,6 +47,8 @@ def admin():
 # persistent ts, board
 # reload bot without breaking stuff
 # lock board command
+# individual colour info graphic things
+# slash commands and buttons
 
 
 
@@ -75,6 +77,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         }
 
         self.bot.cd = set()
+
+        # self.blurplehex = 0x7289da
+        self.blurplehex = 0x5865F2
+        # self.blurplergb = (114, 137, 218)
+        self.blurplergb = (88, 101, 242)
+        # self.dblurplergb = (78, 93, 148)
+        self.dblurplergb = (69, 79, 191)
 
         # self.bot.teams = {
         #     "light": 573011450231259157,
@@ -178,10 +187,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
             self.last_updated = last_updated
 
     class image():
-        font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
+        # font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
+        font = lambda x: ImageFont.truetype("GintoNord-Black.otf", x)
         fontxy =  font(60)
-        fonttitle = font(18)
-        fontcoordinates = font(21)
+        # fonttitle = font(18)
+        fonttitle = font(16)
+        # fontcoordinates = font(21)
+        fontcoordinates = font(19)
         fontcolourtitle = font(120)
 
         def imager(self, aboard, x, y, zoom, highlight = True):
@@ -216,10 +228,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             for k, v in self.bot.coloursrgb.items():
                 colours[k] = v
 
-            board = Image.new('RGBA', size, (114, 137, 218, 255))
+            board = Image.new('RGBA', size, (*(self.blurplergb), 255))
             draw = ImageDraw.Draw(board)
             draw.rectangle([(borderwidth + 1, borderwidth + 1), size],
-                           fill=(78, 93, 148, 255))
+                           fill=(*(self.dblurplergb), 255))
 
             loc, emoji, raw, zoom = self.screen(aboard, x, y, zoom)
             locx, locy = loc
@@ -260,7 +272,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                       int(round(borderwidth - (pixelsizex / 3), 0) - 1)),
                      (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
                       int(round(borderwidth - (pixelsizex / 3), 0) - 1))),
-                    fill=(78, 93, 148, 255),
+                    fill=(*(self.dblurplergb), 255),
                     width=1)  # Highlight x
 
                 draw.rectangle([
@@ -277,7 +289,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                          (locy - 1)),
                      (int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
                      int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy))),
-                    fill=(78, 93, 148, 255),
+                    fill=(*(self.dblurplergb), 255),
                     width=1)  # Highlight y
 
                 tsx, tsy = self.image.fontxy.getsize(f"{x}  =  x")
@@ -349,8 +361,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 'partner': 6
             }[palettes]
 
-            namefont = self.image.font(int(round(squaresize / 6.5, 0)))
-            codefont = self.image.font(int(round(squaresize / 9, 0)))
+            # namefont = self.image.font(int(round(squaresize / 6.5, 0)))
+            # codefont = self.image.font(int(round(squaresize / 9, 0)))
+            namefont = self.image.font(int(round(squaresize / 8.5, 0)))
+            codefont = self.image.font(int(round(squaresize / 10.5, 0)))
 
             basecorners = 50
             squarecorners = 50
@@ -385,15 +399,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             width = 2 * borderwidth + squaren * squaresize
 
-            # img = Image.new('RGBA', (width, height), (114, 137, 218, 127))
-            img = self.image.round_rectangle(self, (width, height), basecorners, (114, 137, 218, 75), allcorners = True)
+            # img = Image.new('RGBA', (width, height), (*(self.blurplergb), 127))
+            img = self.image.round_rectangle(self, (width, height), basecorners, (*(self.blurplergb), 75), allcorners = True)
             draw = ImageDraw.Draw(img)
 
             space = 0
             for name, cs in allcolours.items():
                 bg = self.image.round_rectangle(self,
                         (squaren * squaresize, textspacing + squaresize * math.ceil(len(cs) / squaren)),
-                        squarecorners, (78, 93, 148, 255), allcorners = True
+                        squarecorners, (*(self.dblurplergb), 255), allcorners = True
                     )
                 img.paste(bg, (borderwidth, borderwidth + space), bg)
 
@@ -405,7 +419,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                       font=self.image.fontcolourtitle,
                       fill=(255, 255, 255, 255))
 
-                rows = [[] for i in range(math.ceil(len(i) / squaren))]
+                # rows = [[] for i in range(math.ceil(len(i) / squaren))]
+                rows = [[] for i in range(math.ceil(len(cs) / squaren))]
                 for n, (k, c) in enumerate(cs.items()):
                     rows[math.floor(n / squaren)].append(c)
                 if not rows[-1]: rows.pop(len(rows) - 1)
@@ -693,7 +708,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
                 embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
@@ -1025,7 +1040,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
                 embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
@@ -1073,7 +1088,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
 
         embed = discord.Embed(
-            colour=0x7289da, timestamp=datetime.datetime.utcnow())
+            colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
@@ -1179,7 +1194,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
@@ -1311,7 +1326,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         # display = "\n".join(["".join(i) for i in emoji])
         embed = discord.Embed(
-            colour=0x7289da, timestamp=datetime.datetime.utcnow())
+            colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
         embed.set_author(name = f"{board.name} | Use the arrow reactions to choose the location and to confirm or cancel.")
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
@@ -1626,7 +1641,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
             
             embed = discord.Embed(
-                title="Blurple Canvas Colour Palette", colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
             embed.set_footer(
                 text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                 icon_url=self.bot.user.avatar_url)
@@ -1660,7 +1675,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @admin()
     async def reloadcolours(self, ctx):
         self.bot.colourimg = {
-            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
+            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['main', 'partner']
         }
         await ctx.send("Done")
 
@@ -1725,7 +1740,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=0x7289da, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
                 embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
