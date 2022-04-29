@@ -9,6 +9,7 @@ from pymongo.database import Database
 # pillow, motor, pymongo, discord.py, numpy
 
 from skippersist import SkipPersist
+from boardpersist import BoardPersist
 
 
 def dev():
@@ -98,8 +99,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.skippersist = SkipPersist()
         self.bot.loop.create_task(self.skippersist.c('setup'))
         self.bot.loop.create_task(self.getskips())
-        
-        self.bot.uboards = {}
 
         self.bot.boards = dict()
 
@@ -115,6 +114,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
        
         self.bot.loop.create_task(self.getboards())
+
+
+        self.boardpersist = BoardPersist()
+        self.bot.loop.create_task(self.boardpersist.c('setup'))
+        self.bot.loop.create_task(self.getuboards())
 
         
         # self.bot.loop.create_task(reloadpymongo(self))
@@ -183,6 +187,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def getskips(self):
         self.bot.skipconfirm = await self.skippersist.c('get_all')
+
+    async def getuboards(self):
+        self.bot.uboards = await self.boardpersist.c('get_all_dict')
 
     class board():
         def __init__(self, *, name, width, height, locked, data = dict(), last_updated = datetime.datetime.utcnow()):
@@ -970,14 +977,28 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if not name: return await ctx.send(f'{ctx.author.mention}, please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
 
         if name.lower() not in self.bot.boards.keys():
-            return await ctx.send(
-                f'{ctx.author.mention}, that is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
+            return await ctx.reply(
+                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
 
         self.bot.uboards[ctx.author.id] = name.lower()
+        await self.boardpersist.c('update', ctx.author.id, name.lower())
 
         bname = self.bot.boards[name.lower()].name
-        await ctx.send(f"Joined '{bname}' board")
+        await ctx.reply(f"Joined '{bname}' board")
+
+    @commands.command()
+    @inteam()
+    async def leave(self, ctx):
+        """Leaves the board you've currently joined."""
+        if ctx.author.id not in self.bot.uboards.keys():
+            return await ctx.reply("You can't leave a board when you haven't joined one!")
+
+        bname = self.bot.uboards[ctx.author.id]
+        self.bot.uboards.pop(ctx.author.id)
+        await self.boardpersist.c('update', ctx.author.id, False)
+
+        await ctx.reply(f"Left '{bname}' board")
 
     async def findboard(self, ctx):
         try:
@@ -985,8 +1006,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         except KeyError:
             if self.bot.defaultcanvas.lower() in [i.lower() for i in self.bot.boards.keys()]:
                 self.bot.uboards[ctx.author.id] = self.bot.defaultcanvas.lower()
+                await self.boardpersist.c('update', ctx.author.id, self.bot.defaultcanvas.lower())
                 await ctx.send(f"{ctx.author.mention}, you weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
             else:
+                if ctx.author.id in self.bot.uboards.keys(): self.bot.uboards.pop(ctx.author.id)
+                await self.boardpersist.c('update', ctx.author.id, False)
                 await ctx.send(
                     f"{ctx.author.mention}, You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
                 )
@@ -999,7 +1023,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def toggleskip(self, ctx):
         """Toggles p/place coordinate confirmation"""
         await self.skippersist.c('toggle', ctx.author.id)
-        print(self.bot.skipconfirm)
         if ctx.author.id in self.bot.skipconfirm:
             self.bot.skipconfirm.remove(ctx.author.id)
             await ctx.send(f'Re-enabled confirmation message for {ctx.author.mention}')
@@ -1267,7 +1290,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def place(self, ctx, *, xyz: coordinates(True) = None):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 30 seconds per tile placed."""
         board = await self.findboard(ctx) 
-        if not board: return
+        if not board: 
+            return self.bot.cd.add(ctx.author.id)
 
         if board.locked == True:
             return await ctx.send(f'{ctx.author.mention}, this board is locked (view only)')
