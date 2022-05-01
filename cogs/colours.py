@@ -349,5 +349,5 @@ class ColoursCog(commands.Cog, name="Colours"):
         #     }
         # }
 
-def setup(bot):
-    bot.add_cog(ColoursCog(bot))
+async def setup(bot):
+    await bot.add_cog(ColoursCog(bot))

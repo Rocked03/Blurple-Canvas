@@ -46,9 +46,7 @@ def admin():
 
 
 # todo
-# a la blob emoji, cooldown expiry ping
 # reload bot without breaking stuff
-# lock board command
 # individual colour info graphic things
 # slash commands and buttons
 
@@ -721,11 +719,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
                 embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar_url)
+                    icon_url=self.bot.user.avatar)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 await ctx.reply(embed=embed, file=image)
 
@@ -1069,11 +1067,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
                 embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar_url)
+                    icon_url=self.bot.user.avatar)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 await ctx.reply(embed=embed, file=image)
 
@@ -1117,53 +1115,71 @@ class CanvasCog(commands.Cog, name="Canvas"):
             display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
 
         embed = discord.Embed(
-            colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
+            colour=self.blurplehex, timestamp=discord.utils.utcnow())
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=self.bot.user.avatar_url)
+            icon_url=self.bot.user.avatar)
         embed.set_author(name=board.name)
         msg = await ctx.reply(display, embed=embed)
 
-        arrows = ["⬅", "⬆", "⬇", "➡"]
-        for emote in arrows:
-            await msg.add_reaction(emote)
+        # arrows = ["⬅", "⬆", "⬇", "➡"]
+        # for emote in arrows:
+        #     await msg.add_reaction(emote)
 
-        def check(payload):
-            return payload.user_id == ctx.author.id and payload.message_id == msg.id and str(
-                payload.emoji) in arrows
+        # def check(payload):
+        #     return payload.user_id == ctx.author.id and payload.message_id == msg.id and str(
+        #         payload.emoji) in arrows
 
         while True:
-            done, pending = await asyncio.wait(
-                [
-                    self.bot.wait_for(
-                        'raw_reaction_add', timeout=30.0, check=check),
-                    self.bot.wait_for(
-                        'raw_reaction_remove', timeout=30.0, check=check)
-                ],
-                return_when=asyncio.FIRST_COMPLETED)
+            # done, pending = await asyncio.wait(
+            #     [
+            #         self.bot.wait_for(
+            #             'raw_reaction_add', timeout=30.0, check=check),
+            #         self.bot.wait_for(
+            #             'raw_reaction_remove', timeout=30.0, check=check)
+            #     ],
+            #     return_when=asyncio.FIRST_COMPLETED)
 
-            try:
-                stuff = done.pop().result()
-            except asyncio.TimeoutError:
-                await msg.clear_reactions()
-                for future in done:
-                    future.exception()
-                for future in pending:
-                    future.cancel()
+            # try:
+            #     stuff = done.pop().result()
+            # except asyncio.TimeoutError:
+            #     await msg.clear_reactions()
+            #     for future in done:
+            #         future.exception()
+            #     for future in pending:
+            #         future.cancel()
+            #     return
+            # for future in done:
+            #     future.exception()
+            # for future in pending:
+            #     future.cancel()
+
+            # payload = stuff
+
+            # emojiname = str(payload.emoji)
+            # if emojiname == "⬅" and x > 1: x -= 1
+            # elif emojiname == "➡" and x < board.width: x += 1
+            # elif emojiname == "⬇" and y < board.height: y += 1
+            # elif emojiname == "⬆" and y > 1: y -= 1
+
+            view = NavigateView()
+            [i for i in view.children if i.custom_id == "cancel"][0].disabled = True
+            await msg.edit(view=view)
+
+            timeout = await view.wait()
+
+            if timeout:
+                await msg.edit(view=None)
                 return
-            for future in done:
-                future.exception()
-            for future in pending:
-                future.cancel()
 
-            payload = stuff
+            if view.confirm == True:
+                break
 
-            emojiname = str(payload.emoji)
-            if emojiname == "⬅" and x > 1: x -= 1
-            elif emojiname == "➡" and x < board.width: x += 1
-            elif emojiname == "⬇" and y < board.height: y += 1
-            elif emojiname == "⬆" and y > 1: y -= 1
+            if view.value == "L" and x > 1: x -= 1
+            elif view.value == "R" and x < board.width: x += 1
+            elif view.value == "D" and y < board.height: y += 1
+            elif view.value == "U" and y > 1: y -= 1
 
             loc, emoji, raw, zoom = self.screen(board, x, y, 7)
 
@@ -1189,6 +1205,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             # embed.set_field_at(0, name = "Board", value = display)
             # await msg.edit(embed=embed)
             await msg.edit(content=display)
+
+        await msg.edit(view=None)
 
     @commands.command(hidden=True)
     @dev()
@@ -1223,11 +1241,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar_url)
+                    icon_url=self.bot.user.avatar)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 msg = await ctx.reply(embed=embed, file=image)
 
@@ -1358,73 +1376,100 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         # display = "\n".join(["".join(i) for i in emoji])
         embed = discord.Embed(
-            colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
-        embed.set_author(name = f"{board.name} | Use the arrow reactions to choose the location and to confirm or cancel.")
+            colour=self.blurplehex, timestamp=discord.utils.utcnow())
+        # embed.set_author(name = f"{board.name} | Use the arrow reactions to choose the location and to confirm or cancel.")
+        embed.set_author(name = f"{board.name} | Use the arrows to choose the location and to confirm or cancel.")
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=self.bot.user.avatar_url)
+            icon_url=self.bot.user.avatar)
         msg = await ctx.reply(display, embed=embed)
 
         if ctx.author.id not in self.bot.skipconfirm:
-            arrows = ["⬅", "⬆", "⬇", "➡", "blorpletick:436007034471710721", "blorplecross:436007034832551938"]
-            arrows2 = ["<:blorpletick:436007034471710721>", "<:blorplecross:436007034832551938>"]
-            for emote in arrows:
-                await msg.add_reaction(emote)
+            # arrows = ["⬅", "⬆", "⬇", "➡", "blorpletick:436007034471710721", "blorplecross:436007034832551938"]
+            # arrows2 = ["<:blorpletick:436007034471710721>", "<:blorplecross:436007034832551938>"]
+            # for emote in arrows:
+            #     await msg.add_reaction(emote)
 
-            def check(payload):
-                return payload.user_id == ctx.author.id and payload.message_id == msg.id and (str(
-                    payload.emoji) in arrows or str(payload.emoji) in arrows2)
+            # def check(payload):
+            #     return payload.user_id == ctx.author.id and payload.message_id == msg.id and (str(
+            #         payload.emoji) in arrows or str(payload.emoji) in arrows2)
 
 
             while True:
-                done, pending = await asyncio.wait(
-                    [
-                        self.bot.wait_for(
-                            'raw_reaction_add', timeout=30.0, check=check),
-                        self.bot.wait_for(
-                            'raw_reaction_remove', timeout=30.0, check=check)
-                    ],
-                    return_when=asyncio.FIRST_COMPLETED)
+                if False: # just so i can collapse old commented-out code lol
+                    pass
+                    # done, pending = await asyncio.wait(
+                    #     [
+                    #         self.bot.wait_for(
+                    #             'raw_reaction_add', timeout=30.0, check=check),
+                    #         self.bot.wait_for(
+                    #             'raw_reaction_remove', timeout=30.0, check=check)
+                    #     ],
+                    #     return_when=asyncio.FIRST_COMPLETED)
 
-                try:
-                    stuff = done.pop().result()
-                except asyncio.TimeoutError:
+                    # try:
+                    #     stuff = done.pop().result()
+                    # except asyncio.TimeoutError:
+                    #     embed.set_author(name="User timed out.")
+                    #     await msg.edit(embed=embed)
+                    #     try: await msg.clear_reactions()
+                    #     except discord.Forbidden: pass
+                    #     self.bot.cd.add(ctx.author.id)
+                    #     try:
+                    #         for future in done:
+                    #             future.exception()
+                    #         for future in pending:
+                    #             future.cancel()
+                    #     except asyncio.TimeoutError:
+                    #         pass
+                    #     return
+                    # for future in done:
+                    #     future.exception()
+                    # for future in pending:
+                    #     future.cancel()
+
+                    # payload = stuff
+
+                    # emojiname = str(payload.emoji)
+
+                    # if emojiname == "<:blorplecross:436007034832551938>":
+                    #     embed.set_author(name="Edit cancelled.")
+                    #     await msg.edit(embed=embed)
+                    #     await msg.clear_reactions()
+                    #     self.bot.cd.add(ctx.author.id)
+                    #     return
+                    # elif emojiname == "<:blorpletick:436007034471710721>":
+                    #     break
+
+                    # if emojiname == "⬅" and x > 1: x -= 1
+                    # elif emojiname == "➡" and x < board.width: x += 1
+                    # elif emojiname == "⬇" and y < board.height: y += 1
+                    # elif emojiname == "⬆" and y > 1: y -= 1
+
+                view = NavigateView()
+                await msg.edit(view=view)
+
+                timeout = await view.wait()
+
+                if timeout:
                     embed.set_author(name="User timed out.")
-                    await msg.edit(embed=embed)
-                    try: await msg.clear_reactions()
-                    except discord.Forbidden: pass
-                    self.bot.cd.add(ctx.author.id)
-                    try:
-                        for future in done:
-                            future.exception()
-                        for future in pending:
-                            future.cancel()
-                    except asyncio.TimeoutError:
-                        pass
-                    return
-                for future in done:
-                    future.exception()
-                for future in pending:
-                    future.cancel()
-
-                payload = stuff
-
-                emojiname = str(payload.emoji)
-
-                if emojiname == "<:blorplecross:436007034832551938>":
-                    embed.set_author(name="Edit cancelled.")
-                    await msg.edit(embed=embed)
-                    await msg.clear_reactions()
+                    await msg.edit(embed=embed, view=None)
                     self.bot.cd.add(ctx.author.id)
                     return
-                elif emojiname == "<:blorpletick:436007034471710721>":
+
+                if view.confirm == True:
                     break
+                elif view.confirm == False:
+                    embed.set_author(name="Edit cancelled.")
+                    await msg.edit(embed=embed, view=None)
+                    self.bot.cd.add(ctx.author.id)
+                    return
 
-                if emojiname == "⬅" and x > 1: x -= 1
-                elif emojiname == "➡" and x < board.width: x += 1
-                elif emojiname == "⬇" and y < board.height: y += 1
-                elif emojiname == "⬆" and y > 1: y -= 1
+                if view.value == "L" and x > 1: x -= 1
+                elif view.value == "R" and x < board.width: x += 1
+                elif view.value == "D" and y < board.height: y += 1
+                elif view.value == "U" and y > 1: y -= 1
 
                 loc, emoji, raw, zoom = self.screen(board, x, y)
 
@@ -1457,7 +1502,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 # await msg.edit(embed=embed)
                 await msg.edit(content=display)
 
-            await msg.clear_reactions()
+            # await msg.clear_reactions()
+            await msg.edit(view=None)
 
         if not colour:
             embed.set_author(name="Use the reactions to choose a colour.")
@@ -1568,10 +1614,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 UpdateOne({'type': 'info'}, {'$set': {'info.last_updated': board.last_updated}})
             ])
 
-        timeleft = cdexpiry - datetime.datetime.utcnow()
-        if timeleft.days < 0: return
-        else: await asyncio.sleep(timeleft.seconds)
-        await ctx.reply("Your cooldown has expired! You can now place another pixel.")
+        if success:
+            timeleft = cdexpiry - datetime.datetime.utcnow()
+            if timeleft.days < 0: return
+            else: await asyncio.sleep(timeleft.seconds)
+            await ctx.reply("Your cooldown has expired! You can now place another pixel.")
 
     @commands.command()
     @executive()
@@ -1678,10 +1725,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
             
             embed = discord.Embed(
-                title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
+                title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=discord.utils.utcnow())
             embed.set_footer(
                 text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                icon_url=self.bot.user.avatar_url)
+                icon_url=self.bot.user.avatar)
             embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
             await ctx.reply(embed=embed, file=image)
 
@@ -1693,7 +1740,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             embed = discord.Embed(title=c['name'], colour=hexint)
             embed.set_footer(
                 text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                icon_url=self.bot.user.avatar_url)
+                icon_url=self.bot.user.avatar)
             embed.add_field(name=f"RGB{c['rgb'][:-1]}", value=f"<:{c['emoji']}> - #{hexcode.upper()}", inline=False)
             if c['guild']:
                 if self.bot.partnercolourlock:
@@ -1777,13 +1824,58 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
 
                 embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=datetime.datetime.utcnow())
+                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
                 embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
                 embed.set_footer(
                     text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar_url)
+                    icon_url=self.bot.user.avatar)
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 await ctx.reply(embed=embed, file=image)
 
-def setup(bot):
-    bot.add_cog(CanvasCog(bot))
+class NavigateView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout = 30.0)
+        self.value = None
+        self.confirm = None
+
+    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=0, custom_id="confirm")
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirm = True
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(emoji="⬆️", style=discord.ButtonStyle.grey, row=0)
+    async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = "U"
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=0, custom_id="cancel")
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirm = False
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(emoji="⬅️", style=discord.ButtonStyle.grey, row=1)
+    async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = "L"
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(emoji="⬇️", style=discord.ButtonStyle.grey, row=1)
+    async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = "D"
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.grey, row=1)
+    async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = "R"
+        await interaction.response.defer()
+        self.stop()
+
+
+
+
+async def setup(bot):
+    await bot.add_cog(CanvasCog(bot))

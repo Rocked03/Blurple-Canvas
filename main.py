@@ -13,8 +13,20 @@ class CanvasBot(commands.Bot):
         # Else fall back to the original
         return await super().is_owner(user)
 
+    async def setup_hook(self):
+        initial_extensions = [
+            'cogs.canvas',
+            'cogs.colours',
+            'jishaku'
+        ]
+
+        for extension in initial_extensions:
+            await bot.load_extension(extension)
+
 intents = discord.Intents.default()
 intents.members = True
+intents.messages = True
+intents.message_content = True
 
 description = "Blurple Canvas for Project Blurple" # fix
 async def get_pre(bot, message): return BOT_PREFIX
@@ -51,16 +63,6 @@ def mod():
     async def pred(ctx): return any(elem in [v for k, v in bot.modroles.items()] for elem in [i.id for i in ctx.author.roles])
     return commands.check(pred)
 
-
-
-initial_extensions = [
-    'cogs.canvas',
-    'cogs.colours',
-    'jishaku'
-]
-if __name__ == '__main__':
-    for extension in initial_extensions:
-        bot.load_extension(extension)
 
 
 
@@ -124,7 +126,7 @@ async def shutdown(ctx):
         totaluptime = datetime.datetime.utcnow() - bot.uptime
         totaluptime = strfdelta(totaluptime, "{days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
         print(f'Shutting down... Total uptime: {totaluptime}')
-        await bot.logout()
+        await bot.close()
     except Exception: 
         # await ctx.send('Something went wrong.')
         pass
@@ -145,7 +147,7 @@ async def ping(ctx):
     embed.add_field(name='Bot latency', value=latency+"ms")
     embed.set_footer(
                     text=f"{str(ctx.author)} | {bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=bot.user.avatar_url)
+                    icon_url=bot.user.avatar)
     await ctx.send(embed=embed)
 
 
@@ -199,7 +201,7 @@ async def helpformatter(ctx, command):
         else: return ' '
 
     embed = discord.Embed(colour=discord.Colour.blurple(), description=command.help)
-    embed.set_footer(icon_url=bot.user.avatar_url)
+    embed.set_footer(icon_url=bot.user.avatar)
     try: 
         embed.set_author(name=f'Bot command - {command.qualified_name}')
         try:
@@ -265,7 +267,7 @@ async def cogs(ctx):
 async def loadcog(ctx, *, cog: str):
     """Loads cog. Remember to use dot path. e.g: cogs.owner"""
 
-    try: bot.load_extension(cog)
+    try: await bot.load_extension(cog)
     except Exception as e: return await ctx.send(f'**ERROR:** {type(e).__name__} - {e}')
     else: await ctx.send(f'Successfully loaded `{cog}`.')
     print('---')
@@ -277,7 +279,7 @@ async def loadcog(ctx, *, cog: str):
 async def unloadcog(ctx, *, cog: str):
     """Unloads cog. Remember to use dot path. e.g: cogs.owner"""
 
-    try: bot.unload_extension(cog)
+    try: await bot.unload_extension(cog)
     except Exception as e: return await ctx.send(f'**ERROR:** {type(e).__name__} - {e}')
     else: await ctx.send(f'Successfully unloaded `{cog}`.')
     print('---')
@@ -289,7 +291,7 @@ async def unloadcog(ctx, *, cog: str):
 async def reloadcog(ctx, *, cog: str):
     """Reloads cog. Remember to use dot path. e.g: cogs.owner"""
 
-    try: bot.reload_extension(cog)
+    try: await bot.reload_extension(cog)
     except Exception as e: return await ctx.send(f'**ERROR:** {type(e).__name__} - {e}')
     else: await ctx.send(f'Successfully reloaded `{cog}`.')
     bot.recentcog = cog
@@ -303,7 +305,7 @@ async def cogrecentreload(ctx):
     """Reloads most recent reloaded cog"""
     if not bot.recentcog: return await ctx.send("You haven't recently reloaded any cogs.")
 
-    try: bot.reload_extension(bot.recentcog)
+    try: await bot.reload_extension(bot.recentcog)
     except Exception as e: await ctx.send(f'**ERROR:** {type(e).__name__} - {e}')
     else: await ctx.send(f'Successfully reloaded `{bot.recentcog}`.')
     print('---')
