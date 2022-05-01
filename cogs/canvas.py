@@ -11,7 +11,7 @@ from pymongo.database import Database
 
 from skippersist import SkipPersist
 from boardpersist import BoardPersist
-from remindpersist import RemindPersist
+from reminderpersist import ReminderPersist
 
 
 def dev():
