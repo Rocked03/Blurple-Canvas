@@ -99,7 +99,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.loop.create_task(self.skippersist.c('setup'))
         self.bot.loop.create_task(self.getskips())
 
-        self.skippersist = ReminderPersist()
+        self.reminderpersist = ReminderPersist()
         self.bot.loop.create_task(self.reminderpersist.c('setup'))
         self.bot.loop.create_task(self.getreminders())
 
