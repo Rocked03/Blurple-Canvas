@@ -1,6 +1,7 @@
 from config import *
-import discord, datetime, re, asyncio
+import discord, datetime, re, asyncio, typing
 from discord.ext import commands
+from discord import app_commands
 import logging
 
 # logging.basicConfig(level=logging.INFO)
@@ -319,6 +320,31 @@ async def servers(ctx):
     await ctx.send('\n'.join([i.name for i in bot.guilds]))
 
 
+@bot.command()
+@commands.is_owner()
+async def sync(ctx, guilds: commands.Greedy[discord.Object], spec: typing.Optional[typing.Literal["~"]] = None) -> None:
+    if not guilds:
+        if spec == "~":
+            fmt = await bot.tree.sync(guild=ctx.guild)
+        else:
+            fmt = await bot.tree.sync()
+
+        await ctx.send(
+            f"Synced {len(fmt)} commands {'globally' if spec is None else 'to the current guild.'}"
+        )
+        return
+
+    assert guilds is not None
+    fmt = 0
+    for guild in guilds:
+        try:
+            await bot.tree.sync(guild=guild)
+        except discord.HTTPException:
+            pass
+        else:
+            fmt += 1
+
+    await ctx.send(f"Synced the tree to {fmt}/{len(guilds)} guilds.")
 
 
 try: bot.run(TOKEN)

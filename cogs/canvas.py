@@ -1,6 +1,7 @@
 import aiohttp, asyncio, colorsys, copy, datetime, discord, io, json, math, motor.motor_asyncio, numpy, PIL, pymongo, random, sys, textwrap, time, traceback, typing
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
+from discord import app_commands
 from bson import json_util
 from PIL import Image, ImageDraw, ImageFont
 from pymongo import UpdateOne, InsertOne
@@ -48,7 +49,7 @@ def admin():
 # todo
 # reload bot without breaking stuff
 # individual colour info graphic things
-# slash commands and buttons
+# slash commands
 
 
 
@@ -96,6 +97,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.skippersist = SkipPersist()
         self.bot.loop.create_task(self.skippersist.c('setup'))
         self.bot.loop.create_task(self.getskips())
+
+        self.skippersist = ReminderPersist()
+        self.bot.loop.create_task(self.reminderpersist.c('setup'))
+        self.bot.loop.create_task(self.getreminders())
 
         self.bot.boards = dict()
 
@@ -184,6 +189,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def getskips(self):
         self.bot.skipconfirm = await self.skippersist.c('get_all')
+
+    async def getreminders(self):
+        self.bot.cooldownreminder = await self.reminderpersist.c('get_all')
 
     async def getuboards(self):
         self.bot.uboards = await self.boardpersist.c('get_all_dict')
@@ -1025,6 +1033,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
             self.bot.skipconfirm.append(ctx.author.id)
             await ctx.reply(f"Disabled confirmation message for {ctx.author.mention}")
 
+    @commands.command(name="toggleremind", aliases=["tr"])
+    @inteam()
+    async def toggleremind(self, ctx):
+        """Toggles p/place cooldown reminder"""
+        await self.reminderpersist.c('toggle', ctx.author.id)
+        if ctx.author.id in self.bot.cooldownreminder:
+            self.bot.cooldownreminder.remove(ctx.author.id)
+            await ctx.reply(f'Disabled cooldown reminder for {ctx.author.mention}')
+        else:
+            self.bot.cooldownreminder.append(ctx.author.id)
+            await ctx.reply(f"Enabled cooldown reminder for {ctx.author.mention}")
+
+
     @commands.command(name="view", aliases=["see"])
     @commands.cooldown(1, 10, BucketType.user)
     @inteam()
@@ -1163,7 +1184,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             # elif emojiname == "⬇" and y < board.height: y += 1
             # elif emojiname == "⬆" and y > 1: y -= 1
 
-            view = NavigateView()
+            view = NavigateView(ctx.author.id)
             [i for i in view.children if i.custom_id == "cancel"][0].disabled = True
             await msg.edit(view=view)
 
@@ -1447,7 +1468,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     # elif emojiname == "⬇" and y < board.height: y += 1
                     # elif emojiname == "⬆" and y > 1: y -= 1
 
-                view = NavigateView()
+                view = NavigateView(ctx.author.id)
                 await msg.edit(view=view)
 
                 timeout = await view.wait()
@@ -1506,13 +1527,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await msg.edit(view=None)
 
         if not colour:
-            embed.set_author(name="Use the reactions to choose a colour.")
+            # embed.set_author(name="Use the reactions to choose a colour.")
+            embed.set_author(name="Use the dropdown to choose a colour.")
             await msg.edit(embed=embed)
 
             colours = []
+            # for i in self.bot.partners.values():
+            #     if ctx.guild.id == int(i['guild']):
+            #         colours.append(i['emoji'])
             for i in self.bot.partners.values():
                 if ctx.guild.id == int(i['guild']):
-                    colours.append(i['emoji'])
+                    colours.append(i)
             dcolours = [
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
@@ -1525,30 +1550,59 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     return d[i]
                 else: return random.randint(100, 200)
             dcolours.sort(key=sorter)
-            ecolours = [self.bot.colours[i] for i in dcolours]
+            # ecolours = [self.bot.colours[i] for i in dcolours]
+            ecolours = [[j for j in self.bot.coloursdict.values() if i == j['tag']][0] for i in dcolours]
             # print(ecolours)
             colours += ecolours
-            colours.append("blorplecross:436007034832551938")
-            for emoji in colours:
-                # print(emoji)
-                await msg.add_reaction(emoji)
+            # colours.append("blorplecross:436007034832551938")
+            # for emoji in colours:
+            #     # print(emoji)
+            #     await msg.add_reaction(emoji)
 
-            def check(reaction, user):
-                return user == ctx.author and reaction.message.id == msg.id and str(
-                    reaction.emoji).replace("<:", "").replace(">", "") in colours
+            # def check(reaction, user):
+            #     return user == ctx.author and reaction.message.id == msg.id and str(
+            #         reaction.emoji).replace("<:", "").replace(">", "") in colours
 
-            try:
-                reaction, user = await self.bot.wait_for(
-                    'reaction_add', timeout=30.0, check=check)
-            except asyncio.TimeoutError:
+            # try:
+            #     reaction, user = await self.bot.wait_for(
+            #         'reaction_add', timeout=30.0, check=check)
+            # except asyncio.TimeoutError:
+            #     embed.set_author(name="User timed out.")
+            #     self.bot.cd.add(ctx.author.id)
+            # else:
+            #     if str(reaction.emoji) == "<:blorplecross:436007034832551938>":
+            #         embed.set_author(name="Edit cancelled.")
+            #         self.bot.cd.add(ctx.author.id)
+            #     else:
+            #         colour = reaction.emoji.name.replace("pl_", "")
+
+            view = ColourView(ctx.author.id, colours)
+            await msg.edit(view=view)
+
+            timeout = await view.wait()
+
+            if timeout:
                 embed.set_author(name="User timed out.")
+                await msg.edit(embed=embed, view=None)
                 self.bot.cd.add(ctx.author.id)
-            else:
-                if str(reaction.emoji) == "<:blorplecross:436007034832551938>":
-                    embed.set_author(name="Edit cancelled.")
-                    self.bot.cd.add(ctx.author.id)
-                else:
-                    colour = reaction.emoji.name.replace("pl_", "")
+                return
+
+            if not view.confirm:
+                embed.set_author(name="Edit cancelled.")
+                await msg.edit(embed=embed, view=None)
+                self.bot.cd.add(ctx.author.id)
+                return
+
+            colour = view.value
+
+            if not colour:
+                embed.set_author(name="No colour selected! - Edit cancelled.")
+                await msg.edit(embed=embed, view=None)
+                self.bot.cd.add(ctx.author.id)
+                return
+
+            await msg.edit(view=None)
+
 
         if colour:
             colours = []
@@ -1614,7 +1668,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 UpdateOne({'type': 'info'}, {'$set': {'info.last_updated': board.last_updated}})
             ])
 
-        if success:
+        if success and ctx.author.id in self.bot.cooldownreminder:
             timeleft = cdexpiry - datetime.datetime.utcnow()
             if timeleft.days < 0: return
             else: await asyncio.sleep(timeleft.seconds)
@@ -1754,6 +1808,25 @@ class CanvasCog(commands.Cog, name="Canvas"):
             embed.add_field(name=f"Usability", value=server)
             await ctx.reply(embed=embed)
 
+    @app_commands.command(name="palette")
+    @app_commands.guilds(559341262302347314)
+    async def slash_palette(self, interaction: discord.Interaction, palette: str = "all") -> None:
+        """Show the available colour palette"""
+        palette = palette.lower()
+        if palette == "default": palette = "main"
+
+        image = discord.File(fp = copy.copy(self.bot.colourimg[palette]), filename = "Blurple_Canvas_Colour_Palette.png")
+        
+        embed = discord.Embed(
+            title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=discord.utils.utcnow())
+        embed.set_footer(text=f"{palette.capitalize()} colours", icon_url=self.bot.user.avatar)
+        embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
+        await interaction.response.send_message(embed=embed, file=image)
+
+    @slash_palette.autocomplete('palette')
+    async def slash_palette_autocomplete(self, interaction: discord.Interaction, current: str) -> typing.List[app_commands.Choice[str]]:
+        palettes = ["default", "partner", "all"]
+        return [app_commands.Choice(name=i, value=i) for i in palettes if current.lower() in i.lower()]
 
     @commands.command(aliases = ['reloadcolors'])
     @admin()
@@ -1833,10 +1906,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 await ctx.reply(embed=embed, file=image)
 
 class NavigateView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, userid : int):
         super().__init__(timeout = 30.0)
         self.value = None
         self.confirm = None
+        self.userid = userid
 
     @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=0, custom_id="confirm")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1874,7 +1948,50 @@ class NavigateView(discord.ui.View):
         await interaction.response.defer()
         self.stop()
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == self.userid
 
+class ColourSelect(discord.ui.Select):
+    def __init__(self, colours : list):
+        options = []
+
+        for i in colours:
+            options.append(discord.SelectOption(label=i['name'], value=i['tag'], emoji=i['emoji']))
+
+        super().__init__(placeholder="Select which colour to place...", min_values=1, max_values=1, options=options)
+
+        self.selected = None
+        self.row = 0
+
+    async def callback(self, interaction: discord.Interaction):
+        print('hi')
+        await interaction.response.defer()
+
+class ColourView(discord.ui.View):
+    def __init__(self, userid : int, colours : list):
+        super().__init__()
+
+        self.dropdown = ColourSelect(colours)
+        self.add_item(self.dropdown)
+
+        self.confirm = False
+        self.value = None
+        self.userid = userid
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == self.userid
+
+    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=1, custom_id="confirm")
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirm = True
+        self.value = self.dropdown.values[0]
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=1, custom_id="cancel")
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        self.stop()
 
 
 async def setup(bot):
