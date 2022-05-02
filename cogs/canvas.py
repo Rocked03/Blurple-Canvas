@@ -1988,7 +1988,6 @@ class ColourSelect(discord.ui.Select):
         self.row = 0
 
     async def callback(self, interaction: discord.Interaction):
-        print('hi')
         await interaction.response.defer()
 
 class ColourView(discord.ui.View):
