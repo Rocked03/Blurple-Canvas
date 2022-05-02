@@ -1992,7 +1992,7 @@ class ColourSelect(discord.ui.Select):
 
 class ColourView(discord.ui.View):
     def __init__(self, userid : int, colours : list):
-        super().__init__()
+        super().__init__(timeout = 30.0)
 
         self.dropdown = ColourSelect(colours)
         self.add_item(self.dropdown)
