@@ -1029,7 +1029,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.skippersist.c('toggle', ctx.author.id)
         if ctx.author.id in self.bot.skipconfirm:
             self.bot.skipconfirm.remove(ctx.author.id)
-            await ctx.reply(f'Re-enabled confirmation message for {ctx.author.mention}')
+            await ctx.reply(f"Re-enabled confirmation message for {ctx.author.mention}")
         else:
             self.bot.skipconfirm.append(ctx.author.id)
             await ctx.reply(f"Disabled confirmation message for {ctx.author.mention}")
@@ -1041,11 +1041,34 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.reminderpersist.c('toggle', ctx.author.id)
         if ctx.author.id in self.bot.cooldownreminder:
             self.bot.cooldownreminder.remove(ctx.author.id)
-            await ctx.reply(f'Disabled cooldown reminder for {ctx.author.mention}')
+            await ctx.reply(f"Disabled cooldown reminder for {ctx.author.mention}")
         else:
             self.bot.cooldownreminder.append(ctx.author.id)
             await ctx.reply(f"Enabled cooldown reminder for {ctx.author.mention}")
 
+    @app_commands.command(name="toggleskip")
+    @app_commands.guilds(559341262302347314)
+    async def slash_toggleskip(self, interaction: discord.Interaction) -> None:
+        """Toggles p/place coordinate confirmation"""
+        await self.skippersist.c('toggle', interaction.user.id)
+        if interaction.user.id in self.bot.skipconfirm:
+            self.bot.skipconfirm.remove(interaction.user.id)
+            await interaction.response.send_message(f"Re-enabled confirmation message.", ephemeral = True)
+        else:
+            self.bot.skipconfirm.append(interaction.user.id)
+            await interaction.response.send_message(f"Disabled confirmation message.", ephemeral = True)
+
+    @app_commands.command(name="togglereminder")
+    @app_commands.guilds(559341262302347314)
+    async def slash_togglereminder(self, interaction: discord.Interaction) -> None:
+        """Toggles p/place cooldown reminder"""
+        await self.reminderpersist.c('toggle', interaction.user.id)
+        if interaction.user.id in self.bot.cooldownreminder:
+            self.bot.cooldownreminder.remove(interaction.user.id)
+            await interaction.response.send_message(f"Disabled cooldown reminder.", ephemeral = True)
+        else:
+            self.bot.cooldownreminder.append(interaction.user.id)
+            await interaction.response.send_message(f"Enabled cooldown reminder.", ephemeral = True)
 
     @commands.command(name="view", aliases=["see"])
     @commands.cooldown(1, 10, BucketType.user)
@@ -1811,8 +1834,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @app_commands.command(name="palette")
     @app_commands.guilds(559341262302347314)
-    async def slash_palette(self, interaction: discord.Interaction, palette: str = "all") -> None:
-        """Show the available colour palette"""
+    async def slash_palette(self, interaction: discord.Interaction, palette: typing.Literal['default', 'partner', 'all'] = "all") -> None:
+        """Shows the available colour palette"""
         palette = palette.lower()
         if palette == "default": palette = "main"
 
@@ -1824,10 +1847,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
         await interaction.response.send_message(embed=embed, file=image)
 
-    @slash_palette.autocomplete('palette')
-    async def slash_palette_autocomplete(self, interaction: discord.Interaction, current: str) -> typing.List[app_commands.Choice[str]]:
-        palettes = ["default", "partner", "all"]
-        return [app_commands.Choice(name=i, value=i) for i in palettes if current.lower() in i.lower()]
+    # @slash_palette.autocomplete('palette')
+    # async def slash_palette_autocomplete(self, interaction: discord.Interaction, current: str) -> typing.List[app_commands.Choice[str]]:
+    #     palettes = ["default", "partner", "all"]
+    #     return [app_commands.Choice(name=i, value=i) for i in palettes if current.lower() in i.lower()]
 
     @commands.command(aliases = ['reloadcolors'])
     @admin()
