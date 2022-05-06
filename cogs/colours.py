@@ -149,7 +149,8 @@ class ColoursCog(commands.Cog, name="Colours"):
         await ctx.send(str(emoji), file=image)
 
     async def uploademoji(self, img, name):
-        guild = self.bot.get_guild(559341262302347314)
+        # guild = self.bot.get_guild(559341262302347314)
+        guild = self.bot.get_guild(972091742088232970)
 
         toupload = img.read()
 
