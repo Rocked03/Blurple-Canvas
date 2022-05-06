@@ -18,7 +18,7 @@ class CanvasBot(commands.Bot):
         initial_extensions = [
             'cogs.canvas',
             'cogs.colours',
-            'jishaku'
+            # 'jishaku'
         ]
 
         for extension in initial_extensions:
