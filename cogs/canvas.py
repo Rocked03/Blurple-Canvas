@@ -377,7 +377,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             textspacing = 200
             squaren = {
                 'all': 8,
-                'main': 4,
+                'main': 6,
                 'partner': 6
             }[palettes]
 
