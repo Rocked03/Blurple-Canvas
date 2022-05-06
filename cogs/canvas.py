@@ -1855,7 +1855,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @admin()
     async def reloadcolours(self, ctx):
         self.bot.colourimg = {
-            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['main', 'partner']
+            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['main', 'partner', 'all']
         }
         await ctx.reply("Done")
 
