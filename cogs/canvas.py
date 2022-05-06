@@ -1047,7 +1047,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await ctx.reply(f"Enabled cooldown reminder for {ctx.author.mention}")
 
     @app_commands.command(name="toggleskip")
-    @app_commands.guilds(559341262302347314)
     async def slash_toggleskip(self, interaction: discord.Interaction) -> None:
         """Toggles p/place coordinate confirmation"""
         await self.skippersist.c('toggle', interaction.user.id)
@@ -1059,7 +1058,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await interaction.response.send_message(f"Disabled confirmation message.", ephemeral = True)
 
     @app_commands.command(name="togglereminder")
-    @app_commands.guilds(559341262302347314)
     async def slash_togglereminder(self, interaction: discord.Interaction) -> None:
         """Toggles p/place cooldown reminder"""
         await self.reminderpersist.c('toggle', interaction.user.id)
@@ -1832,8 +1830,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             embed.add_field(name=f"Usability", value=server)
             await ctx.reply(embed=embed)
 
+    # @app_commands.guilds(559341262302347314)
+
     @app_commands.command(name="palette")
-    @app_commands.guilds(559341262302347314)
     async def slash_palette(self, interaction: discord.Interaction, palette: typing.Literal['default', 'partner', 'all'] = "all") -> None:
         """Shows the available colour palette"""
         palette = palette.lower()
