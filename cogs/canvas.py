@@ -1783,7 +1783,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         return array, width, height
 
-    @commands.command(aliases = ['colors', 'colour', 'color'])
+    @commands.command(aliases = ['colors', 'colour', 'color', 'palette'])
     async def colours(self, ctx, palettes = 'all'):
         """Shows the full colour palette available. Type 'main' or 'partner' after the command to see a specific group of colours."""
         palettes = palettes.lower()
