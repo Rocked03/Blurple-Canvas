@@ -93,7 +93,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # }
         self.bot.teams = {"blurple user": 705295796773584976}
 
-        self.bot.artistrole = 799240276542619649
+        self.bot.artistrole = 971633030122840064
 
         self.skippersist = SkipPersist()
         self.bot.loop.create_task(self.skippersist.c('setup'))
