@@ -2006,7 +2006,7 @@ class ColourView(discord.ui.View):
     @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=1, custom_id="confirm")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.confirm = True
-        self.value = self.dropdown.values[0]
+        if self.dropdown.values: self.value = self.dropdown.values[0]
         await interaction.response.defer()
         self.stop()
 
