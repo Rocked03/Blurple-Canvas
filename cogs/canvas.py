@@ -105,7 +105,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         self.bot.boards = dict()
 
-        self.bot.partnercolourlock = False
+        self.bot.partnercolourlock = True
 
         self.bot.defaultcanvas = "Canvas"
         self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
