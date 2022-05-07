@@ -1637,7 +1637,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             ]
 
             if colour not in colours and self.bot.partnercolourlock:
-                return await ctx.reply(f"That colour is not available within this server!")
+                return await ctx.reply(f"That colour is not available within this server! To find out where you can use this colour, use `{ctx.prefix}colour {colour}`")
 
             olddata = copy.copy(board.data[str(y)][str(x)])
 
