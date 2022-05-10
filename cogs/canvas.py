@@ -1342,7 +1342,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     embed.set_image(url=f"attachment://board_{x}-{y}.png")
                     await msg.edit(embed=embed, file=image)
 
-    @commands.command()
+    @commands.command(name="place", aliases=["p"])
     @inteam()
     @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
     async def place(self, ctx, *, xyz: coordinates(True) = None):
