@@ -1564,7 +1564,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
             ]
-            l = ['brll', 'hpsq', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'brvy', 'bstp', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl'] # Order
+            l = ['dred', 'brll', 'hpsq', 'yllw', 'gren', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'lpbl', 'ldbp', 'brvy', 'bstp', 'fchs', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl'] # Order
             d = {n: i for n, i in zip(l, range(len(l)))}
             def sorter(i): 
                 # print(i, d[i])
@@ -1692,7 +1692,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if success and ctx.author.id in self.bot.cooldownreminder:
             timeleft = cdexpiry - datetime.datetime.utcnow()
-            if timeleft.days < 0: return
+            if timeleft.days < 0: return await ctx.reply("Your cooldown has already expired! You can now place another pixel.")
             else: await asyncio.sleep(timeleft.seconds)
             await ctx.reply("Your cooldown has expired! You can now place another pixel.")
 
