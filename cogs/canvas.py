@@ -1736,7 +1736,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 if pixel == empty: continue
                 board.data[str(y + row)][str(x + n)] = pixel
                 async with self.bot.dblock:
-                    await self.update_history(board, pixel, ctx.author.id, (x + n, y + n))
+                    await self.update_history(board, pixel, ctx.author.id, (x + n, y + row))
 
         await ctx.reply(f"Pasted!")
 
