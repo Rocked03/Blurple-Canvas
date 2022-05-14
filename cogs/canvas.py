@@ -228,7 +228,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 imagemax = 2000
             else:
                 pixelwidth = 1
-                imagemax = 2000
+                imagemax = 3000
             borderwidth = 100
 
             size = (int(imagemax - (
