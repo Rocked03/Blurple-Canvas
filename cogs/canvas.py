@@ -108,7 +108,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.partnercolourlock = True
 
         self.bot.defaultcanvas = "Canvas"
-        self.bot.ignoredcanvases = ['mini', 'main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
+        self.bot.ignoredcanvases = ['main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
 
         self.bot.dblock = asyncio.Lock()
 
