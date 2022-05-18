@@ -51,6 +51,8 @@ def admin():
 # reload bot without breaking stuff
 # individual colour info graphic things
 # slash commands
+# in-built leaderboard?
+# local server id in history?
 
 
 
