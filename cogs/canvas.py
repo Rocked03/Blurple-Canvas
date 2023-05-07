@@ -93,9 +93,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         #     "light": 573011450231259157,
         #     "dark": 573011441683005440,
         # }
-        self.bot.teams = {"blurple user": 705295796773584976}
+        self.bot.teams = {"blurple user": 1082567913103425626}
 
-        self.bot.artistrole = 971633030122840064
+        self.bot.artistrole = 1082567922779688980
 
         self.skippersist = SkipPersist()
         self.bot.loop.create_task(self.skippersist.c('setup'))
@@ -110,7 +110,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.partnercolourlock = True
 
         self.bot.defaultcanvas = "Canvas"
-        self.bot.ignoredcanvases = ['main2019', 'main2020', 'staff', 'example', 'big', 'canvasold']
+        self.bot.ignoredcanvases = ['main2019', 'main2020', 'staff', 'example', 'big', 'canvasold', 'canvas2022']
 
         self.bot.dblock = asyncio.Lock()
 
@@ -179,7 +179,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             while True:
                 await asyncio.sleep(300) # 5 minutes
                 self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
-                self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majorityssl_cert_reqs=CERT_NONE")
+                self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majority&ssl_cert_reqs=CERT_NONE")
 
     async def loadcolourimg(self):
         self.bot.colourimg = {
