@@ -585,7 +585,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
         ignored = (
-        commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
+            commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
@@ -1023,7 +1023,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await ctx.reply(f"Left '{bname}' board")
 
-    async def findboard(self, ctx):
+    async def findboard(self, ctx) -> board:
         try:
             self.bot.boards[self.bot.uboards[ctx.author.id]]
         except KeyError:
@@ -1431,39 +1431,20 @@ class CanvasCog(commands.Cog, name="Canvas"):
             cllist[k] = v
         cllist['empty'] = self.bot.empty.replace('<:', '').replace('>', '')
 
-        loc, emoji, raw, zoom = self.screen(board, x, y)
-        locx, locy = loc
-        remoji = emoji[locy - 1][locx - 1]
-        emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
+        header, display = self.screen_to_text(board, x, y, colour=colour, cllist=cllist)
 
-        display = f"**Blurple Canvas - ({x}, {y})**\n"
-
-        if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-        emoji[locy - 1].append(f" **{y}** (y)")
-        if locy < zoom: emoji[locy].append(" ⬇")
-
-        emoji[0].append(f" | {remoji} (Current pixel)")
-        if colour: emoji[-1].append(f" | <:{cllist[colour]}> (Selected colour)")
-
-        display += "\n".join(["".join(i) for i in emoji]) + "\n"
-
-        if locx - 2 < 0:
-            display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
-        elif locx > zoom - 1:
-            display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
-        else:
-            display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
-
-        # display = "\n".join(["".join(i) for i in emoji])
         embed = discord.Embed(
-            colour=self.blurplehex, timestamp=discord.utils.utcnow())
-        # embed.set_author(name = f"{board.name} | Use the arrow reactions to choose the location and to confirm or cancel.")
+            title=header, colour=self.blurplehex, timestamp=discord.utils.utcnow())
+
+        embed.description = display
+
         embed.set_author(name=f"{board.name} | Use the arrows to choose the location and to confirm or cancel.")
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
             icon_url=self.bot.user.avatar)
-        msg = await ctx.reply(display, embed=embed)
+        # msg = await ctx.reply(display, embed=embed)
+        msg = await ctx.reply(embed=embed)
 
         if ctx.author.id not in self.bot.skipconfirm:
             # arrows = ["⬅", "⬆", "⬇", "➡", "blorpletick:436007034471710721", "blorplecross:436007034832551938"]
@@ -1554,36 +1535,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 elif view.value == "U" and y > 1:
                     y -= 1
 
-                loc, emoji, raw, zoom = self.screen(board, x, y)
+                header, display = self.screen_to_text(board, x, y, colour=colour, cllist=cllist)
 
-                locx, locy = loc
-
-                remoji = emoji[locy - 1][locx - 1]
-                emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
-
-                display = f"**Blurple Canvas - ({x}, {y})**\n"
-
-                if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-                emoji[locy - 1].append(f" **{y}** (y)")
-                if locy < zoom: emoji[locy].append(" ⬇")
-
-                emoji[0].append(f" | {remoji} (Current pixel)")
-                if colour: emoji[-1].append(f" | <:{cllist[colour]}> (Selected colour)")
-
-                display += "\n".join(["".join(i) for i in emoji]) + "\n"
-
-                if locx - 2 < 0:
-                    display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
-                elif locx > zoom - 1:
-                    display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
-                else:
-                    display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
-
-                # display = "\n".join(["".join(i) for i in emoji])
-                # print(display)
-                # embed.set_field_at(0, name = "Board", value = display)
-                # await msg.edit(embed=embed)
-                await msg.edit(content=display)
+                embed.title = header
+                embed.description = display
+                # await msg.edit(content=display)
+                await msg.edit(embed=embed)
 
             # await msg.clear_reactions()
             await msg.edit(view=None)
@@ -1698,24 +1655,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             embed.set_author(name="Pixel successfully set.")
             success = True
 
-        loc, emoji, raw, zoom = self.screen(board, x, y)
+        header, display = self.screen_to_text(board, x, y, edit=False)
 
-        display = f"**Blurple Canvas - ({x}, {y})**\n"
-
-        if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-        emoji[locy - 1].append(f" **{y}** (y)")
-        if locy < zoom: emoji[locy].append(" ⬇")
-
-        display += "\n".join(["".join(i) for i in emoji]) + "\n"
-
-        if locx - 2 < 0:
-            display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
-        elif locx > zoom - 1:
-            display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
-        else:
-            display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
-
-        await msg.edit(content=display, embed=embed)
+        # await msg.edit(content=display, embed=embed)
+        embed.title = header
+        embed.description = display
+        await msg.edit(embed=embed)
         await msg.clear_reactions()
 
         if success:
@@ -1741,6 +1686,38 @@ class CanvasCog(commands.Cog, name="Canvas"):
             else:
                 await asyncio.sleep(timeleft.seconds)
             await ctx.reply("Your cooldown has expired! You can now place another pixel.")
+
+    def screen_to_text(self, board, x, y, *, zoom=11, edit=True, colour=None, cllist=None):
+        loc, emoji, raw, zoom = self.screen(board, x, y, zoom)
+
+        locx, locy = loc
+
+        remoji = emoji[locy - 1][locx - 1]
+        if edit:
+            emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
+
+        header = f"Blurple Canvas - ({x}, {y})"
+
+        if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
+        emoji[locy - 1].append(f" **{y}** (y)")
+        if locy < zoom: emoji[locy].append(" ⬇")
+
+        emoji[0].append(f" | {remoji}")
+        emoji[1].append(f" | Now")
+        if colour:
+            emoji[-2].append(f" | New")
+            emoji[-1].append(f" | <:{cllist[colour]}>")
+
+        display = "\n".join(["".join(i) for i in emoji]) + "\n"
+
+        if locx - 2 < 0:
+            display += (str(self.bot.empty) * (locx - 2)) + f" **{x}** (x) ➡"
+        elif locx > zoom - 1:
+            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}** (x)"
+        else:
+            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}** (x) ➡"
+
+        return header, display
 
     @commands.command()
     @executive()
