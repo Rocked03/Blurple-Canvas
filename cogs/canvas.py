@@ -1,4 +1,5 @@
-import aiohttp, asyncio, colorsys, copy, datetime, discord, io, json, math, motor.motor_asyncio, numpy, PIL, pymongo, random, sys, textwrap, time, traceback, typing
+import aiohttp, asyncio, colorsys, copy, datetime, discord, io, json, math, motor.motor_asyncio, numpy, PIL, pymongo, \
+    random, sys, textwrap, time, traceback, typing
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 from discord import app_commands
@@ -29,22 +30,31 @@ def inteam():
         # a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]) 
         # if not a: ctx.bot.cd.add(ctx.author.id)
         # return a
+
     return commands.check(pred)
 
 
 def mod():
-    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in
+                                    [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+
     return commands.check(pred)
 
+
 def executive():
-    async def pred(ctx): return any(i in [ctx.bot.modroles['Admin'], ctx.bot.modroles['Executive'], ctx.bot.modroles['Exec Assist']] for i in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+    async def pred(ctx): return any(
+        i in [ctx.bot.modroles['Admin'], ctx.bot.modroles['Executive'], ctx.bot.modroles['Exec Assist']] for i in
+        [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+
     return commands.check(pred)
+
 
 def admin():
     # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
-    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]
-    return commands.check(pred)
+    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in (
+        await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]
 
+    return commands.check(pred)
 
 
 # todo
@@ -55,29 +65,27 @@ def admin():
 # local server id in history?
 
 
-
-
-
 class dbs():
     def __init__(self, mongo_instance: motor.motor_asyncio.AsyncIOMotorClient):
-        self.users = mongo_instance.users # type: Database
-        self.boards = mongo_instance.boards # type: Database
-        self.history = mongo_instance.history # type: Database
+        self.users = mongo_instance.users  # type: Database
+        self.boards = mongo_instance.boards  # type: Database
+        self.history = mongo_instance.history  # type: Database
+
 
 class CanvasCog(commands.Cog, name="Canvas"):
     """Canvas Module"""
 
     def __init__(self, bot):
-        self.bot = bot 
+        self.bot = bot
 
         self.bot.initfinished = False
 
         self.bot.modroles = {
-            "Admin":       443013283977494539,
-            "Executive":   413213839866462220,
+            "Admin": 443013283977494539,
+            "Executive": 413213839866462220,
             "Exec Assist": 470272155876065280,
-            "Moderator":   569015549225598976,
-            "Helper":      442785212502507551,
+            "Moderator": 569015549225598976,
+            "Helper": 442785212502507551,
         }
 
         self.bot.cd = set()
@@ -110,65 +118,58 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.partnercolourlock = True
 
         self.bot.defaultcanvas = "Canvas"
-        self.bot.ignoredcanvases = ['main2019', 'main2020', 'staff', 'example', 'big', 'canvasold', 'canvas2022', 'mini']
+        self.bot.ignoredcanvases = ['main2019', 'main2020', 'staff', 'example', 'big', 'canvasold', 'canvas2022',
+                                    'mini']
 
         self.bot.dblock = asyncio.Lock()
 
-        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority") 
+        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient(
+            "mongodb://localhost:27017/?retryWrites=true&w=majority")
         self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
 
-       
         self.bot.loop.create_task(self.getboards())
-
 
         self.boardpersist = BoardPersist()
         self.bot.loop.create_task(self.boardpersist.c('setup'))
         self.bot.loop.create_task(self.getuboards())
 
-        
         # self.bot.loop.create_task(reloadpymongo(self))
 
-
-        
         self.bot.loop.create_task(self.loadcolourimg())
 
-
-       
         self.bot.loop.create_task(self.fetchserver())
 
-
-
         self.bot.initfinished = True
-    
+
     def loadboards(self):
-            colls = self.bot.pymongoog.boards.list_collection_names()
-            for name in colls:
-                if name in self.bot.ignoredcanvases: continue
-                print(f"Loading '{name}'...")
-                board = self.bot.pymongoog.boards[name]
-                # info = (board.find_one({'type': 'info'}))['info']
-                # history = (board.find_one({'type': 'history'}))['history']
-                # print(f"Loading data...")
-                # data = list(board.find({'type': 'data'}))
-                boarddata = list(board.find({'type': {'$ne': 'history'}}))
-                info = next(x for x in boarddata if x['type'] == 'info')['info']
-                print(info)
-                data = [x for x in boarddata if x['type'] == 'data']
-                print(f"Saving data...")
-                d = {k: v for d in data for k, v in d.items()}
-                self.bot.boards[info['name'].lower()] = self.board(name = info['name'], width = info['width'], height = info['height'], locked = info['locked'], data = d, last_updated = info['last_updated'] if 'last_updated' in info else datetime.datetime.utcnow() )
+        colls = self.bot.pymongoog.boards.list_collection_names()
+        for name in colls:
+            if name in self.bot.ignoredcanvases: continue
+            print(f"Loading '{name}'...")
+            board = self.bot.pymongoog.boards[name]
+            # info = (board.find_one({'type': 'info'}))['info']
+            # history = (board.find_one({'type': 'history'}))['history']
+            # print(f"Loading data...")
+            # data = list(board.find({'type': 'data'}))
+            boarddata = list(board.find({'type': {'$ne': 'history'}}))
+            info = next(x for x in boarddata if x['type'] == 'info')['info']
+            print(info)
+            data = [x for x in boarddata if x['type'] == 'data']
+            print(f"Saving data...")
+            d = {k: v for d in data for k, v in d.items()}
+            self.bot.boards[info['name'].lower()] = self.board(name=info['name'], width=info['width'],
+                                                               height=info['height'], locked=info['locked'], data=d,
+                                                               last_updated=info[
+                                                                   'last_updated'] if 'last_updated' in info else datetime.datetime.utcnow())
 
-                print(f"Loaded '{name}'")
+            print(f"Loaded '{name}'")
 
-            print('All boards loaded')
+        print('All boards loaded')
 
     async def getboards(self):
         print('Loading boards off DB')
 
-        
-        self.bot.dbs = dbs(self.bot.pymongo) 
-
-        
+        self.bot.dbs = dbs(self.bot.pymongo)
 
         some_stuff = await self.bot.loop.run_in_executor(None, self.loadboards)
 
@@ -176,16 +177,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
             self.bot.loop.create_task(self.backup(b))
 
     async def reloadpymongo(self):
-            while True:
-                await asyncio.sleep(300) # 5 minutes
-                self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
-                self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majority&ssl_cert_reqs=CERT_NONE")
+        while True:
+            await asyncio.sleep(300)  # 5 minutes
+            self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient(
+                "mongodb://localhost:27017/?retryWrites=true&w=majority")
+            self.bot.pymongoog = pymongo.MongoClient(
+                "mongodb://localhost:27017/?retryWrites=true&w=majority&ssl_cert_reqs=CERT_NONE")
 
     async def loadcolourimg(self):
         self.bot.colourimg = {
-            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['all', 'main', 'partner']
+            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in
+            ['all', 'main', 'partner']
         }
-    
+
     async def fetchserver(self):
         await asyncio.sleep(60)
         self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
@@ -200,7 +204,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.uboards = await self.boardpersist.c('get_all_dict')
 
     class board():
-        def __init__(self, *, name, width, height, locked, data = dict(), last_updated = datetime.datetime.utcnow()):
+        def __init__(self, *, name, width, height, locked, data=dict(), last_updated=datetime.datetime.utcnow()):
             self.data = data
             self.name = name
             self.width = width
@@ -211,14 +215,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
     class image():
         # font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
         font = lambda x: ImageFont.truetype("GintoNord-Black.otf", x)
-        fontxy =  font(60)
+        fontxy = font(60)
         # fonttitle = font(18)
         fonttitle = font(16)
         # fontcoordinates = font(21)
         fontcoordinates = font(19)
         fontcolourtitle = font(120)
 
-        def imager(self, aboard, x, y, zoom, highlight = True):
+        def imager(self, aboard, x, y, zoom, highlight=True):
             height = zoom
             width = zoom
 
@@ -234,7 +238,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             borderwidth = 100
 
             size = (int(imagemax - (
-                (imagemax - borderwidth - pixelwidth * (width + 1)) % width)),
+                    (imagemax - borderwidth - pixelwidth * (width + 1)) % width)),
                     int(imagemax - ((imagemax - borderwidth - pixelwidth *
                                      (height + 1)) % height)))
             pixelsizex = (list(size)[0] - borderwidth - pixelwidth *
@@ -278,13 +282,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
                      int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
                 ],
-                               fill=None,
-                               outline=(255, 255, 255, 255))  # Location highlight
+                    fill=None,
+                    outline=(255, 255, 255, 255))  # Location highlight
 
                 draw.rectangle(
                     [(int(borderwidth + pixelwidth * (locx) + pixelsizex *
                           (locx - 1)), int(
-                              round(borderwidth - (pixelsizex / 3), 0))),
+                        round(borderwidth - (pixelsizex / 3), 0))),
                      (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
                       borderwidth)],
                     fill=colours[raw[0][locx - 1]])
@@ -304,7 +308,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     (borderwidth,
                      int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
                 ],
-                               fill=colours[raw[locy - 1][0]])
+                    fill=colours[raw[locy - 1][0]])
                 draw.line(
                     ((int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
                      int(borderwidth + pixelwidth * (locy) + pixelsizey *
@@ -334,7 +338,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                          int(sizey - tsx - ((borderwidth - tsy) / 2))),
                     mask=ftxt)
 
-
             spacing = 30
             tsx, tsy = draw.textsize("Project", font=self.image.fonttitle)
             draw.text((int(round(((borderwidth - tsx) / 2), 0)),
@@ -348,7 +351,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                       "Blurple",
                       font=self.image.fonttitle,
                       fill=(185, 196, 237, 255))
-
 
             if highlight:
                 tsx, tsy = draw.textsize(
@@ -393,25 +395,25 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             namewidth = 10
 
-
             def hsl(x):
                 if len(x) > 3: x = x[:3]
-                to_float = lambda x : x / 255.0
+                to_float = lambda x: x / 255.0
                 (r, g, b) = map(to_float, x)
-                h, s, l = colorsys.rgb_to_hsv(r,g,b)
-                h = h if 0 < h else 1 # 0 -> 1
+                h, s, l = colorsys.rgb_to_hsv(r, g, b)
+                h = h if 0 < h else 1  # 0 -> 1
                 return h, s, l
-            rainbow = lambda x: {k: v for k, v in sorted(x.items(), key = lambda kv: hsl(kv[1]['rgb']))}
 
-            shuffle = lambda x: {k: v for k, v in sorted(x.items(), key = lambda kv: random.randint(1, 99999999))}
+            rainbow = lambda x: {k: v for k, v in sorted(x.items(), key=lambda kv: hsl(kv[1]['rgb']))}
+
+            shuffle = lambda x: {k: v for k, v in sorted(x.items(), key=lambda kv: random.randint(1, 99999999))}
 
             allcolours = {}
-            
+
             if palettes in ['all', 'main']:
-                allcolours['Main Colours'] = rainbow({k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']})
+                allcolours['Main Colours'] = rainbow(
+                    {k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']})
             if palettes in ['all', 'partner']:
                 allcolours['Partner Colours'] = rainbow(self.bot.partners)
-
 
             height = 2 * borderwidth
             for i in allcolours.values():
@@ -422,24 +424,26 @@ class CanvasCog(commands.Cog, name="Canvas"):
             width = 2 * borderwidth + squaren * squaresize
 
             # img = Image.new('RGBA', (width, height), (*(self.blurplergb), 127))
-            img = self.image.round_rectangle(self, (width, height), basecorners, (*(self.blurplergb), 75), allcorners = True)
+            img = self.image.round_rectangle(self, (width, height), basecorners, (*(self.blurplergb), 75),
+                                             allcorners=True)
             draw = ImageDraw.Draw(img)
 
             space = 0
             for name, cs in allcolours.items():
                 bg = self.image.round_rectangle(self,
-                        (squaren * squaresize, textspacing + squaresize * math.ceil(len(cs) / squaren)),
-                        squarecorners, (*(self.dblurplergb), 255), allcorners = True
-                    )
+                                                (squaren * squaresize,
+                                                 textspacing + squaresize * math.ceil(len(cs) / squaren)),
+                                                squarecorners, (*(self.dblurplergb), 255), allcorners=True
+                                                )
                 img.paste(bg, (borderwidth, borderwidth + space), bg)
 
                 tsx, tsy = draw.textsize(name, font=self.image.fontcolourtitle)
 
                 draw.text((int(round(((width - tsx) / 2), 0)),
-                       int(round(((textspacing - tsy) / 2 + space + borderwidth), 0))),
-                      name,
-                      font=self.image.fontcolourtitle,
-                      fill=(255, 255, 255, 255))
+                           int(round(((textspacing - tsy) / 2 + space + borderwidth), 0))),
+                          name,
+                          font=self.image.fontcolourtitle,
+                          fill=(255, 255, 255, 255))
 
                 # rows = [[] for i in range(math.ceil(len(i) / squaren))]
                 rows = [[] for i in range(math.ceil(len(cs) / squaren))]
@@ -450,14 +454,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 def roundrect(img, colour, coords, corners):
                     a = self.image.round_rectangle(
                         self, (squaresize, squaresize), squarecorners, colour,
-                        topleft=corners['tl'], topright=corners['tr'], bottomleft=corners['bl'], bottomright=corners['br']
+                        topleft=corners['tl'], topright=corners['tr'], bottomleft=corners['bl'],
+                        bottomright=corners['br']
                     )
                     img.paste(a, coords, a)
                     return img
 
                 for rown, row in enumerate(rows):
                     for pos, cdict in enumerate(row):
-                        xpos = borderwidth + pos * squaresize #+ (squaren - len(row)) * squaresize / 2
+                        xpos = borderwidth + pos * squaresize  # + (squaren - len(row)) * squaresize / 2
                         ypos = space + borderwidth + textspacing + rown * squaresize
 
                         roundcorners = {
@@ -466,17 +471,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
                             'bl': rown == len(rows) - 1 and pos == 0,
                             'br': rown == len(rows) - 1 and pos == squaren - 1
                         }
-                        
+
                         if any(list(roundcorners.values())):
                             img = roundrect(img, cdict['rgb'], (xpos, ypos), roundcorners)
                         else:
                             draw.rectangle([
-                                    (xpos, ypos),
-                                    (xpos + squaresize - 1, ypos + squaresize - 1)
-                                ],
-                                fill = cdict['rgb']
+                                (xpos, ypos),
+                                (xpos + squaresize - 1, ypos + squaresize - 1)
+                            ],
+                                fill=cdict['rgb']
                             )
-
 
                         tcolour = (0, 0, 0, 255) if hsl(cdict['rgb'])[2] == 1 else (255, 255, 255, 255)
 
@@ -488,11 +492,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
                                 int(round(ypos + (squaresize - tsny) / 2, 0))
                             ),
                             cname,
-                            font = namefont,
-                            fill = tcolour,
-                            align = 'center',
-                            spacing = int(round(squaresize / 30))
-
+                            font=namefont,
+                            fill=tcolour,
+                            align='center',
+                            spacing=int(round(squaresize / 30))
 
                         )
 
@@ -504,8 +507,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                                 int(round(ypos + squaresize / 10, 0))
                             ),
                             rgbtxt,
-                            font = codefont,
-                            fill = tcolour,
+                            font=codefont,
+                            fill=tcolour,
                         )
 
                         tsnx, tsny = draw.textsize(cdict['tag'], font=codefont)
@@ -515,21 +518,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
                                 int(round(ypos + (squaresize - tsny) - squaresize / 10, 0))
                             ),
                             cdict['tag'],
-                            font = codefont,
-                            fill = tcolour,
+                            font=codefont,
+                            fill=tcolour,
                         )
 
-
-
                 space += textspacing + squaresize * math.ceil(len(cs) / squaren) + borderwidth
-
 
             image_file_object = io.BytesIO()
             img.save(image_file_object, format='png')
             image_file_object.seek(0)
 
             return image_file_object
-
 
         def round_corner(self, radius, fill):
             """Draw a round corner"""
@@ -538,7 +537,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
             return corner
 
-        def round_rectangle(self, size, radius, fill, topleft=False, topright=False, bottomleft=False, bottomright=False, allcorners=False):
+        def round_rectangle(self, size, radius, fill, topleft=False, topright=False, bottomleft=False,
+                            bottomright=False, allcorners=False):
             """Draw a rounded rectangle"""
             if allcorners: topleft = topright = bottomleft = bottomright = True
 
@@ -554,14 +554,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
     class coordinates(commands.Converter):
         def __init__(self, colour: bool = False):
             self.colour = colour
+
         async def convert(self, ctx, argument):
             try:
                 arg = argument.split()
 
-                if len(arg) < 3: zoom = None
+                if len(arg) < 3:
+                    zoom = None
                 else:
-                    if self.colour and len(arg) == 3: zoom = None
-                    else: zoom = int(arg[2])
+                    if self.colour and len(arg) == 3:
+                        zoom = None
+                    else:
+                        zoom = int(arg[2])
 
                 if self.colour: colour = arg[-1]
 
@@ -570,22 +574,25 @@ class CanvasCog(commands.Cog, name="Canvas"):
             except Exception as e:
                 x, y, zoom, colour = (0, 0, None, None)
 
-            if self.colour: return (x, y, zoom, colour)
-            else: return (x, y, zoom)
+            if self.colour:
+                return (x, y, zoom, colour)
+            else:
+                return (x, y, zoom)
 
-    
     async def cog_check(self, ctx):
         return ctx.guild.id in [self.bot.blurpleguild.id] + [int(i['guild']) for i in self.bot.partners.values()]
 
     @commands.Cog.listener()  # Error Handler
     async def on_command_error(self, ctx, error):
-        ignored = (commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
+        ignored = (
+        commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
         if isinstance(error, ignored): return
 
         if isinstance(error, commands.CheckFailure):
             # print(error)
             # await ctx.reply(f"It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
-            await ctx.reply(f"It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
+            await ctx.reply(
+                f"It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
             return
 
         if isinstance(error, commands.CommandOnCooldown):
@@ -684,16 +691,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def update_history(self, board, colour, author, coords):
         time = datetime.datetime.utcnow()
-        board_history = self.bot.dbs.history[board.name.lower()] # type: Collection
-        board_history.insert_one({'colour': colour, 'author': author, 'coords': coords,  'created': time})
+        board_history = self.bot.dbs.history[board.name.lower()]  # type: Collection
+        board_history.insert_one({'colour': colour, 'author': author, 'coords': coords, 'created': time})
         board.last_updated = time
-
-       
 
     async def backup(self, boardname):
         n = 1
         nbackups = 4
-        period = 300 # seconds // 5 minutes
+        period = 300  # seconds // 5 minutes
         while True:
             await asyncio.sleep(period)
             await self.dobackup(boardname, n)
@@ -704,17 +709,21 @@ class CanvasCog(commands.Cog, name="Canvas"):
             print(f"Starting backup of {boardname}_{n}")
             async with aiohttp.ClientSession() as session:
                 with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
-                    data = {i: getattr(self.bot.boards[boardname], i) for i in ['data', 'name', 'width', 'height', 'locked', 'last_updated']}
-                    try: data['data'].pop('_id')
-                    except KeyError: pass
+                    data = {i: getattr(self.bot.boards[boardname], i) for i in
+                            ['data', 'name', 'width', 'height', 'locked', 'last_updated']}
+                    try:
+                        data['data'].pop('_id')
+                    except KeyError:
+                        pass
                     json.dump(data, f, default=json_util.default)
 
             print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
-        except Exception as e: print(e)
+        except Exception as e:
+            print(e)
 
     @commands.command()
     @admin()
-    async def loadbackup(self, ctx, n:int, boardname):
+    async def loadbackup(self, ctx, n: int, boardname):
         async with aiohttp.ClientSession() as session:
             with open(f'backups/backup_{boardname}_{n}.json', 'rt') as f:
                 data = json.load(f, object_hook=json_util.object_hook)
@@ -741,15 +750,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await ctx.reply("Is this what you're looking for?")
 
         def check(message):
-            return ctx.author == message.author and message.content.lower() in ['yes', 'no', 'y', 'n'] and message.channel == ctx.message.channel
+            return ctx.author == message.author and message.content.lower() in ['yes', 'no', 'y',
+                                                                                'n'] and message.channel == ctx.message.channel
 
         msg = await self.bot.wait_for('message', check=check)
-        
+
         if msg.content in ['no', 'n']:
             return await msg.reply("Ok, cancelled")
 
         await msg.reply("Ok, pushing to db - please make sure the board exists so I can update it")
-
 
         t1 = time.time()
 
@@ -760,21 +769,25 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await ctx.send('Writing to db')
         print('Writing to db')
 
-        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower()) # type: Collection
+        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())  # type: Collection
         dboard.bulk_write([
-            UpdateOne({'type': 'info'}, {'$set': {'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False, 'last_updated': newboard.last_updated}}}),
+            UpdateOne({'type': 'info'}, {'$set': {
+                'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False,
+                         'last_updated': newboard.last_updated}}}),
         ])
 
         print('Info done')
         await ctx.send('Info done')
 
-        board_history = self.bot.dbs.history[newboard.name.lower()] # type: Collection
+        board_history = self.bot.dbs.history[newboard.name.lower()]  # type: Collection
         board_history.delete_many({'created': {'$gt': newboard.last_updated}})
 
         print('History done')
         await ctx.send('History done')
 
-        await self.bot.dbs.boards[board.name.lower()].bulk_write([UpdateOne({'row': y+1}, {'$set': {str(y+1): newboard.data[str(y+1)]}}) for y in range(newboard.height)])
+        await self.bot.dbs.boards[board.name.lower()].bulk_write(
+            [UpdateOne({'row': y + 1}, {'$set': {str(y + 1): newboard.data[str(y + 1)]}}) for y in
+             range(newboard.height)])
 
         t2 = time.time()
 
@@ -785,9 +798,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @admin()
     async def forcebackup(self, ctx, boardname):
         await self.dobackup(boardname, 0)
-        await ctx.reply("Done")        
-            
-        
+        await ctx.reply("Done")
 
     @commands.command(aliases=['unlockboard'])
     @admin()
@@ -800,18 +811,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         current = board.locked
 
-        await self.bot.dbs.board[board.name.lower()].update_one({'type': 'info'}, {'$set': {'info.locked': not current}})
+        await self.bot.dbs.board[board.name.lower()].update_one({'type': 'info'},
+                                                                {'$set': {'info.locked': not current}})
 
         board.locked = not current
 
         await ctx.reply(f"Set **{board.name}** locked state to `{not current}`")
 
-
-
     @commands.command(aliases=['showpixelhistory', 'sph'])
     @mod()
     async def show_pixel_history(self, ctx: commands.Context, boardname: str, x: int, y: int):
-        
+
         if boardname.lower() not in self.bot.boards.keys():
             return await ctx.reply(
                 f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
@@ -821,15 +831,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return await ctx.reply(
                 f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
             )
-            
-        history = self.bot.dbs.history[boardname.lower()] # type: Collection
+
+        history = self.bot.dbs.history[boardname.lower()]  # type: Collection
         resp = history.find({'coords': (x, y)})
         resp.sort('created', pymongo.DESCENDING)
         message = f"History for Pixel ({x}, {y}) on {boardname}:"
         counter = 1
         async for r in resp:
-            try: 
-                user = self.bot.get_user(r['author']) or await self.bot.fetch_user(r['author']) 
+            try:
+                user = self.bot.get_user(r['author']) or await self.bot.fetch_user(r['author'])
                 user_str = f"{user.mention} (`{r['author']}`)"
             except Exception:
                 user_str = r['author']
@@ -843,19 +853,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @commands.command(aliases=['showuserhistory', 'suh'])
     @mod()
     async def show_user_history(self, ctx: commands.Context, boardname: str, user):
-        
+
         if boardname.lower() not in self.bot.boards.keys():
             return await ctx.reply(
                 f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
             )
         try:
-            user = self.bot.get_user(user) or await self.bot.fetch_user(user) 
+            user = self.bot.get_user(user) or await self.bot.fetch_user(user)
         except Exception:
             return await ctx.reply(f'User is not found.')
-        
+
         board = self.bot.boards[boardname.lower()]
 
-        history = self.bot.dbs.history[boardname.lower()] # type: Collection
+        history = self.bot.dbs.history[boardname.lower()]  # type: Collection
         resp = history.find({'author': user.id})
         resp.sort('created', pymongo.DESCENDING)
         message = f"History for User {user.mention} (`{user.id}`) on {boardname}:"
@@ -865,15 +875,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
             counter += 1
             if counter >= 10:
                 break
-        
+
         await ctx.reply(message)
-        
 
     @commands.command(name="createboard", aliases=["cb"])
     @admin()
     async def createboard(self, ctx, x: int, y: int, seed: typing.Optional[boardspec] = None, *, name: str):
         """Creates a board. Optional seed parameter. Must specify width (x), height (y), and name."""
-        if not self.bot.initfinished: return await ctx.reply('Please wait for the bot to finish retrieving boards from database.')
+        if not self.bot.initfinished: return await ctx.reply(
+            'Please wait for the bot to finish retrieving boards from database.')
 
         if any(i < 5 for i in [x, y]):
             return await ctx.reply("Please have a minimum of 5.")
@@ -900,9 +910,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             for xn in range(1, x + 1):
                 if seed == "random":
                     colour = random.choice([
-                                name for name in self.bot.colours.keys()
-                                if name not in ['edit', 'blank']
-                            ])
+                        name for name in self.bot.colours.keys()
+                        if name not in ['edit', 'blank']
+                    ])
                     # newboard.data[str(yn)][str(xn)] = {
                     #     "c": colour,
                     #     # "info": [{
@@ -932,10 +942,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.bot.dbs.boards.create_collection(newboard.name.lower())
         dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
         await dboard.insert_many([
-            {'type': 'info', 'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False, 'last_updated': newboard.last_updated}},
+            {'type': 'info',
+             'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False,
+                      'last_updated': newboard.last_updated}},
         ])
 
-        self.bot.dbs.history[newboard.name.lower()] # type: Collection
+        self.bot.dbs.history[newboard.name.lower()]  # type: Collection
 
         limit = 200000
         n = newboard.width * newboard.height
@@ -947,8 +959,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             lines = math.floor(limit / newboard.width)
             # print(lines)
             for i in range(lines):
-                try: ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
-                except KeyError: pass
+                try:
+                    ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
+                except KeyError:
+                    pass
                 cline += 1
             datalist.append(ndata)
 
@@ -957,12 +971,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # print(n / newboard.width)
         ndata = []
         for i in range(n):
-            try: ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
-            except KeyError: pass
+            try:
+                ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
+            except KeyError:
+                pass
             cline += 1
         datalist.append(ndata)
 
-        for x, item in enumerate(datalist): 
+        for x, item in enumerate(datalist):
             await dboard.insert_many(item)
             await ctx.send(f'Saved chunk {x + 1} of {len(datalist)}')
 
@@ -980,7 +996,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @inteam()
     async def join(self, ctx, *, name: str = None):
         """Joins a board. You need to have joined a board to start interacting with the canvas."""
-        if not name: return await ctx.reply(f'Please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
+        if not name: return await ctx.reply(
+            f'Please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
 
         if name.lower() not in self.bot.boards.keys():
             return await ctx.reply(
@@ -1013,7 +1030,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if self.bot.defaultcanvas.lower() in [i.lower() for i in self.bot.boards.keys()]:
                 self.bot.uboards[ctx.author.id] = self.bot.defaultcanvas.lower()
                 await self.boardpersist.c('update', ctx.author.id, self.bot.defaultcanvas.lower())
-                await ctx.reply(f"You weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
+                await ctx.reply(
+                    f"You weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
             else:
                 if ctx.author.id in self.bot.uboards.keys(): self.bot.uboards.pop(ctx.author.id)
                 await self.boardpersist.c('update', ctx.author.id, False)
@@ -1022,7 +1040,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
                 return False
 
-        return self.bot.boards[self.bot.uboards[ctx.author.id]] # type: CanvasCog.board
+        return self.bot.boards[self.bot.uboards[ctx.author.id]]  # type: CanvasCog.board
 
     @commands.command(name="toggleskip", aliases=["ts"])
     @inteam()
@@ -1054,10 +1072,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.skippersist.c('toggle', interaction.user.id)
         if interaction.user.id in self.bot.skipconfirm:
             self.bot.skipconfirm.remove(interaction.user.id)
-            await interaction.response.send_message(f"Re-enabled confirmation message.", ephemeral = True)
+            await interaction.response.send_message(f"Re-enabled confirmation message.", ephemeral=True)
         else:
             self.bot.skipconfirm.append(interaction.user.id)
-            await interaction.response.send_message(f"Disabled confirmation message.", ephemeral = True)
+            await interaction.response.send_message(f"Disabled confirmation message.", ephemeral=True)
 
     @app_commands.command(name="togglereminder")
     async def slash_togglereminder(self, interaction: discord.Interaction) -> None:
@@ -1065,10 +1083,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.reminderpersist.c('toggle', interaction.user.id)
         if interaction.user.id in self.bot.cooldownreminder:
             self.bot.cooldownreminder.remove(interaction.user.id)
-            await interaction.response.send_message(f"Disabled cooldown reminder.", ephemeral = True)
+            await interaction.response.send_message(f"Disabled cooldown reminder.", ephemeral=True)
         else:
             self.bot.cooldownreminder.append(interaction.user.id)
-            await interaction.response.send_message(f"Enabled cooldown reminder.", ephemeral = True)
+            await interaction.response.send_message(f"Enabled cooldown reminder.", ephemeral=True)
 
     @commands.command(name="view", aliases=["see"])
     @commands.cooldown(1, 10, BucketType.user)
@@ -1096,8 +1114,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if zoom == None or zoom > board.width or zoom > board.height:
                 zoom = defaultzoom
             if zoom > board.width or zoom > board.height:
-                if board.width > board.height: zoom = board.width
-                else: zoom = board.height
+                if board.width > board.height:
+                    zoom = board.width
+                else:
+                    zoom = board.height
             if zoom < 5:
                 return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
         else:
@@ -1221,10 +1241,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if view.confirm == True:
                 break
 
-            if view.value == "L" and x > 1: x -= 1
-            elif view.value == "R" and x < board.width: x += 1
-            elif view.value == "D" and y < board.height: y += 1
-            elif view.value == "U" and y > 1: y -= 1
+            if view.value == "L" and x > 1:
+                x -= 1
+            elif view.value == "R" and x < board.width:
+                x += 1
+            elif view.value == "D" and y < board.height:
+                y += 1
+            elif view.value == "U" and y > 1:
+                y -= 1
 
             loc, emoji, raw, zoom = self.screen(board, x, y, 7)
 
@@ -1269,11 +1293,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
 
         if zoom == None:
-            if board.width > board.height: zoom = board.width
-            else: zoom = board.height
+            if board.width > board.height:
+                zoom = board.width
+            else:
+                zoom = board.height
         if zoom > board.width or zoom > board.height:
-            if board.width > board.height: zoom = board.width
-            else: zoom = board.height
+            if board.width > board.height:
+                zoom = board.width
+            else:
+                zoom = board.height
         if zoom < 5:
             return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
 
@@ -1325,10 +1353,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
             payload = stuff
 
             emojiname = str(payload.emoji)
-            if emojiname == "⬅" and x > 1: x -= 1
-            elif emojiname == "➡" and x < board.width: x += 1
-            elif emojiname == "⬇" and y < board.height: y += 1
-            elif emojiname == "⬆" and y > 1: y -= 1
+            if emojiname == "⬅" and x > 1:
+                x -= 1
+            elif emojiname == "➡" and x < board.width:
+                x += 1
+            elif emojiname == "⬇" and y < board.height:
+                y += 1
+            elif emojiname == "⬆" and y > 1:
+                y -= 1
 
             async with aiohttp.ClientSession() as session:
                 async with ctx.typing():
@@ -1351,20 +1383,20 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 30 seconds per tile placed."""
         cdexpiry = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
 
-        board = await self.findboard(ctx) 
-        if not board: 
+        board = await self.findboard(ctx)
+        if not board:
             return self.bot.cd.add(ctx.author.id)
 
         if board.locked == True:
             return await ctx.reply(f'This board is locked (view only)')
-        
+
         if ctx.author in self.bot.cd: self.bot.cd.remove(ctx.author.id)
 
-        if not board: 
+        if not board:
             self.bot.cd.add(ctx.author.id)
             return
 
-        if not xyz: 
+        if not xyz:
             self.bot.cd.add(ctx.author.id)
             return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
 
@@ -1385,16 +1417,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         success = False
 
         if colour.lower() == 'blnk': colour = 'blank'
-        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in self.bot.partners.values()] + ['empty']:
+        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in
+                                                                                          self.bot.partners.values()] + [
+            'empty']:
             colour = colour.lower()
-        else: colour = None
+        else:
+            colour = None
 
         cllist = {}
         for k, v in self.bot.partners.items():
             cllist[v['tag']] = v['emoji']
         for k, v in self.bot.colours.items():
             cllist[k] = v
-        cllist['empty'] = self.bot.empty.replace('<:','').replace('>','')
+        cllist['empty'] = self.bot.empty.replace('<:', '').replace('>', '')
 
         loc, emoji, raw, zoom = self.screen(board, x, y)
         locx, locy = loc
@@ -1423,7 +1458,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         embed = discord.Embed(
             colour=self.blurplehex, timestamp=discord.utils.utcnow())
         # embed.set_author(name = f"{board.name} | Use the arrow reactions to choose the location and to confirm or cancel.")
-        embed.set_author(name = f"{board.name} | Use the arrows to choose the location and to confirm or cancel.")
+        embed.set_author(name=f"{board.name} | Use the arrows to choose the location and to confirm or cancel.")
         # embed.add_field(name = "Board", value = display)
         embed.set_footer(
             text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
@@ -1440,9 +1475,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             #     return payload.user_id == ctx.author.id and payload.message_id == msg.id and (str(
             #         payload.emoji) in arrows or str(payload.emoji) in arrows2)
 
-
             while True:
-                if False: # just so i can collapse old commented-out code lol
+                if False:  # just so i can collapse old commented-out code lol
                     pass
                     # done, pending = await asyncio.wait(
                     #     [
@@ -1511,10 +1545,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     self.bot.cd.add(ctx.author.id)
                     return
 
-                if view.value == "L" and x > 1: x -= 1
-                elif view.value == "R" and x < board.width: x += 1
-                elif view.value == "D" and y < board.height: y += 1
-                elif view.value == "U" and y > 1: y -= 1
+                if view.value == "L" and x > 1:
+                    x -= 1
+                elif view.value == "R" and x < board.width:
+                    x += 1
+                elif view.value == "D" and y < board.height:
+                    y += 1
+                elif view.value == "U" and y > 1:
+                    y -= 1
 
                 loc, emoji, raw, zoom = self.screen(board, x, y)
 
@@ -1566,13 +1604,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 name for name, emoji in self.bot.colours.items()
                 if name not in ['edit', 'blank']
             ]
-            l = ['dred', 'brll', 'hpsq', 'yllw', 'gren', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'lpbl', 'ldbp', 'brvy', 'bstp', 'fchs', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl'] # Order
+            l = ['dred', 'brll', 'hpsq', 'yllw', 'gren', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'lpbl', 'ldbp',
+                 'brvy', 'bstp', 'fchs', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl']  # Order
             d = {n: i for n, i in zip(l, range(len(l)))}
-            def sorter(i): 
+
+            def sorter(i):
                 # print(i, d[i])
                 if i in d.keys():
                     return d[i]
-                else: return random.randint(100, 200)
+                else:
+                    return random.randint(100, 200)
+
             dcolours.sort(key=sorter)
             # ecolours = [self.bot.colours[i] for i in dcolours]
             ecolours = [[j for j in self.bot.coloursdict.values() if i == j['tag']][0] for i in dcolours]
@@ -1627,7 +1669,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             await msg.edit(view=None)
 
-
         if colour:
             colours = []
             for i in self.bot.partners.values():
@@ -1639,7 +1680,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             ]
 
             if colour not in colours and self.bot.partnercolourlock:
-                return await ctx.reply(f"That colour is not available within this server! To find out where you can use this colour, use `{ctx.prefix}colour {colour}`")
+                return await ctx.reply(
+                    f"That colour is not available within this server! To find out where you can use this colour, use `{ctx.prefix}colour {colour}`")
 
             olddata = copy.copy(board.data[str(y)][str(x)])
 
@@ -1655,7 +1697,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 await self.update_history(board, colour, ctx.author.id, (x, y))
             embed.set_author(name="Pixel successfully set.")
             success = True
-
 
         loc, emoji, raw, zoom = self.screen(board, x, y)
 
@@ -1684,7 +1725,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 # t = ""
                 # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
                 # await ctx.reply(f"That was your first pixel placed! For that, you have received the **Artist** role{t}!")
-                await ctx.reply(f"That was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
+                await ctx.reply(
+                    f"That was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
 
         async with self.bot.dblock:
             await self.bot.dbs.boards[board.name.lower()].bulk_write([
@@ -1694,13 +1736,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if success and ctx.author.id in self.bot.cooldownreminder:
             timeleft = cdexpiry - datetime.datetime.utcnow()
-            if timeleft.days < 0: return await ctx.reply("Your cooldown has already expired! You can now place another pixel.")
-            else: await asyncio.sleep(timeleft.seconds)
+            if timeleft.days < 0:
+                return await ctx.reply("Your cooldown has already expired! You can now place another pixel.")
+            else:
+                await asyncio.sleep(timeleft.seconds)
             await ctx.reply("Your cooldown has expired! You can now place another pixel.")
 
     @commands.command()
     @executive()
-    async def paste(self, ctx, x: int, y: int, source = None):
+    async def paste(self, ctx, x: int, y: int, source=None):
         board = await self.findboard(ctx)
         if not board: return
 
@@ -1710,9 +1754,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         empty = '----'
 
         if ctx.message.attachments:
-            arraywh = await self.bot.loop.run_in_executor(None, self.pastefrombytes, io.BytesIO(await ctx.message.attachments[0].read()))
-            if isinstance(arraywh, str): return await ctx.reply(f"{arraywh}")
-            else: array, width, height = arraywh
+            arraywh = await self.bot.loop.run_in_executor(None, self.pastefrombytes,
+                                                          io.BytesIO(await ctx.message.attachments[0].read()))
+            if isinstance(arraywh, str):
+                return await ctx.reply(f"{arraywh}")
+            else:
+                array, width, height = arraywh
 
         elif source:
             async with aiohttp.ClientSession() as cs:
@@ -1722,16 +1769,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
             rows = raw.split('\n')
             array = [i.split() for i in rows]
 
-            width = len(sorted(array, key = len, reverse = True)[0])
+            width = len(sorted(array, key=len, reverse=True)[0])
             height = len(array)
 
-            colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items() if name not in ['edit']] + [empty]
+            colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items()
+                                                                        if name not in ['edit']] + [empty]
 
             if any([any([not v in colours for v in r]) for r in array]):
                 return await ctx.reply(f"The source paste that you linked does not appear to be valid.")
 
         if board.width - x + 1 < width or board.height - y + 1 < height:
-            return await ctx.reply(f"The paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
+            return await ctx.reply(
+                f"The paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
 
         for row, i in enumerate(array):
             for n, pixel in enumerate(i):
@@ -1744,21 +1793,22 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         async with self.bot.dblock:
             for row, i in enumerate(array):
-                await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {'$set': {str(y + row): board.data[str(y + row)]}})
-
+                await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {
+                    '$set': {str(y + row): board.data[str(y + row)]}})
 
     def pastefrombytes(self, imgbytes):
         image = Image.open(imgbytes, 'r')
         # image = Image.open("canvaspastetest.png", "r")
         width, height = image.size
         pixel_values = list(image.getdata())
-        
+
         channels = 4
 
         pixel_values = numpy.array(pixel_values).reshape((width, height, channels))
 
-
-        colours = {**{v['rgb'][:3]: v['tag'] for v in self.bot.partners.values()}, **{v['rgb'][:3]: v['tag'] for v in self.bot.coloursdict.values() if v['tag'] not in ['edit', 'blank']}}
+        colours = {**{v['rgb'][:3]: v['tag'] for v in self.bot.partners.values()},
+                   **{v['rgb'][:3]: v['tag'] for v in self.bot.coloursdict.values() if
+                      v['tag'] not in ['edit', 'blank']}}
 
         empty = '----'
         blank = 'blank'
@@ -1772,25 +1822,27 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     if pixel[3] == 0:
                         array[row].append(empty)
                         continue
-                
+
                 p = tuple(pixel[:3])
 
                 if p == blankcode:
                     array[row].append(blank)
                     continue
 
-                if p not in colours.keys(): return f"invalid pixel at ({n+1}, {row+1})"
-                
+                if p not in colours.keys(): return f"invalid pixel at ({n + 1}, {row + 1})"
+
                 array[row].append(colours[p])
 
         return array, width, height
 
-    @commands.command(aliases = ['colors', 'colour', 'color', 'palette'])
-    async def colours(self, ctx, palettes = 'all'):
+    @commands.command(aliases=['colors', 'colour', 'color', 'palette'])
+    async def colours(self, ctx, palettes='all'):
         """Shows the full colour palette available. Type 'main' or 'partner' after the command to see a specific group of colours."""
         palettes = palettes.lower()
-        if palettes in ['main', 'default']: palettes = 'main'
-        elif palettes in ['partner', 'partners']: palettes = 'partner'
+        if palettes in ['main', 'default']:
+            palettes = 'main'
+        elif palettes in ['partner', 'partners']:
+            palettes = 'partner'
         else:
             cd = {k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']}
             cp = self.bot.partners
@@ -1800,14 +1852,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 palettes = 'all'
 
         if palettes in ['main', 'partner', 'all']:
-            image = discord.File(fp = copy.copy(self.bot.colourimg[palettes]), filename = "Blurple_Canvas_Colour_Palette.png")
-            
+            image = discord.File(fp=copy.copy(self.bot.colourimg[palettes]),
+                                 filename="Blurple_Canvas_Colour_Palette.png")
+
             embed = discord.Embed(
                 title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=discord.utils.utcnow())
             embed.set_footer(
                 text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                 icon_url=self.bot.user.avatar)
-            embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
+            embed.set_image(url="attachment://Blurple_Canvas_Colour_Palette.png")
             await ctx.reply(embed=embed, file=image)
 
         else:
@@ -1823,8 +1876,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if c['guild']:
                 if self.bot.partnercolourlock:
                     g = self.bot.get_guild(int(c['guild']))
-                    if g: server = f"This colour is only available in the **{g.name}** ({g.id}) server!"
-                    else: server = f"This colour is only available in {c['guild']}... that I can't seem to see? Please let Rocked03#3304 know!!"
+                    if g:
+                        server = f"This colour is only available in the **{g.name}** ({g.id}) server!"
+                    else:
+                        server = f"This colour is only available in {c['guild']}... that I can't seem to see? Please let Rocked03#3304 know!!"
                 else:
                     server = f"This is a partnered server colour, however it's been set to be able to be used anywhere!"
             else:
@@ -1835,17 +1890,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
     # @app_commands.guilds(559341262302347314)
 
     @app_commands.command(name="palette")
-    async def slash_palette(self, interaction: discord.Interaction, palette: typing.Literal['default', 'partner', 'all'] = "all") -> None:
+    async def slash_palette(self, interaction: discord.Interaction,
+                            palette: typing.Literal['default', 'partner', 'all'] = "all") -> None:
         """Shows the available colour palette"""
         palette = palette.lower()
         if palette == "default": palette = "main"
 
-        image = discord.File(fp = copy.copy(self.bot.colourimg[palette]), filename = "Blurple_Canvas_Colour_Palette.png")
-        
+        image = discord.File(fp=copy.copy(self.bot.colourimg[palette]), filename="Blurple_Canvas_Colour_Palette.png")
+
         embed = discord.Embed(
             title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=discord.utils.utcnow())
         embed.set_footer(text=f"{palette.capitalize()} colours", icon_url=self.bot.user.avatar)
-        embed.set_image(url = "attachment://Blurple_Canvas_Colour_Palette.png")
+        embed.set_image(url="attachment://Blurple_Canvas_Colour_Palette.png")
         await interaction.response.send_message(embed=embed, file=image)
 
     # @slash_palette.autocomplete('palette')
@@ -1853,11 +1909,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
     #     palettes = ["default", "partner", "all"]
     #     return [app_commands.Choice(name=i, value=i) for i in palettes if current.lower() in i.lower()]
 
-    @commands.command(aliases = ['reloadcolors'])
+    @commands.command(aliases=['reloadcolors'])
     @admin()
     async def reloadcolours(self, ctx):
         self.bot.colourimg = {
-            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in ['main', 'partner', 'all']
+            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in
+            ['main', 'partner', 'all']
         }
         await ctx.reply("Done")
 
@@ -1879,7 +1936,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         print([list(xk.values()) for xk in board.data.values()])
         await ctx.message.add_reaction("👍")
 
-    @commands.command(hidden = True)
+    @commands.command(hidden=True)
     async def test(self, ctx):
         print([guild.name for guild in self.bot.guilds])
 
@@ -1908,8 +1965,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if zoom == None or zoom > board.width or zoom > board.height:
             zoom = defaultzoom
         if zoom > board.width or zoom > board.height:
-            if board.width > board.height: zoom = board.width
-            else: zoom = board.height
+            if board.width > board.height:
+                zoom = board.width
+            else:
+                zoom = board.height
         if zoom < 5:
             return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
 
@@ -1930,14 +1989,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
                 await ctx.reply(embed=embed, file=image)
 
+
 class NavigateView(discord.ui.View):
-    def __init__(self, userid : int):
-        super().__init__(timeout = 30.0)
+    def __init__(self, userid: int):
+        super().__init__(timeout=30.0)
         self.value = None
         self.confirm = None
         self.userid = userid
 
-    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=0, custom_id="confirm")
+    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=0,
+                       custom_id="confirm")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.confirm = True
         await interaction.response.defer()
@@ -1949,7 +2010,8 @@ class NavigateView(discord.ui.View):
         await interaction.response.defer()
         self.stop()
 
-    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=0, custom_id="cancel")
+    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=0,
+                       custom_id="cancel")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.confirm = False
         await interaction.response.defer()
@@ -1976,8 +2038,9 @@ class NavigateView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return interaction.user.id == self.userid
 
+
 class ColourSelect(discord.ui.Select):
-    def __init__(self, colours : list):
+    def __init__(self, colours: list):
         options = []
 
         for i in colours:
@@ -1991,9 +2054,10 @@ class ColourSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
+
 class ColourView(discord.ui.View):
-    def __init__(self, userid : int, colours : list):
-        super().__init__(timeout = 30.0)
+    def __init__(self, userid: int, colours: list):
+        super().__init__(timeout=30.0)
 
         self.dropdown = ColourSelect(colours)
         self.add_item(self.dropdown)
@@ -2005,14 +2069,16 @@ class ColourView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return interaction.user.id == self.userid
 
-    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=1, custom_id="confirm")
+    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=1,
+                       custom_id="confirm")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.confirm = True
         if self.dropdown.values: self.value = self.dropdown.values[0]
         await interaction.response.defer()
         self.stop()
 
-    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=1, custom_id="cancel")
+    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=1,
+                       custom_id="cancel")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         self.stop()
