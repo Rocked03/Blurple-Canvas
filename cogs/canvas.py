@@ -1699,23 +1699,23 @@ class CanvasCog(commands.Cog, name="Canvas"):
         header = f"Blurple Canvas - ({x}, {y})"
 
         if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-        emoji[locy - 1].append(f" **{y}** (y)")
+        emoji[locy - 1].append(f" **{y}**")
         if locy < zoom: emoji[locy].append(" ⬇")
 
-        emoji[0].append(f" | {remoji}")
-        emoji[1].append(f" | Now")
+        emoji[0].append(f" {remoji}")
+        emoji[1].append(f" <:now:1105112355219714168>")
         if colour:
-            emoji[-2].append(f" | New")
-            emoji[-1].append(f" | <:{cllist[colour]}>")
+            emoji[-2].append(f" <:new:1105112350371086346>")
+            emoji[-1].append(f" <:{cllist[colour]}>")
 
         display = "\n".join(["".join(i) for i in emoji]) + "\n"
 
         if locx - 2 < 0:
-            display += (str(self.bot.empty) * (locx - 2)) + f" **{x}** (x) ➡"
+            display += (str(self.bot.empty) * (locx - 2)) + f" **{x}** ➡"
         elif locx > zoom - 1:
-            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}** (x)"
+            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}**"
         else:
-            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}** (x) ➡"
+            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}** ➡"
 
         return header, display
 
