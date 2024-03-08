@@ -7,5 +7,3 @@ class DiscordObject:
 
     def set_bot(self, bot: Client):
         self.bot = bot
-
-    # Need renaming: id, global

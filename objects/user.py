@@ -7,16 +7,16 @@ class User(DiscordObject):
     def __init__(
         self,
         _id: int = None,
-        currentBoard: int = None,
-        skipConfirm: bool = None,
-        cooldownRemind: bool = None,
+        current_board: int = None,
+        skip_confirm: bool = None,
+        cooldown_remind: bool = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.id = _id
-        self.current_board = currentBoard
-        self.skip_confirm = skipConfirm
-        self.cooldown_remind = cooldownRemind
+        self.current_board = current_board
+        self.skip_confirm = skip_confirm
+        self.cooldown_remind = cooldown_remind
 
         self.user: UserDiscord | None = None
 
@@ -31,3 +31,6 @@ class User(DiscordObject):
             self.set_user(user)
         else:
             raise ValueError(f"User with id {self.id} not found")
+
+    def __str__(self):
+        return f"User {self.id}"

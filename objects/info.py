@@ -4,10 +4,13 @@ from objects.event import Event
 
 class Info(DiscordObject):
     def __init__(
-        self, currentEvent: int = None, canvasAdmin: list[int] = None, **kwargs
+        self, current_event: int = None, canvas_admin: list[int] = None, **kwargs
     ):
         super().__init__(**kwargs)
-        self.current_event_id = currentEvent
-        self.canvas_admin = canvasAdmin
+        self.current_event_id = current_event
+        self.canvas_admin = canvas_admin
 
-        self.current_event = Event(_id=currentEvent, **kwargs)
+        self.current_event = Event(_id=current_event, **kwargs)
+
+    def __str__(self):
+        return f"Info {self.current_event_id}"

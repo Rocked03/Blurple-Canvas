@@ -4,10 +4,10 @@ from objects.discordObject import DiscordObject
 
 
 class Guild(DiscordObject):
-    def __init__(self, _id: int = None, managerRole: int = None, **kwargs):
+    def __init__(self, _id: int = None, manager_role: int = None, **kwargs):
         super().__init__(**kwargs)
         self.id = _id
-        self.manager_role_id = managerRole
+        self.manager_role_id = manager_role
 
         self.guild: GuildDiscord | None = None
         self.manager_role: Role | None = None
@@ -42,3 +42,6 @@ class Guild(DiscordObject):
             raise ValueError(
                 f"Role with id {self.manager_role_id} not found in guild {self.id}"
             )
+
+    def __str__(self):
+        return f"Guild {self.id}"
