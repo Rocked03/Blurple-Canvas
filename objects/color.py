@@ -28,10 +28,10 @@ class Color(DiscordObject):
             else None
         )
 
-    def emoji_format(self):
+    def emoji_formatted(self):
         return f"<:{self.emoji_name}:{self.emoji_id}>" if self.emoji_name else None
 
-    def rgba_format(self):
+    def rgba_formatted(self):
         return f"rgba({', '.join(map(str, self.rgba))})" if self.rgba else None
 
     def __str__(self):

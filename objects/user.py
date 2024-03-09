@@ -1,5 +1,7 @@
 from discord import User as UserDiscord
 
+from objects.canvas import Canvas
+from objects.color import Color
 from objects.discordObject import DiscordObject
 from postgresql.postgresql_manager import SQLManager
 
@@ -45,6 +47,20 @@ class User(DiscordObject):
     async def toggle_cooldown_remind(self, sql_manager: SQLManager):
         self.cooldown_remind = not self.cooldown_remind
         await sql_manager.set_cooldown_remind(self)
+
+    async def place_pixel(
+        self,
+        sql_manager: SQLManager,
+        *,
+        canvas: Canvas,
+        guild_id: int = None,
+        x: int,
+        y: int,
+        color: Color,
+    ):
+        await canvas.place_pixel(
+            sql_manager=sql_manager, user=self, guild_id=guild_id, x=x, y=y, color=color
+        )
 
     def __str__(self):
         return f"User {self.id}"

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generator
 
 from asyncpg import Connection
@@ -190,9 +190,10 @@ class SQLManager:
 
     async def update_pixel(
         self,
+        *,
         pixel: Pixel,
         user_id: int,
-        timestamp: datetime = None,
+        timestamp: datetime = datetime.now(tz=timezone.utc),
         guild_id: int = None,
     ):
         record = HistoryRecord(
