@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Generator, Any
 
+from PIL import Image, ImageDraw
 from asyncpg import Connection
 from discord import User as UserDiscord, Guild as GuildDiscord, Role, Client
 
@@ -38,7 +39,11 @@ class Canvas(DiscordObject):
         self.height = height
         self.pixels = pixels
 
-        self.event = Event(_id=event_id, **kwargs) if not event and event_id else event
+        self.event = (
+            Event(_id=event_id, **kwargs)
+            if event is None and event_id is not None
+            else event
+        )
 
     def is_locked(self):
         return self.locked
@@ -88,9 +93,15 @@ class Pixel(DiscordObject):
         self.y = y
 
         self.canvas = (
-            Canvas(_id=canvas_id, **kwargs) if not canvas and canvas_id else canvas
+            Canvas(_id=canvas_id, **kwargs)
+            if canvas is None and canvas_id is not None
+            else canvas
         )
-        self.color = Color(_id=color_id, **kwargs) if not color and color_id else color
+        self.color = (
+            Color(_id=color_id, **kwargs)
+            if color is None and color_id is not None
+            else color
+        )
 
     def get_coordinates(self):
         return self.x, self.y
@@ -158,12 +169,16 @@ class Frame(DiscordObject):
         )
         self.pixels = pixels
 
+        self.size = (self.bbox[2] - self.bbox[0] + 1, self.bbox[3] - self.bbox[1] + 1)
+
         self.canvas = (
-            Canvas(_id=canvas_id, **kwargs) if not canvas and canvas_id else canvas
+            Canvas(_id=canvas_id, **kwargs)
+            if canvas is None and canvas_id is not None
+            else canvas
         )
 
     def bbox_formatted(self):
-        return f"({self.bbox[0]}, {self.bbox[2]}) - ({self.bbox[1]}, {self.bbox[3]})"
+        return f"({self.bbox[0]}, {self.bbox[1]}) - ({self.bbox[2]}, {self.bbox[3]})"
 
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
@@ -171,20 +186,30 @@ class Frame(DiscordObject):
     def justified_pixels(self):
         if self.pixels is None:
             return []
-        return [
-            Pixel(
-                x=pixel.x - self.bbox[0],
-                y=pixel.y - self.bbox[1],
-                color=pixel.color,
-            )
+        return {
+            (pixel.x - self.bbox[0], pixel.y - self.bbox[1]): pixel
             for pixel in self.pixels
             if self.bbox[0] <= pixel.x <= self.bbox[2]
             and self.bbox[1] <= pixel.y <= self.bbox[3]
-        ]
+        }
 
-    def raw_color_dict(self):
-        pixels = self.justified_pixels()
-        return {(pixel.x, pixel.y): pixel.color.rgba for pixel in pixels}
+    def generate_image(self, *, zoom: int = 1) -> Image.Image:
+        img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(img)
+        for coordinates, pixel in self.justified_pixels().items():
+            adjusted_coordinates = (coordinates[0] * zoom, coordinates[1] * zoom)
+            opposite_corner = (
+                adjusted_coordinates[0] + zoom,
+                adjusted_coordinates[1] + zoom,
+            )
+            draw.rectangle(
+                (adjusted_coordinates, opposite_corner),
+                pixel.color.rgba,
+            )
+        return img
+
+    def multiply_zoom(self, zoom: int) -> tuple[int, int]:
+        return tuple[int, int]([self.size[0] * zoom, self.size[1] * zoom])
 
     def __str__(self):
         return f"Frame {self.bbox_formatted()} ({self.canvas})"
@@ -197,7 +222,11 @@ class CustomFrame(Frame):
         super().__init__(**kwargs)
         self.name = name
 
-        self.guild = Guild(_id=guild_id, **kwargs) if not guild and guild_id else guild
+        self.guild = (
+            Guild(_id=guild_id, **kwargs)
+            if guild is None and guild_id is not None
+            else guild
+        )
 
     def __str__(self):
         return f"Custom Frame {self.name} ({self.id}) ({self.canvas})"
@@ -284,13 +313,21 @@ class HistoryRecord(DiscordObject):
         self.id = _id
         self.timestamp = timestamp
 
-        self.user = User(_id=user_id, **kwargs) if not user and user_id else user
+        self.user = (
+            User(_id=user_id, **kwargs)
+            if user is None and user_id is not None
+            else user
+        )
         self.pixel = (
             Pixel(canvas_id=canvas_id, x=x, y=y, color_id=color_id, **kwargs)
-            if not pixel
+            if pixel is None
             else pixel
         )
-        self.guild = Guild(_id=guild_id, **kwargs) if not guild and guild_id else guild
+        self.guild = (
+            Guild(_id=guild_id, **kwargs)
+            if guild is None and guild_id is not None
+            else guild
+        )
 
     def __str__(self):
         return f"HistoryRecord {self.user.id} {self.pixel} ({self.timestamp})"
@@ -388,10 +425,14 @@ class Participation(Guild):
         super().__init__(_id=guild_id, **kwargs)
         self.custom_color = custom_color
 
-        self.event = Event(_id=event_id, **kwargs) if not event and event_id else event
+        self.event = (
+            Event(_id=event_id, **kwargs)
+            if event is None and event_id is not None
+            else event
+        )
         self.color = (
             Color(_id=color_id, **kwargs)
-            if (not color and color_id) and custom_color
+            if (color is None and color_id is not None) and custom_color
             else color
         )
 
