@@ -1,10 +1,9 @@
 from objects.color import Color
-from objects.discordObject import DiscordObject
 from objects.event import Event
 from objects.guild import Guild
 
 
-class Participation(DiscordObject):
+class Participation(Guild):
     def __init__(
         self,
         guild_id: int = None,
@@ -13,10 +12,9 @@ class Participation(DiscordObject):
         color_id: int = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(_id=guild_id, **kwargs)
         self.custom_color = custom_color
 
-        self.guild = Guild(_id=guild_id, **kwargs) if guild_id else None
         self.event = Event(_id=event_id, **kwargs) if event_id else None
         self.color = (
             Color(_id=color_id, **kwargs) if color_id and custom_color else None
@@ -29,4 +27,4 @@ class Participation(DiscordObject):
         return self.color.id if self.custom_color and self.color else None
 
     def __str__(self):
-        return f"Participation {self.guild.id} {self.event.id}"
+        return f"Participation {self.id} {self.event.id}"
