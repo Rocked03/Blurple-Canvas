@@ -134,4 +134,4 @@ dmypy.json
 # config
 config.py
 
-backups/
+old/backups/
