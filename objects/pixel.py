@@ -13,10 +13,8 @@ class Pixel(DiscordObject):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.canvas_id = canvas_id
         self.x = x
         self.y = y
-        self.color_id = color_id
 
         self.canvas = Canvas(_id=canvas_id, **kwargs) if canvas_id else None
         self.color = Color(_id=color_id, **kwargs) if color_id else None

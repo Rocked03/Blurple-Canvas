@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from objects.discordObject import DiscordObject
+from objects.guild import Guild
 from objects.pixel import Pixel
 from objects.user import User
 
@@ -15,15 +16,16 @@ class HistoryRecord(DiscordObject):
         y: int = None,
         color_id: int = None,
         timestamp: datetime = None,
+        guild_id: int = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.id = _id
-        self.user_id = user_id
         self.timestamp = timestamp
 
         self.user = User(_id=user_id, **kwargs) if user_id else None
         self.pixel = Pixel(canvas_id=canvas_id, x=x, y=y, color_id=color_id, **kwargs)
+        self.guild = Guild(_id=guild_id, **kwargs) if guild_id else None
 
     def __str__(self):
-        return f"HistoryRecord {self.user_id} {self.pixel} ({self.timestamp})"
+        return f"HistoryRecord {self.user.id} {self.pixel} ({self.timestamp})"
