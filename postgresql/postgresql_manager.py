@@ -8,6 +8,7 @@ from objects.color import Color
 from objects.historyRecord import HistoryRecord
 from objects.info import Info
 from objects.participation import Participation
+from objects.pixel import Pixel
 
 
 def rename_invalid_keys(data: dict) -> dict:
@@ -18,47 +19,83 @@ def rename_invalid_keys(data: dict) -> dict:
     return {renames.get(k, k) if k in renames else k: v for k, v in data.items()}
 
 
-class SQLManagement:
+class SQLManager:
     def __init__(self, conn: Connection, bot: Client = None):
         self.conn = conn
         self.bot = bot
 
     async def fetch_canvas(self, canvas_id) -> Canvas:
-        query = "SELECT * FROM canvas WHERE id = $1"
-        row = await self.conn.fetchrow(query, canvas_id)
+        row = await self.conn.fetchrow("SELECT * FROM canvas WHERE id = $1", canvas_id)
         return Canvas(bot=self.bot, **rename_invalid_keys(row))
 
     async def fetch_all_colors(self) -> list[Color]:
-        query = "SELECT * FROM color"
-        rows = await self.conn.fetch(query)
+        rows = await self.conn.fetch("SELECT * FROM color")
         return [Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
     async def fetch_history_records(
         self, canvas_id: int, user_id: int = None
     ) -> Generator[HistoryRecord, Any, None]:
         if user_id:
-            query = "SELECT * FROM history WHERE canvas_id = $1 AND user_id = $2 ORDER BY timestamp"
-            rows = await self.conn.fetch(query, canvas_id, user_id)
+            rows = await self.conn.fetch(
+                "SELECT * FROM history WHERE canvas_id = $1 AND user_id = $2 ORDER BY timestamp",
+                canvas_id,
+                user_id,
+            )
         else:
-            query = "SELECT * FROM history WHERE canvas_id = $1 ORDER BY timestamp"
-            rows = await self.conn.fetch(query, canvas_id)
+            rows = await self.conn.fetch(
+                "SELECT * FROM history WHERE canvas_id = $1 ORDER BY timestamp",
+                canvas_id,
+            )
         return (HistoryRecord(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
     async def fetch_participation(self, guild_id: int, event_id: int) -> Participation:
-        query = (
-            "SELECT p.*, g.id, c.code, c.name, c.emoji_name, c.emoji_id "
-            "FROM participation p "
-            "left join guild g on p.guild_id = g.id "
-            "left join public.color c on c.id = p.color_id "
-            "WHERE guild_id = $1 AND event_id = $2"
+        row = await self.conn.fetchrow(
+            (
+                "SELECT p.*, g.id, c.code, c.name, c.emoji_name, c.emoji_id "
+                "FROM participation p "
+                "LEFT JOIN guild g ON p.guild_id = g.id "
+                "LEFT JOIN public.color c ON c.id = p.color_id "
+                "WHERE guild_id = $1 AND event_id = $2"
+            ),
+            guild_id,
+            event_id,
         )
-        row = await self.conn.fetchrow(query, guild_id, event_id)
         return Participation(bot=self.bot, **rename_invalid_keys(row))
 
     async def fetch_info(self) -> Info:
-        query = "SELECT * FROM info"
-        row = await self.conn.fetchrow(query)
+        row = await self.conn.fetchrow("SELECT * FROM info")
         return Info(bot=self.bot, **rename_invalid_keys(row))
+
+    async def fetch_pixels(
+        self, canvas_id: int, bbox: tuple[int, int, int, int]
+    ) -> list[Pixel]:
+        pixels = await self.conn.fetch(
+            (
+                "SELECT p.x, p.y, p.color_id "
+                "FROM pixels p "
+                "WHERE canvas_id = $1 AND "
+                "x >= $2 AND x <= $4 AND y >= $3 AND y <= $5"
+            ),
+            canvas_id,
+            *bbox,
+        )
+        colors = {
+            c["id"]: rename_invalid_keys(c)
+            for c in await self.conn.fetch(
+                "SELECT * FROM color WHERE id = ANY($1)",
+                list(set(p["color_id"] for p in pixels)),
+            )
+        }
+        for c in colors:
+            colors[c].pop("_id")
+        return [
+            Pixel(
+                bot=self.bot,
+                **rename_invalid_keys(pixel),
+                **colors[pixel["color_id"]],
+            )
+            for pixel in pixels
+        ]
 
     async def insert_color(self, color: Color):
         query = (

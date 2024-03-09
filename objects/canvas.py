@@ -26,5 +26,8 @@ class Canvas(DiscordObject):
     def is_locked(self):
         return self.locked
 
+    def get_dimensions(self):
+        return self.width, self.height
+
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"
