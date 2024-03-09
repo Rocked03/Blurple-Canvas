@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Generator, Any
 
 from PIL import Image, ImageDraw
@@ -28,6 +28,7 @@ class Canvas(DiscordObject):
         height: int = None,
         event: Event = None,
         pixels: dict[tuple[int, int], Pixel] = None,
+        cooldown_length: int = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -38,6 +39,7 @@ class Canvas(DiscordObject):
         self.width = width
         self.height = height
         self.pixels = pixels
+        self.cooldown_length = cooldown_length
 
         self.event = (
             Event(_id=event_id, **kwargs)
@@ -167,6 +169,7 @@ class Frame(DiscordObject):
         pixels: list[Pixel] = None,
         bbox: tuple[int, int, int, int] = None,
         canvas: Canvas = None,
+        focus: tuple[int, int] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -175,6 +178,7 @@ class Frame(DiscordObject):
             (x_0, x_1, y_0, y_1) if not bbox and (x_0 and x_1 and y_0 and y_1) else bbox
         )
         self.pixels = pixels
+        self.focus = focus
 
         self.size = (self.bbox[2] - self.bbox[0] + 1, self.bbox[3] - self.bbox[1] + 1)
 
@@ -195,6 +199,7 @@ class Frame(DiscordObject):
                 max(min(x + (zoom // 2), canvas.width), zoom),
                 max(min(y + (zoom // 2), canvas.height), zoom),
             ),
+            highlight=xy,
         )
 
     def bbox_formatted(self):
@@ -203,15 +208,20 @@ class Frame(DiscordObject):
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
 
-    def justified_pixels(self):
+    def justified_pixels(self) -> dict[tuple[int, int], Pixel]:
         if self.pixels is None:
-            return []
+            return {}
         return {
             (pixel.x - self.bbox[0], pixel.y - self.bbox[1]): pixel
             for pixel in self.pixels
             if self.bbox[0] <= pixel.x <= self.bbox[2]
             and self.bbox[1] <= pixel.y <= self.bbox[3]
         }
+
+    def justified_focus(self) -> tuple[int, int] | None:
+        if self.focus is None:
+            return None
+        return self.focus[0] - self.bbox[0], self.focus[1] - self.bbox[1]
 
     def generate_image(self, *, zoom: int = 1) -> Image.Image:
         img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
@@ -260,6 +270,7 @@ class User(DiscordObject):
         current_board: int = None,
         skip_confirm: bool = None,
         cooldown_remind: bool = None,
+        blacklist: Blacklist = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -269,6 +280,9 @@ class User(DiscordObject):
         self.cooldown_remind = cooldown_remind
 
         self.user: UserDiscord | None = None
+        self.blacklist = (
+            Blacklist(user_id=self.id, **kwargs) if blacklist is None else None
+        )
 
     def set_user(self, user):
         self.user = user
@@ -281,6 +295,9 @@ class User(DiscordObject):
             self.set_user(user)
         else:
             raise ValueError(f"User with id {self.id} not found")
+
+    def is_blacklisted(self):
+        return self.blacklist.is_blacklisted()
 
     async def set_current_board(self, sql_manager: SQLManager, board_id: int):
         self.current_board = board_id
@@ -307,6 +324,35 @@ class User(DiscordObject):
         await canvas.place_pixel(
             sql_manager=sql_manager, user=self, guild_id=guild_id, x=x, y=y, color=color
         )
+
+    async def get_cooldown(self, sql_manager: SQLManager) -> Cooldown:
+        return await sql_manager.fetch_cooldown(self.id)
+
+    async def hit_cooldown(self, sql_manager: SQLManager, cooldown_length: int):
+        cooldown = await self.get_cooldown(sql_manager)
+        if cooldown:
+            if not cooldown.is_expired():
+                return False
+
+        new_cooldown = Cooldown(
+            user_id=self.id,
+            cooldown_time=datetime.now(tz=timezone.utc)
+            + timedelta(seconds=cooldown_length),
+        )
+        if cooldown is None:
+            await sql_manager.add_cooldown(new_cooldown)
+        elif cooldown.cooldown_time is not None:
+            await sql_manager.set_cooldown(new_cooldown)
+        return True
+
+    async def clear_cooldown(self, sql_manager: SQLManager):
+        await sql_manager.clear_cooldown(self.id)
+
+    async def add_blacklist(self, sql_manager: SQLManager):
+        await sql_manager.add_blacklist(self.id)
+
+    async def remove_blacklist(self, sql_manager: SQLManager):
+        await sql_manager.remove_blacklist(self.id)
 
     def __str__(self):
         return f"User {self.id}"
@@ -466,6 +512,32 @@ class Participation(Guild):
         return f"Participation {self.id} {self.event.id}"
 
 
+class Blacklist(DiscordObject):
+    def __init__(self, *, user_id: int, date_added: datetime = None, **kwargs):
+        super().__init__(**kwargs)
+        self.user_id = user_id
+        self.date_added = date_added
+
+    def is_blacklisted(self):
+        return self.date_added is not None
+
+
+class Cooldown(DiscordObject):
+    def __init__(
+        self, *, user_id: int, cooldown_time: datetime, user: User = None, **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.cooldown_time = cooldown_time
+        self.user: User = User(_id=user_id, **kwargs) if user is None else user
+
+    def is_expired(self):
+        return (
+            self.cooldown_time <= datetime.now(tz=timezone.utc)
+            if self.cooldown_time
+            else True
+        )
+
+
 class SQLManager:
     def __init__(self, conn: Connection, bot: Client = None):
         self.conn = conn
@@ -563,7 +635,11 @@ class SQLManager:
 
     async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
         row = await self.conn.fetchrow(
-            "SELECT * FROM public.user WHERE id = $1", user_id
+            "SELECT u.*, b.date_added "
+            "FROM public.user u "
+            "LEFT JOIN blacklist b ON u.id = b.user_id "
+            "WHERE id = $1",
+            user_id,
         )
         if row:
             return User(bot=self.bot, **rename_invalid_keys(row))
@@ -572,6 +648,13 @@ class SQLManager:
             return insert_on_fail
         else:
             return await self.insert_empty_user(user_id)
+
+    async def fetch_cooldown(self, user_id: int) -> Cooldown:
+        row = await self.conn.fetchrow(
+            "SELECT * FROM cooldown WHERE user_id = $1",
+            user_id,
+        )
+        return Cooldown(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
     async def insert_color(self, color: Color):
         await self.conn.execute(
@@ -627,7 +710,7 @@ class SQLManager:
 
     async def insert_empty_user(self, user_id: int) -> User:
         user = User(
-            id=user_id, current_board=None, skip_confirm=False, cooldown_remind=False
+            _id=user_id, current_board=None, skip_confirm=False, cooldown_remind=False
         )
         await self.insert_user(user)
         return user
@@ -681,6 +764,39 @@ class SQLManager:
             "UPDATE public.user SET cooldown_remind = $1 WHERE id = $2",
             user.cooldown_remind,
             user.id,
+        )
+
+    async def add_cooldown(self, cooldown: Cooldown):
+        await self.conn.execute(
+            "INSERT INTO cooldown (user_id, cooldown_time) VALUES ($1, $2)",
+            cooldown.user.id,
+            cooldown.cooldown_time,
+        )
+
+    async def set_cooldown(self, cooldown: Cooldown):
+        await self.conn.execute(
+            "UPDATE cooldown SET cooldown_time = $1 WHERE user_id = $2",
+            cooldown.cooldown_time,
+            cooldown.user.id,
+        )
+
+    async def clear_cooldown(self, user_id: int):
+        await self.conn.execute(
+            "DELETE FROM cooldown WHERE user_id = $1",
+            user_id,
+        )
+
+    async def add_blacklist(self, user_id: int):
+        await self.conn.execute(
+            "INSERT INTO blacklist (user_id, date_added) VALUES ($1, $2)",
+            user_id,
+            datetime.now(tz=timezone.utc),
+        )
+
+    async def remove_blacklist(self, user_id: int):
+        await self.conn.execute(
+            "DELETE FROM blacklist WHERE user_id = $1",
+            user_id,
         )
 
 
