@@ -72,6 +72,13 @@ class Canvas(DiscordObject):
         await frame.load_pixels(sql_manager)
         return frame
 
+    async def get_frame_from_coordinate(
+        self, sql_manager: SQLManager, xy: tuple[int, int], zoom: int
+    ):
+        frame = Frame.from_coordinate(self, xy, zoom)
+        await frame.load_pixels(sql_manager)
+        return frame
+
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"
 
@@ -175,6 +182,19 @@ class Frame(DiscordObject):
             Canvas(_id=canvas_id, **kwargs)
             if canvas is None and canvas_id is not None
             else canvas
+        )
+
+    @staticmethod
+    def from_coordinate(canvas: Canvas, xy: tuple[int, int], zoom: int):
+        (x, y) = xy
+        return Frame(
+            canvas=canvas,
+            bbox=(
+                min(max(x - (zoom // 2), 0), canvas.width - zoom),
+                min(max(y - (zoom // 2), 0), canvas.height - zoom),
+                max(min(x + (zoom // 2), canvas.width), zoom),
+                max(min(y + (zoom // 2), canvas.height), zoom),
+            ),
         )
 
     def bbox_formatted(self):
