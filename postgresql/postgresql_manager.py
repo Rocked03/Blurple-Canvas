@@ -10,6 +10,7 @@ from objects.historyRecord import HistoryRecord
 from objects.info import Info
 from objects.participation import Participation
 from objects.pixel import Pixel
+from objects.user import User
 
 
 def rename_invalid_keys(data: dict) -> dict:
@@ -103,6 +104,18 @@ class SQLManager:
             for pixel in pixels
         ]
 
+    async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
+        row = await self.conn.fetchrow(
+            "SELECT * FROM public.user WHERE id = $1", user_id
+        )
+        if row:
+            return User(bot=self.bot, **rename_invalid_keys(row))
+        elif insert_on_fail:
+            await self.insert_user(insert_on_fail)
+            return insert_on_fail
+        else:
+            return await self.insert_empty_user(user_id)
+
     async def insert_color(self, color: Color):
         await self.conn.execute(
             (
@@ -143,6 +156,25 @@ class SQLManager:
             history_record.timestamp,
         )
 
+    async def insert_user(self, user: User):
+        await self.conn.execute(
+            (
+                "INSERT INTO public.user (id, current_board, skip_confirm, cooldown_remind) "
+                "VALUES ($1, $2, $3, $4)"
+            ),
+            user.id,
+            user.current_board,
+            user.skip_confirm,
+            user.cooldown_remind,
+        )
+
+    async def insert_empty_user(self, user_id: int) -> User:
+        user = User(
+            id=user_id, current_board=None, skip_confirm=False, cooldown_remind=False
+        )
+        await self.insert_user(user)
+        return user
+
     async def set_pixel(self, pixel: Pixel):
         await self.conn.execute(
             (
@@ -168,3 +200,27 @@ class SQLManager:
         )
         await self.insert_history_record(record)
         await self.set_pixel(pixel)
+
+    async def set_current_board(self, user: User):
+        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.conn.execute(
+            "UPDATE public.user SET current_board = $1 WHERE id = $2",
+            user.current_board,
+            user.id,
+        )
+
+    async def set_skip_confirm(self, user: User):
+        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.conn.execute(
+            "UPDATE public.user SET skip_confirm = $1 WHERE id = $2",
+            user.skip_confirm,
+            user.id,
+        )
+
+    async def set_cooldown_remind(self, user: User):
+        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.conn.execute(
+            "UPDATE public.user SET cooldown_remind = $1 WHERE id = $2",
+            user.cooldown_remind,
+            user.id,
+        )

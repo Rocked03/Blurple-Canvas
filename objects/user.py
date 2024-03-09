@@ -1,6 +1,7 @@
 from discord import User as UserDiscord
 
 from objects.discordObject import DiscordObject
+from postgresql.postgresql_manager import SQLManager
 
 
 class User(DiscordObject):
@@ -32,6 +33,18 @@ class User(DiscordObject):
             self.set_user(user)
         else:
             raise ValueError(f"User with id {self.id} not found")
+
+    async def set_current_board(self, sql_manager: SQLManager, board_id: int):
+        self.current_board = board_id
+        await sql_manager.set_current_board(self)
+
+    async def toggle_skip_confirm(self, sql_manager: SQLManager):
+        self.skip_confirm = not self.skip_confirm
+        await sql_manager.set_skip_confirm(self)
+
+    async def toggle_cooldown_remind(self, sql_manager: SQLManager):
+        self.cooldown_remind = not self.cooldown_remind
+        await sql_manager.set_cooldown_remind(self)
 
     def __str__(self):
         return f"User {self.id}"
