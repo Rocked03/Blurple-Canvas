@@ -6,6 +6,7 @@ from objects.discordObject import DiscordObject
 class User(DiscordObject):
     def __init__(
         self,
+        *,
         _id: int = None,
         current_board: int = None,
         skip_confirm: bool = None,

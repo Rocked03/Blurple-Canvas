@@ -11,6 +11,7 @@ from postgresql.postgresql_manager import SQLManager
 class Frame(DiscordObject):
     def __init__(
         self,
+        *,
         _id: int = None,
         canvas_id: int = None,
         guild_id: int = None,
@@ -20,6 +21,8 @@ class Frame(DiscordObject):
         y_1: int = None,
         name: str = None,
         pixels: list[Pixel] = None,
+        canvas: Canvas = None,
+        guild: Guild = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -30,8 +33,10 @@ class Frame(DiscordObject):
         )
         self.pixels = pixels
 
-        self.canvas = Canvas(_id=canvas_id, **kwargs) if canvas_id else None
-        self.guild = Guild(_id=guild_id, **kwargs) if guild_id else None
+        self.canvas = (
+            Canvas(_id=canvas_id, **kwargs) if not canvas and canvas_id else canvas
+        )
+        self.guild = Guild(_id=guild_id, **kwargs) if not guild and guild_id else guild
 
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)

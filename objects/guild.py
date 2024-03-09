@@ -4,7 +4,7 @@ from objects.discordObject import DiscordObject
 
 
 class Guild(DiscordObject):
-    def __init__(self, _id: int = None, manager_role: int = None, **kwargs):
+    def __init__(self, *, _id: int = None, manager_role: int = None, **kwargs):
         super().__init__(**kwargs)
         self.id = _id
         self.manager_role_id = manager_role

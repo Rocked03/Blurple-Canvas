@@ -5,12 +5,14 @@ from objects.event import Event
 class Canvas(DiscordObject):
     def __init__(
         self,
+        *,
         _id: int = None,
         name: str = None,
         locked: bool = None,
         event_id: int = None,
         width: int = None,
         height: int = None,
+        event: Event = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -21,7 +23,7 @@ class Canvas(DiscordObject):
         self.width = width
         self.height = height
 
-        self.event = Event(_id=event_id, **kwargs) if event_id else None
+        self.event = Event(_id=event_id, **kwargs) if not event and event_id else event
 
     def is_locked(self):
         return self.locked

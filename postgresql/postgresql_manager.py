@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Generator
 
 from asyncpg import Connection
@@ -28,12 +29,17 @@ class SQLManager:
         row = await self.conn.fetchrow("SELECT * FROM canvas WHERE id = $1", canvas_id)
         return Canvas(bot=self.bot, **rename_invalid_keys(row))
 
-    async def fetch_all_colors(self) -> list[Color]:
-        rows = await self.conn.fetch("SELECT * FROM color")
+    async def fetch_colors(self, *, color_ids: list[int] = None) -> list[Color]:
+        if color_ids:
+            rows = await self.conn.fetch(
+                "SELECT * FROM color WHERE id = ANY($1)", color_ids
+            )
+        else:
+            rows = await self.conn.fetch("SELECT * FROM color")
         return [Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
     async def fetch_history_records(
-        self, canvas_id: int, user_id: int = None
+        self, canvas_id: int, *, user_id: int = None
     ) -> Generator[HistoryRecord, Any, None]:
         if user_id:
             rows = await self.conn.fetch(
@@ -98,12 +104,11 @@ class SQLManager:
         ]
 
     async def insert_color(self, color: Color):
-        query = (
-            "INSERT INTO color (id, code, emoji_name, emoji_id, global, name, rgba) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7)"
-        )
         await self.conn.execute(
-            query,
+            (
+                "INSERT INTO color (id, code, emoji_name, emoji_id, global, name, rgba) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7)"
+            ),
             color.code,
             color.emoji_name,
             color.emoji_id,
@@ -113,29 +118,53 @@ class SQLManager:
         )  # TODO: color ID auto increment?
 
     async def insert_participation(self, participation: Participation):
-        query = (
-            "INSERT INTO participation (guild_id, event_id, custom_color, color_id) "
-            "VALUES ($1, $2, $3, $4)"
-        )
         await self.conn.execute(
-            query,
-            participation.guild_id,
-            participation.event_id,
+            (
+                "INSERT INTO participation (guild_id, event_id, custom_color, color_id) "
+                "VALUES ($1, $2, $3, $4)"
+            ),
+            participation.guild.id,
+            participation.event.id,
             participation.custom_color,
-            participation.color_id,
+            participation.color.id,
         )
 
     async def insert_history_record(self, history_record: HistoryRecord):
-        query = (
-            "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp) "
-            "VALUES ($1, $2, $3, $4, $5, $6)"
-        )
         await self.conn.execute(
-            query,
+            (
+                "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp) "
+                "VALUES ($1, $2, $3, $4, $5, $6)"
+            ),
             history_record.pixel.canvas_id,
-            history_record.user_id,
+            history_record.user.id,
             history_record.pixel.x,
             history_record.pixel.y,
             history_record.pixel.color_id,
             history_record.timestamp,
         )
+
+    async def set_pixel(self, pixel: Pixel):
+        await self.conn.execute(
+            (
+                "UPDATE pixels "
+                "SET color_id = $1 "
+                "WHERE canvas_id = $2 AND x = $3 AND y = $4"
+            ),
+            pixel.color.id,
+            pixel.canvas.id,
+            pixel.x,
+            pixel.y,
+        )
+
+    async def update_pixel(
+        self,
+        pixel: Pixel,
+        user_id: int,
+        timestamp: datetime = None,
+        guild_id: int = None,
+    ):
+        record = HistoryRecord(
+            pixel=pixel, user_id=user_id, guild_id=guild_id, timestamp=timestamp
+        )
+        await self.insert_history_record(record)
+        await self.set_pixel(pixel)

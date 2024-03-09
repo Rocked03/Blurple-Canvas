@@ -4,6 +4,7 @@ from objects.discordObject import DiscordObject
 class Color(DiscordObject):
     def __init__(
         self,
+        *,
         _id: int = None,
         name: str = None,
         code: str = None,
