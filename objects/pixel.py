@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from objects.discordObject import DiscordObject
 
@@ -28,12 +28,12 @@ class Pixel(DiscordObject):
         from objects.color import Color
         from objects.canvas import Canvas
 
-        self.canvas = (
+        self.canvas: Optional[Canvas] = (
             Canvas(_id=canvas_id, **kwargs)
             if canvas is None and canvas_id is not None
             else canvas
         )
-        self.color = (
+        self.color: Optional[Color] = (
             Color(_id=color_id, **kwargs)
             if color is None and color_id is not None
             else color

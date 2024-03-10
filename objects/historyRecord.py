@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from objects.discordObject import DiscordObject
 
@@ -36,17 +36,17 @@ class HistoryRecord(DiscordObject):
         from objects.pixel import Pixel
         from objects.guild import Guild
 
-        self.user = (
+        self.user: Optional[User] = (
             User(_id=user_id, **kwargs)
             if user is None and user_id is not None
             else user
         )
-        self.pixel = (
+        self.pixel: Optional[Pixel] = (
             Pixel(canvas_id=canvas_id, x=x, y=y, color_id=color_id, **kwargs)
             if pixel is None
             else pixel
         )
-        self.guild = (
+        self.guild: Optional[Guild] = (
             Guild(_id=guild_id, **kwargs)
             if guild is None and guild_id is not None
             else guild

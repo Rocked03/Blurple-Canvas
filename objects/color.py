@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from objects.discordObject import DiscordObject
 
 
@@ -24,7 +26,7 @@ class Color(DiscordObject):
         self.emoji_id = emoji_id
         self.is_global = _global
 
-        self.rgba: tuple[int, int, int, int] | None = (
+        self.rgba: Optional[tuple[int, int, int, int]] = (
             tuple(rgba[i] if len(rgba) > i else [0, 0, 0, 255][i] for i in range(4))
             if rgba
             else None

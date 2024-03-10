@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from objects.discordObject import DiscordObject
 
@@ -23,7 +23,7 @@ class Info(DiscordObject):
 
         from objects.event import Event
 
-        self.current_event = (
+        self.current_event: Optional[Event] = (
             Event(_id=current_event_id, **kwargs)
             if not current_event and current_event_id
             else current_event

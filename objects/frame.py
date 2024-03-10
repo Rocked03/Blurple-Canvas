@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from PIL import Image, ImageDraw
 
@@ -31,7 +31,7 @@ class Frame(DiscordObject):
     ):
         super().__init__(**kwargs)
         self.id = _id
-        self.bbox: tuple[int, int, int, int] | None = (
+        self.bbox: Optional[tuple[int, int, int, int]] = (
             (x_0, x_1, y_0, y_1) if not bbox and (x_0 and x_1 and y_0 and y_1) else bbox
         )
         self.pixels = pixels
@@ -41,7 +41,7 @@ class Frame(DiscordObject):
 
         from objects.canvas import Canvas
 
-        self.canvas = (
+        self.canvas: Optional[Canvas] = (
             Canvas(_id=canvas_id, **kwargs)
             if canvas is None and canvas_id is not None
             else canvas

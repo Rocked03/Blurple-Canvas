@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from discord import User as UserDiscord
 
@@ -30,9 +30,9 @@ class User(DiscordObject):
         self.skip_confirm = skip_confirm
         self.cooldown_remind = cooldown_remind
 
-        self.user: UserDiscord | None = None
+        self.user: Optional[UserDiscord] = None
 
-        self.blacklist = (
+        self.blacklist: Optional[Blacklist] = (
             Blacklist(user_id=self.id, **kwargs) if blacklist is None else None
         )
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from discord import Guild as GuildDiscord, Role
 
@@ -17,8 +17,8 @@ class Guild(DiscordObject):
         self.id = _id
         self.manager_role_id = manager_role
 
-        self.guild: GuildDiscord | None = None
-        self.manager_role: Role | None = None
+        self.guild: Optional[GuildDiscord] = None
+        self.manager_role: Optional[Role] = None
 
         if self.bot is not None:
             self.load_guild()
