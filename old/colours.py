@@ -9,16 +9,17 @@ from discord.ext import commands
 
 def dev():
     async def pred(ctx):
-        return ctx.author.id in ctx.bot.allowedusers
+        return ctx.author.id in ctx.bot.allowed_users
 
     return commands.check(pred)
 
 
 def admin():
-    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
+    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurple_guild.fetch_member(ctx.author.id).roles])
     async def pred(ctx):
         return ctx.bot.modroles["Admin"] in [
-            i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles
+            i.id
+            for i in (await ctx.bot.blurple_guild.fetch_member(ctx.author.id)).roles
         ]
 
     return commands.check(pred)

@@ -34,7 +34,7 @@ from old.skippersist import SkipPersist
 
 def dev():
     async def pred(ctx):
-        return ctx.author.id in ctx.bot.allowedusers
+        return ctx.author.id in ctx.bot.allowed_users
 
     return commands.check(pred)
 
@@ -42,9 +42,9 @@ def dev():
 def inteam():
     async def pred(ctx):
         # return True
-        return ctx.author.id in [i.id for i in ctx.bot.blurpleguild.members]
+        return ctx.author.id in [i.id for i in ctx.bot.blurple_guild.members]
 
-        # a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+        # a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurple_guild.fetch_member(ctx.author.id)).roles])
         # if not a: ctx.bot.cd.add(ctx.author.id)
         # return a
 
@@ -57,7 +57,7 @@ def mod():
             elem in [v for k, v in ctx.bot.modroles.items()]
             for elem in [
                 i.id
-                for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles
+                for i in (await ctx.bot.blurple_guild.fetch_member(ctx.author.id)).roles
             ]
         )
 
@@ -75,7 +75,7 @@ def executive():
             ]
             for i in [
                 i.id
-                for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles
+                for i in (await ctx.bot.blurple_guild.fetch_member(ctx.author.id)).roles
             ]
         )
 
@@ -83,10 +83,11 @@ def executive():
 
 
 def admin():
-    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
+    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurple_guild.fetch_member(ctx.author.id).roles])
     async def pred(ctx):
         return ctx.bot.modroles["Admin"] in [
-            i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles
+            i.id
+            for i in (await ctx.bot.blurple_guild.fetch_member(ctx.author.id)).roles
         ]
 
     return commands.check(pred)
@@ -249,7 +250,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def fetchserver(self):
         await asyncio.sleep(60)
-        self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
+        self.bot.blurple_guild = self.bot.get_guild(412754940885467146)
 
     async def getskips(self):
         self.bot.skipconfirm = await self.skippersist.c("get_all")
@@ -812,7 +813,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 return (x, y, zoom)
 
     async def cog_check(self, ctx):
-        return ctx.guild.id in [self.bot.blurpleguild.id] + [
+        return ctx.guild.id in [self.bot.blurple_guild.id] + [
             int(i["guild"]) for i in self.bot.partners.values()
         ]
 
@@ -2060,16 +2061,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await msg.clear_reactions()
 
         if success:
-            member = await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
+            member = await ctx.bot.blurple_guild.fetch_member(ctx.author.id)
             if member and self.bot.artistrole not in [i.id for i in member.roles]:
                 await member.add_roles(
-                    ctx.bot.blurpleguild.get_role(self.bot.artistrole)
+                    ctx.bot.blurple_guild.get_role(self.bot.artistrole)
                 )
                 # t = ""
-                # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
+                # if ctx.author.guild.id != ctx.bot.blurple_guild.id: t = " in the Project Blurple server"
                 # await ctx.reply(f"That was your first pixel placed! For that, you have received the **Artist** role{t}!")
                 await ctx.reply(
-                    f"That was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!"
+                    f"That was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurple_guild.id else ''}!"
                 )
 
         async with self.bot.dblock:
