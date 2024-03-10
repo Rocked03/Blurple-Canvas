@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from asyncpg import Connection
 from discord import Client
 
+from objects.coordinates import BoundingBox
+
 if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.color import Color
@@ -98,9 +100,7 @@ class SQLManager:
 
         return Info(bot=self.bot, **rename_invalid_keys(row))
 
-    async def fetch_pixels(
-        self, canvas_id: int, bbox: tuple[int, int, int, int]
-    ) -> list[Pixel]:
+    async def fetch_pixels(self, canvas_id: int, bbox: BoundingBox) -> list[Pixel]:
         pixels = await self.conn.fetch(
             (
                 "SELECT p.x, p.y, p.color_id "
@@ -109,7 +109,7 @@ class SQLManager:
                 "x >= $2 AND x <= $4 AND y >= $3 AND y <= $5"
             ),
             canvas_id,
-            *bbox,
+            *bbox.to_tuple(),
         )
         colors = {
             c["id"]: rename_invalid_keys(c)

@@ -7,6 +7,7 @@ from discord.utils import utcnow
 
 from config import POSTGRES_CREDENTIALS
 from objects.canvas import Canvas
+from objects.coordinates import Coordinates
 from objects.sqlManager import SQLManager
 from objects.user import User
 
@@ -69,7 +70,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if x is None and y is None:
                 frame = await canvas.get_frame_full(self.sql)
             else:
-                frame = await canvas.get_frame_from_coordinate(self.sql, (x, y), zoom)
+                frame = await canvas.get_frame_from_coordinate(
+                    self.sql, Coordinates(x, y), zoom
+                )
 
         except ValueError as e:
             return await interaction.response().send_message(str(e), ephemeral=True)

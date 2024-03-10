@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
+from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
@@ -39,6 +40,12 @@ class Canvas(DiscordObject):
         self.pixels = pixels
         self.cooldown_length = cooldown_length
 
+        self.bbox: Optional[BoundingBox] = (
+            BoundingBox(Coordinates(1, 1), Coordinates(width, height))
+            if width and height
+            else None
+        )
+
         from objects.event import Event
 
         self.event = (
@@ -63,18 +70,11 @@ class Canvas(DiscordObject):
         y: int,
         color: Color,
     ):
-        pixel = Pixel(x=x, y=y, color=color, canvas=self)
+        pixel = Pixel(xy=Coordinates(x, y), color=color, canvas=self)
         await sql_manager.update_pixel(pixel=pixel, user_id=user.id, guild_id=guild_id)
 
-    async def get_frame(
-        self, sql_manager: SQLManager, bbox: tuple[int, int, int, int]
-    ) -> Frame:
-        if (
-            bbox[0] <= 0
-            or bbox[1] <= 0
-            or bbox[2] > self.width
-            or bbox[3] > self.height
-        ):
+    async def get_frame(self, sql_manager: SQLManager, bbox: BoundingBox) -> Frame:
+        if bbox in self.bbox:
             raise ValueError("Coordinates out of bounds")
 
         from objects.frame import Frame
@@ -87,11 +87,19 @@ class Canvas(DiscordObject):
         return frame
 
     async def get_frame_full(self, sql_manager: SQLManager) -> Frame:
-        return await self.get_frame(sql_manager, (1, 1, self.width, self.height))
+        return await self.get_frame(
+            sql_manager,
+            BoundingBox(Coordinates(1, 1), Coordinates(self.width, self.height)),
+        )
 
     async def get_frame_from_coordinate(
-        self, sql_manager: SQLManager, xy: tuple[int, int], zoom: int
+        self, sql_manager: SQLManager, xy: Coordinates, zoom: int
     ) -> Frame:
+        if zoom < 5:
+            raise ValueError("Zoom must be at least 5")
+        if zoom > self.width and zoom > self.height:
+            zoom = max(self.width, self.height)
+
         from objects.frame import Frame
 
         frame = Frame.from_coordinate(self, xy, zoom)

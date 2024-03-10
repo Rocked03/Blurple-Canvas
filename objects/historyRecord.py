@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
+from objects.coordinates import Coordinates
 from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
@@ -42,7 +43,9 @@ class HistoryRecord(DiscordObject):
             else user
         )
         self.pixel: Optional[Pixel] = (
-            Pixel(canvas_id=canvas_id, x=x, y=y, color_id=color_id, **kwargs)
+            Pixel(
+                canvas_id=canvas_id, xy=Coordinates(x, y), color_id=color_id, **kwargs
+            )
             if pixel is None
             else pixel
         )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from objects.coordinates import Coordinates
 from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
@@ -19,11 +20,12 @@ class Pixel(DiscordObject):
         color_id: int = None,
         color: Color = None,
         canvas: Canvas = None,
+        xy: Coordinates = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.x = x
-        self.y = y
+        self.xy = xy if xy else Coordinates(x, y)
+        self.x, self.y = self.xy.x, self.xy.y
 
         from objects.color import Color
         from objects.canvas import Canvas
@@ -43,4 +45,4 @@ class Pixel(DiscordObject):
         return self.x, self.y
 
     def __str__(self):
-        return f"({self.x}, {self.y})"
+        return str(self.xy)

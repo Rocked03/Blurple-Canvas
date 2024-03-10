@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Optional
 
 from PIL import Image, ImageDraw
 
+from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
@@ -24,20 +25,22 @@ class Frame(DiscordObject):
         x_1: int = None,
         y_1: int = None,
         pixels: list[Pixel] = None,
-        bbox: tuple[int, int, int, int] = None,
+        bbox: BoundingBox = None,
         canvas: Canvas = None,
-        focus: tuple[int, int] = None,
+        focus: Coordinates = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.id = _id
-        self.bbox: Optional[tuple[int, int, int, int]] = (
-            (x_0, y_0, x_1, y_1) if not bbox and (x_0 and y_0 and x_1 and y_1) else bbox
+        self.bbox: Optional[BoundingBox] = (
+            BoundingBox(Coordinates(x_0, y_0), Coordinates(x_1, y_1))
+            if not bbox and (x_0 and y_0 and x_1 and y_1)
+            else bbox
         )
         self.pixels = pixels
         self.focus = focus
 
-        self.size = (self.bbox[2] - self.bbox[0] + 1, self.bbox[3] - self.bbox[1] + 1)
+        self.size = self.bbox.size
 
         from objects.canvas import Canvas
 
@@ -48,43 +51,44 @@ class Frame(DiscordObject):
         )
 
     @staticmethod
-    def from_coordinate(canvas: Canvas, xy: tuple[int, int], zoom: int):
-        (x, y) = xy
+    def from_coordinate(canvas: Canvas, xy: Coordinates, zoom: int):
+        (x, y) = xy.to_tuple()
         if zoom < 1:
             raise ValueError("Zoom must be at least 1")
-        if (x <= 0 or x > canvas.width) or (y <= 0 or y > canvas.height):
+        if xy not in canvas.bbox:
             raise ValueError("Coordinates out of bounds")
         return Frame(
             canvas=canvas,
-            bbox=(
-                min(max(x - (zoom // 2), 0), canvas.width - zoom),
-                min(max(y - (zoom // 2), 0), canvas.height - zoom),
-                max(min(x + (zoom // 2), canvas.width), zoom),
-                max(min(y + (zoom // 2), canvas.height), zoom),
+            bbox=BoundingBox(
+                Coordinates(
+                    min(max(x - (zoom // 2), 0), canvas.width - zoom),
+                    min(max(y - (zoom // 2), 0), canvas.height - zoom),
+                ),
+                Coordinates(
+                    max(min(x + (zoom // 2), canvas.width), zoom),
+                    max(min(y + (zoom // 2), canvas.height), zoom),
+                ),
             ),
             highlight=xy,
         )
 
-    def bbox_formatted(self):
-        return f"({self.bbox[0]}, {self.bbox[1]}) - ({self.bbox[2]}, {self.bbox[3]})"
-
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
 
-    def justified_pixels(self) -> dict[tuple[int, int], Pixel]:
+    def justified_pixels(self) -> dict[Coordinates, Pixel]:
         if self.pixels is None:
             return {}
         return {
-            (pixel.x - self.bbox[0], pixel.y - self.bbox[1]): pixel
+            Coordinates(pixel.x - self.bbox.x0, pixel.y - self.bbox.y0): pixel
             for pixel in self.pixels
-            if self.bbox[0] <= pixel.x <= self.bbox[2]
-            and self.bbox[1] <= pixel.y <= self.bbox[3]
+            if self.bbox.x0 <= pixel.x <= self.bbox.x1
+            and self.bbox.y0 <= pixel.y <= self.bbox.y1
         }
 
-    def justified_focus(self) -> tuple[int, int] | None:
+    def justified_focus(self) -> Optional[Coordinates]:
         if self.focus is None:
             return None
-        return self.focus[0] - self.bbox[0], self.focus[1] - self.bbox[1]
+        return Coordinates(self.focus.x - self.bbox.x0, self.focus.y - self.bbox.y0)
 
     def generate_image(self, *, zoom: int = 1) -> Image.Image:
         img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
@@ -102,10 +106,10 @@ class Frame(DiscordObject):
         return img
 
     def multiply_zoom(self, zoom: int) -> tuple[int, int]:
-        return tuple[int, int]([self.size[0] * zoom, self.size[1] * zoom])
+        return tuple[int, int]([self.bbox.width * zoom, self.bbox.height * zoom])
 
     def __str__(self):
-        return f"Frame {self.bbox_formatted()} ({self.canvas})"
+        return f"Frame {self.bbox} ({self.canvas})"
 
 
 class CustomFrame(Frame):
