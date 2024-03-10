@@ -9,9 +9,6 @@ class Coordinates:
     def to_tuple(self):
         return self.x, self.y
 
-    def bounds(self, bbox: BoundingBox):
-        return bbox.x0 <= self.x <= bbox.x1 and bbox.y0 <= self.y <= bbox.y1
-
     def __str__(self):
         return f"({self.x}, {self.y})"
 
@@ -39,7 +36,7 @@ class BoundingBox:
 
     def __contains__(self, item):
         if isinstance(item, Coordinates):
-            return item.bounds(self)
+            return self.x0 <= item.x <= self.x1 and self.y0 <= item.y <= self.y1
         elif isinstance(item, BoundingBox):
             return item.xy0 in self and item.xy1 in self
         else:
