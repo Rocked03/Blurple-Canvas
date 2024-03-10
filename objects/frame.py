@@ -32,7 +32,7 @@ class Frame(DiscordObject):
         super().__init__(**kwargs)
         self.id = _id
         self.bbox: Optional[tuple[int, int, int, int]] = (
-            (x_0, x_1, y_0, y_1) if not bbox and (x_0 and x_1 and y_0 and y_1) else bbox
+            (x_0, y_0, x_1, y_1) if not bbox and (x_0 and y_0 and x_1 and y_1) else bbox
         )
         self.pixels = pixels
         self.focus = focus
@@ -50,6 +50,10 @@ class Frame(DiscordObject):
     @staticmethod
     def from_coordinate(canvas: Canvas, xy: tuple[int, int], zoom: int):
         (x, y) = xy
+        if zoom < 1:
+            raise ValueError("Zoom must be at least 1")
+        if (x <= 0 or x > canvas.width) or (y <= 0 or y > canvas.height):
+            raise ValueError("Coordinates out of bounds")
         return Frame(
             canvas=canvas,
             bbox=(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Generator, Any
+from typing import Generator, Any, Optional
 from typing import TYPE_CHECKING
 
 from asyncpg import Connection
@@ -22,9 +22,13 @@ class SQLManager:
         self.conn = conn
         self.bot = bot
 
-    async def fetch_canvas(self, canvas_id) -> Canvas:
-        row = await self.conn.fetchrow("SELECT * FROM canvas WHERE id = $1", canvas_id)
+    async def fetch_canvas(self, canvas_id) -> Optional[Canvas]:
         from objects.canvas import Canvas
+
+        row = await self.conn.fetchrow("SELECT * FROM canvas WHERE id = $1", canvas_id)
+
+        if row is None:
+            return None
 
         return Canvas(bot=self.bot, **rename_invalid_keys(row))
 
@@ -203,14 +207,17 @@ class SQLManager:
                 "VALUES ($1, $2, $3, $4)"
             ),
             user.id,
-            user.current_board,
+            user.current_canvas_id,
             user.skip_confirm,
             user.cooldown_remind,
         )
 
     async def insert_empty_user(self, user_id: int) -> User:
         user = User(
-            _id=user_id, current_board=None, skip_confirm=False, cooldown_remind=False
+            _id=user_id,
+            current_canvas_id=None,
+            skip_confirm=False,
+            cooldown_remind=False,
         )
         await self.insert_user(user)
         return user
@@ -248,7 +255,7 @@ class SQLManager:
         await self.fetch_user(user.id, insert_on_fail=user)
         await self.conn.execute(
             "UPDATE public.user SET current_board = $1 WHERE id = $2",
-            user.current_board,
+            user.current_canvas_id,
             user.id,
         )
 

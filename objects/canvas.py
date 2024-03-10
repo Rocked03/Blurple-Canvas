@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from objects.discordObject import DiscordObject
@@ -65,7 +66,17 @@ class Canvas(DiscordObject):
         pixel = Pixel(x=x, y=y, color=color, canvas=self)
         await sql_manager.update_pixel(pixel=pixel, user_id=user.id, guild_id=guild_id)
 
-    async def get_frame(self, sql_manager: SQLManager, bbox: tuple[int, int, int, int]):
+    async def get_frame(
+        self, sql_manager: SQLManager, bbox: tuple[int, int, int, int]
+    ) -> Frame:
+        if (
+            bbox[0] <= 0
+            or bbox[1] <= 0
+            or bbox[2] > self.width
+            or bbox[3] > self.height
+        ):
+            raise ValueError("Coordinates out of bounds")
+
         from objects.frame import Frame
 
         frame = Frame(
@@ -75,14 +86,20 @@ class Canvas(DiscordObject):
         await frame.load_pixels(sql_manager)
         return frame
 
+    async def get_frame_full(self, sql_manager: SQLManager) -> Frame:
+        return await self.get_frame(sql_manager, (1, 1, self.width, self.height))
+
     async def get_frame_from_coordinate(
         self, sql_manager: SQLManager, xy: tuple[int, int], zoom: int
-    ):
+    ) -> Frame:
         from objects.frame import Frame
 
         frame = Frame.from_coordinate(self, xy, zoom)
         await frame.load_pixels(sql_manager)
         return frame
+
+    def name_safe(self):
+        return "".join([c for c in self.name if re.match(r"\w", c)])
 
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"

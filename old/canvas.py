@@ -1001,7 +1001,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     name=f"{board.name} | Image took {end - start:.2f}s to load"
                 )
                 embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.emoji_name}",
                     icon_url=self.bot.user.avatar,
                 )
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
