@@ -382,6 +382,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="palette")
     async def palette(self, interaction: Interaction, color: str = None):
         """View the palette"""
+        # TODO: Implement
         pass
 
     @app_commands.command(name="toggle-skip")
@@ -413,6 +414,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="stats")
     async def stats(self, interaction: Interaction, user: UserDiscord = None):
         """View user stats"""
+        # TODO: Implement
+        # - me
+        # - guild
+        # - leaderboard
         pass
 
     # Admin Commands
@@ -466,11 +471,34 @@ class CanvasCog(commands.Cog, name="Canvas"):
     ):
         return await self.autocomplete_canvas(interaction, current)
 
+    @admin_group.command(name="force-refresh")
+    async def force_refresh(self, interaction: Interaction, canvas: str):
+        """Force refresh the cache"""
+        # TODO: Implement
+        pass
+
+    @force_refresh.autocomplete("canvas")
+    async def force_refresh_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
+    @admin_group.command(name="blacklist")
+    async def blacklist(self, interaction: Interaction, user: UserDiscord):
+        """Blacklist a user"""
+        # TODO: Implement
+        pass
+
+    @admin_group.command(name="unblacklist")
+    async def unblacklist(self, interaction: Interaction, user: UserDiscord):
+        """Unblacklist a user"""
+        # TODO: Implement
+        pass
+
     # Admin commands
     # - Force refresh
     # - Partner stuff + colour stuff
     # - Blacklist
-    # - Lock
     # - Create canvas
     # Imager stuff
     # - Frames
