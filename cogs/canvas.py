@@ -10,6 +10,7 @@ from discord.ext import commands
 from discord.utils import utcnow
 
 from config import POSTGRES_CREDENTIALS
+from objects.cache import Cache
 from objects.canvas import Canvas
 from objects.coordinates import Coordinates
 from objects.sqlManager import SQLManager
@@ -47,30 +48,44 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot: Client = bot
 
         # SQL
+        self.sql_startup_event = asyncio.Event()
         self.pool: Optional[Pool] = None
         self.bot.loop.create_task(self.startup_connect_sql())
 
+        self.cache: dict[int, Cache] = {}
+        self.bot.loop.create_task(self.load_cache())
+
     async def startup_connect_sql(self):
         self.pool = await create_pool(**POSTGRES_CREDENTIALS)
+        self.sql_startup_event.set()
         print("Connected to PostgreSQL database")
 
     async def sql(self) -> SQLManager:
+        await self.sql_startup_event.wait()
         connection = await self.pool.acquire()
         self.bot.loop.create_task(self.timeout_connection(connection))
         return SQLManager(connection)
 
     async def timeout_connection(self, connection):
-        await asyncio.sleep(120)
+        await asyncio.sleep(600)
         await self.pool.release(connection)
+
+    async def load_cache(self):
+        cache = [2023]
+        for canvas_id in cache:
+            print(f"Loading cache for canvas {canvas_id}")
+            self.cache[canvas_id] = Cache(canvas_id, await self.sql())
 
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
         sql = await self.sql()
         user = await sql.fetch_user(user_id)
         if user.current_canvas is None:
+            await sql.close()
             raise ValueError(
                 "You have not joined a canvas! Please use `/join` to join a canvas."
             )
         canvas = await sql.fetch_canvas_by_id(user.current_canvas.id)
+        await sql.close()
         if canvas is None:
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
         return user, canvas
@@ -112,6 +127,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             timer = Timer()
             user, canvas = await self.find_canvas(interaction.user.id)
 
+            if canvas.id in self.cache:
+                canvas = await self.cache[canvas.id].get_canvas()
+
             # Get frame
             if x is None and y is None:
                 frame = await canvas.get_frame_full(sql)
@@ -119,9 +137,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 frame = await canvas.get_frame_from_coordinate(
                     sql, Coordinates(x, y), zoom
                 )
-            timer.mark("Fetched frame")
+            await sql.close()
 
         except ValueError as e:
+            await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
 
         # Generate image
@@ -154,11 +173,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         canvas = await sql.fetch_canvas_by_name(canvas)
 
         if canvas is None:
+            await sql.close()
             return await interaction.response.send_message(
                 f"Canvas '{canvas}' does not exist."
             )
 
         await user.set_current_canvas(sql, canvas)
+        await sql.close()
 
         await interaction.response.send_message(f"Joined canvas '{canvas.name}'")
 

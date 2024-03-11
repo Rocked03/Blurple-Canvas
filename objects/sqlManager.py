@@ -24,6 +24,9 @@ class SQLManager:
         self.conn = conn
         self.bot = bot
 
+    async def close(self):
+        await self.conn.close()
+
     async def fetch_canvas_all(self) -> Generator[Canvas, Any, None]:
         rows = await self.conn.fetch("SELECT * FROM canvas")
 

@@ -75,6 +75,10 @@ class Frame(DiscordObject):
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
 
+    def load_pixels_from_local(self, canvas: Canvas):
+        pixels = canvas.pixels
+        self.pixels = [pixel for pixel in pixels.values() if pixel in self.bbox]
+
     def justified_pixels(self) -> dict[Coordinates, Pixel]:
         if self.pixels is None:
             return {}
@@ -93,16 +97,24 @@ class Frame(DiscordObject):
     def generate_image(
         self, *, zoom: int = 1, max_size: Coordinates = None
     ) -> Image.Image:
+        if max_size:
+            zoom = max(
+                1,
+                min(
+                    max_size.x // self.bbox.width,
+                    max_size.y // self.bbox.height,
+                ),
+            )
         img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         for coordinates, pixel in self.justified_pixels().items():
             if zoom != 1:
                 adjusted_coordinates = (coordinates.x * zoom, coordinates.y * zoom)
-            elif max_size is not None:
-                adjusted_coordinates = (
-                    coordinates.x * max_size.x // self.bbox.width,
-                    coordinates.y * max_size.y // self.bbox.height,
-                )
+            # elif max_size is not None:
+            #     adjusted_coordinates = (
+            #         coordinates.x * max_size.x // self.bbox.width,
+            #         coordinates.y * max_size.y // self.bbox.height,
+            #     )
             else:
                 adjusted_coordinates = coordinates.to_tuple()
             opposite_corner = (

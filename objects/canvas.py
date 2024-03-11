@@ -26,8 +26,9 @@ class Canvas(DiscordObject):
         width: int = None,
         height: int = None,
         event: Event = None,
-        pixels: dict[tuple[int, int], Pixel] = None,
+        pixels: dict[Coordinates, Pixel] = None,
         cooldown_length: int = None,
+        is_cache: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -39,6 +40,7 @@ class Canvas(DiscordObject):
         self.height = height
         self.pixels = pixels
         self.cooldown_length = cooldown_length
+        self.is_cache = is_cache
 
         self.bbox: Optional[BoundingBox] = (
             BoundingBox(Coordinates(1, 1), Coordinates(width, height))
@@ -83,7 +85,10 @@ class Canvas(DiscordObject):
             canvas_id=self.id,
             bbox=bbox,
         )
-        await frame.load_pixels(sql_manager)
+        if self.is_cache:
+            frame.load_pixels_from_local(self)
+        else:
+            await frame.load_pixels(sql_manager)
         return frame
 
     async def get_frame_full(self, sql_manager: SQLManager) -> Frame:
@@ -103,7 +108,10 @@ class Canvas(DiscordObject):
         from objects.frame import Frame
 
         frame = Frame.from_coordinate(self, xy, zoom)
-        await frame.load_pixels(sql_manager)
+        if self.is_cache:
+            frame.load_pixels_from_local(self)
+        else:
+            await frame.load_pixels(sql_manager)
         return frame
 
     def name_safe(self):
