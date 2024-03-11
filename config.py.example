@@ -1,2 +1,9 @@
 TOKEN = 'tokenhere'
 BOT_PREFIX = 'p/'
+
+POSTGRES_CREDENTIALS = {
+    "user": "username",
+    "password": "password",
+    "database": "database",
+    "host": "ip.address",
+}
