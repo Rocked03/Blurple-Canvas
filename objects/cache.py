@@ -28,7 +28,9 @@ class Cache:
         self.canvas.is_cache = True
         pixels = await self.sql_manager.fetch_pixels(self.canvas.id, self.canvas.bbox)
         self.canvas.pixels = {pixel.xy: pixel for pixel in pixels}
-        timer.mark(f"Cache for canvas {canvas_id} loaded", time=True)
+        timer.mark(
+            f"Cache for canvas {self.canvas.name} ({self.canvas.id}) loaded", time=True
+        )
 
         self.setup_event.set()
 
