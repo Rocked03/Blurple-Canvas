@@ -225,6 +225,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """View user stats"""
         pass
 
+    # Admin commands
+    # - Force refresh
+    # - Partner stuff + colour stuff
+    # - Blacklist
+    # - Lock
+    # - Create board
+    # Imager stuff
+    # - Frames
+    # - Palette
+
 
 async def setup(bot):
     await bot.add_cog(CanvasCog(bot))

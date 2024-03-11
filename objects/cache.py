@@ -16,12 +16,15 @@ class Cache:
         self.queue: set[Pixel] = set()
 
         self.setup_event = asyncio.Event()
-        asyncio.create_task(self.setup(canvas_id))
+        asyncio.create_task(self.setup(self.setup_event, canvas_id))
 
         self.queue_event = asyncio.Event()
         asyncio.create_task(self.cycle_queue())
 
-    async def setup(self, canvas_id: int):
+        self.force_refresh_event = asyncio.Event()
+        self.force_refresh_event.set()
+
+    async def setup(self, event: asyncio.Event, canvas_id: int = None):
         timer = Timer()
         if not self.canvas:
             self.canvas = await self.sql_manager.fetch_canvas_by_id(canvas_id)
@@ -32,13 +35,19 @@ class Cache:
             f"Cache for canvas {self.canvas.name} ({self.canvas.id}) loaded", time=True
         )
 
-        self.setup_event.set()
+        event.set()
+
+    async def force_refresh(self):
+        await self.setup_event.wait()
+        self.force_refresh_event.clear()
+        await self.setup(self.force_refresh_event)
 
     async def cycle_queue(self):
         await self.setup_event.wait()
         while True:
             await self.queue_event.wait()
             self.queue_event.clear()
+            await self.force_refresh_event.wait()
             pixels = list(self.queue)
             self.queue.clear()
 
