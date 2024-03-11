@@ -6,6 +6,7 @@ from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
     from objects.guild import Guild
+    from objects.event import Event
 
 
 class Color(DiscordObject):
@@ -21,6 +22,8 @@ class Color(DiscordObject):
         rgba: list[int] = None,
         guild_id: int = None,
         guild: Guild = None,
+        event_id: int = None,
+        event: Event = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -38,8 +41,10 @@ class Color(DiscordObject):
         )
 
         from objects.guild import Guild
+        from objects.event import Event
 
         self.guild = Guild(_id=guild_id, **kwargs) if guild_id else guild
+        self.event = Event(_id=event_id, **kwargs) if event_id else event
 
     def emoji_formatted(self):
         return f"<:{self.emoji_name}:{self.emoji_id}>" if self.emoji_name else None

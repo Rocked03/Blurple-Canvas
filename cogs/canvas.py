@@ -14,9 +14,9 @@ from discord.utils import utcnow
 from config import POSTGRES_CREDENTIALS
 from objects.cache import Cache
 from objects.canvas import Canvas
-from objects.color import Color
 from objects.coordinates import Coordinates
 from objects.info import Info
+from objects.palette import Palette
 from objects.sqlManager import SQLManager
 from objects.timer import Timer
 from objects.user import User
@@ -72,8 +72,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.loop.create_task(self.load_canvases())
 
         # Colors
-        self.colors: list[Color] = []
-        self.edit_tile: Optional[Color] = None
+        self.palette: Optional[Palette] = None
         self.bot.loop.create_task(self.load_colors())
 
     async def startup_connect_sql(self):
@@ -116,9 +115,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def load_colors(self):
         sql = await self.sql()
-        colors = await sql.fetch_colors_by_participation()
-        self.edit_tile = next((color for color in colors if color.code == "edit"), None)
-        self.colors = [color for color in colors if color.code != "edit"]
+        self.palette = await sql.fetch_colors_by_participation()
         await sql.close()
 
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
@@ -135,13 +132,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
         return user, canvas
 
-    async def find_colors(self, guild_id: int = None):
-        filtered_colors = [
-            color
-            for color in self.colors
-            if color.is_global or (color.guild and color.guild.id == guild_id)
-        ]
-        return filtered_colors
+    def get_available_colors(self, guild_id: int):
+        return self.palette.get_available_colors(guild_id, self.info.current_event_id)
 
     async def async_image(
         self, function: Callable, *args, file_name: str, **kwargs
@@ -290,28 +282,25 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         timer.mark("Checked cooldown")
 
-        colors = await self.find_colors(interaction.guild_id)
+        colors = self.get_available_colors(interaction.guild_id)
         timer.mark("Found colors")
         if color is not None:
-            color = next(
-                (
-                    c
-                    for c in colors
-                    if color == c.code or (color.isnumeric() and int(color) == c.id)
-                ),
-                None,
-            )
+            if color not in colors:
+                color = None
+            else:
+                color = colors[color]
 
         timer.mark("Found color")
 
         if canvas.id in self.bot.cache:
             canvas = await self.bot.cache[canvas.id].get_canvas()
 
+        # 7 is max emoji limit
         frame = await canvas.get_frame_from_coordinate(sql, coordinates, 7, focus=True)
 
         timer.mark("Fetched frame")
 
-        emoji = frame.to_emoji(focus=self.edit_tile)
+        emoji = frame.to_emoji(focus=self.palette.get_edit_color())
 
         embed = self.base_embed(
             user=interaction.user,
@@ -319,6 +308,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         embed.description = f"{emoji}"
 
+        # ephemeral to avoid cooldown?
         await interaction.followup.send(embed=embed)
 
         timer.mark("Sent embed")

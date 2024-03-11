@@ -113,7 +113,8 @@ class Canvas(DiscordObject):
         sql_manager: SQLManager,
         xy: Coordinates,
         zoom: int,
-        focus: Coordinates = None,
+        *,
+        focus: bool = False,
     ) -> Frame:
         if zoom < 5:
             raise ValueError("Zoom must be at least 5")

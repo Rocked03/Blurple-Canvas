@@ -8,6 +8,7 @@ from asyncpg import Connection
 from discord import Client
 
 from objects.coordinates import BoundingBox
+from objects.palette import Palette
 
 if TYPE_CHECKING:
     from objects.canvas import Canvas
@@ -85,7 +86,7 @@ class SQLManager:
 
     async def fetch_colors(
         self, *, color_ids: list[int] = None, color_codes: list[str] = None
-    ) -> list[Color]:
+    ) -> Palette:
         if color_ids:
             rows = await self.conn.fetch(
                 "SELECT * FROM color WHERE id = ANY($1)", color_ids
@@ -99,31 +100,31 @@ class SQLManager:
 
         from objects.color import Color
 
-        return [Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+        return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
     async def fetch_color_by_id(self, color_id: int) -> Color:
         return (await self.fetch_colors(color_ids=[color_id]))[0]
 
-    async def fetch_colors_by_code(self, color_code: str) -> list[Color]:
+    async def fetch_colors_by_code(self, color_code: str) -> Palette:
         return await self.fetch_colors(color_codes=[color_code])
 
-    async def fetch_colors_by_participation(self, event_id: int = None) -> list[Color]:
+    async def fetch_colors_by_participation(self, event_id: int = None) -> Palette:
         if event_id:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
                 "WHERE p.event_id = $1 OR c.global = TRUE",
                 event_id,
             )
         else:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
                 "WHERE c.global = TRUE"
             )
         from objects.color import Color
 
-        return [Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+        return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
     async def fetch_history_records(
         self, canvas_id: int, *, user_id: int = None
