@@ -12,16 +12,20 @@ class Info(DiscordObject):
     def __init__(
         self,
         *,
+        title: str = None,
         current_event_id: int = None,
         canvas_admin: list[int] = None,
         current_event: Event = None,
         cached_canvas_ids: list[int] = None,
+        highlight_color: int = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.title = title
         self.current_event_id = current_event_id
         self.canvas_admin = canvas_admin
         self.cached_canvas_ids = cached_canvas_ids
+        self.highlight_color = highlight_color
 
         from objects.event import Event
 

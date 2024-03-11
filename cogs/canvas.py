@@ -52,6 +52,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.pool: Optional[Pool] = None
         self.bot.loop.create_task(self.startup_connect_sql())
 
+        # Info
+        self.info = None
+        self.bot.loop.create_task(self.load_info())
+
+        # Cache
         self.cache: dict[int, Cache] = {}
         self.bot.loop.create_task(self.load_cache())
 
@@ -69,6 +74,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def timeout_connection(self, connection):
         await asyncio.sleep(600)
         await self.pool.release(connection)
+
+    async def load_info(self):
+        sql = await self.sql()
+        self.info = await sql.fetch_info()
+        await sql.close()
 
     async def load_cache(self):
         sql = await self.sql()
@@ -108,10 +118,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         file = File(bytes_io, filename=file_name)
         return file, f"attachment://{file_name}", size_bytes
 
-    def base_embed(self, user: UserDiscord = None):
-        embed = Embed(timestamp=utcnow())
+    def base_embed(
+        self, *, user: UserDiscord = None, title: str = None, color: int = None
+    ):
+        embed = Embed(
+            title=title, timestamp=utcnow(), color=color or self.info.highlight_color
+        )
         embed.set_footer(
-            text=f"{str(user) + ' | ' if user else ''}" f"{self.bot.user.name}",
+            text=f"{f'{user} • ' if user else ''}" f"{self.bot.user.name}",
             icon_url=self.bot.user.avatar,
         )
         return embed
@@ -137,7 +151,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 canvas = await self.cache[canvas.id].get_canvas()
 
             # Get frame
-            if x is None and y is None:
+            if not any([x, y]):
                 frame = await canvas.get_frame_full(sql)
             else:
                 frame = await canvas.get_frame_from_coordinate(
@@ -158,10 +172,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
         # Embed
-        embed = self.base_embed(interaction.user)
-        # embed.set_image(url=file_name)
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{self.info.title} • {canvas.name} {Coordinates(x, y) if x and y else ''}",
+        )
+        timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})")
         await interaction.followup.send(
-            timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})"),
             embed=embed,
             file=file,
         )
