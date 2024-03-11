@@ -49,14 +49,34 @@ def neutralise(txt: str) -> str:
     return "".join([c for c in txt.lower() if re.match(r"\w", c)])
 
 
+class StartupEvents:
+    def __init__(self):
+        self.startup = asyncio.Event()
+        self.sql = asyncio.Event()
+        self.info = asyncio.Event()
+        self.canvases = asyncio.Event()
+        self.palette = asyncio.Event()
+
+        asyncio.create_task(self.wait())
+
+    async def wait(self):
+        await self.sql.wait()
+        await self.info.wait()
+        await self.canvases.wait()
+        await self.palette.wait()
+        self.startup.set()
+
+
 class CanvasCog(commands.Cog, name="Canvas"):
     """Canvas Module"""
 
     def __init__(self, bot):
         self.bot: Client = bot
 
+        # Startup
+        self.startup_events = StartupEvents()
+
         # SQL
-        self.sql_startup_event = asyncio.Event()
         self.pool: Optional[Pool] = None
         self.bot.loop.create_task(self.startup_connect_sql())
 
@@ -75,13 +95,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.palette: Optional[Palette] = None
         self.bot.loop.create_task(self.load_colors())
 
+    # Startup methods
+    async def wait_for_startup(self):
+        await self.startup_events.startup.wait()
+
     async def startup_connect_sql(self):
         self.pool = await create_pool(**POSTGRES_CREDENTIALS)
-        self.sql_startup_event.set()
+        self.startup_events.sql.set()
         print("Connected to PostgreSQL database")
 
     async def sql(self) -> SQLManager:
-        await self.sql_startup_event.wait()
+        await self.startup_events.sql.wait()
         connection = await self.pool.acquire()
         self.bot.loop.create_task(self.timeout_connection(connection))
         return SQLManager(connection)
@@ -94,6 +118,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
         self.info = await sql.fetch_info()
         await sql.close()
+        self.startup_events.info.set()
 
     async def load_cache(self):
         sql = await self.sql()
@@ -112,14 +137,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
         self.canvases = list(await sql.fetch_canvas_all())
         await sql.close()
+        self.startup_events.canvases.set()
 
     async def load_colors(self):
         sql = await self.sql()
         self.palette = await sql.fetch_colors_by_participation()
         await sql.close()
+        self.startup_events.palette.set()
 
+    # Fetch methods
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
         sql = await self.sql()
+        await self.wait_for_startup()
         user = await sql.fetch_user(user_id)
         if user.current_canvas is None:
             await sql.close()
@@ -132,9 +161,22 @@ class CanvasCog(commands.Cog, name="Canvas"):
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
         return user, canvas
 
-    def get_available_colors(self, guild_id: int):
+    async def get_available_colors(self, guild_id: int):
+        await self.wait_for_startup()
         return self.palette.get_available_colors(guild_id, self.info.current_event_id)
 
+    async def sort_canvases(self) -> list[Canvas]:
+        await self.wait_for_startup()
+        canvases = sorted(
+            sorted(
+                sorted(self.canvases, key=lambda canvas: canvas.name),
+                key=lambda canvas: not canvas.event_id == self.info.current_event_id,
+            ),
+            key=lambda canvas: canvas.locked,
+        )
+        return canvases
+
+    # Helper methods
     async def async_image(
         self, function: Callable, *args, file_name: str, **kwargs
     ) -> tuple[File, str, int]:
@@ -146,16 +188,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         file = File(bytes_io, filename=file_name)
         return file, f"attachment://{file_name}", size_bytes
-
-    def sort_canvases(self) -> list[Canvas]:
-        canvases = sorted(
-            sorted(
-                sorted(self.canvases, key=lambda canvas: canvas.name),
-                key=lambda canvas: not canvas.event_id == self.info.current_event_id,
-            ),
-            key=lambda canvas: canvas.locked,
-        )
-        return canvases
 
     def base_embed(
         self, *, user: UserDiscord = None, title: str = None, color: int = None
@@ -169,8 +201,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         return embed
 
+    # Autocomplete methods
     async def autocomplete_canvas(self, interaction, current: str):
-        canvases = self.sort_canvases()
+        canvases = await self.sort_canvases()
 
         options_dict = {
             canvas.name + (" (read-only)" if canvas.locked else ""): canvas
@@ -192,6 +225,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             Choice(name=name, value=str(canvas.id)) for name, canvas in filtered.items()
         ]
 
+    # Commands
     @app_commands.command(name="view")
     async def view(
         self, interaction: Interaction, x: int = None, y: int = None, zoom: int = 25
@@ -269,8 +303,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 f"Coordinates {coordinates} are out of bounds."
             )
 
-        timer.mark("Found canvas")
-
         if canvas.cooldown_length is not None:
             success, cooldown = await user.hit_cooldown(sql, canvas.cooldown_length)
             if not success:
@@ -280,25 +312,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     ephemeral=True,
                 )
 
-        timer.mark("Checked cooldown")
-
-        colors = self.get_available_colors(interaction.guild_id)
-        timer.mark("Found colors")
+        colors = await self.get_available_colors(interaction.guild_id)
         if color is not None:
             if color not in colors:
                 color = None
             else:
                 color = colors[color]
 
-        timer.mark("Found color")
-
         if canvas.id in self.bot.cache:
             canvas = await self.bot.cache[canvas.id].get_canvas()
 
         # 7 is max emoji limit
         frame = await canvas.get_frame_from_coordinate(sql, coordinates, 7, focus=True)
-
-        timer.mark("Fetched frame")
 
         emoji = frame.to_emoji(focus=self.palette.get_edit_color())
 
@@ -310,8 +335,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         # ephemeral to avoid cooldown?
         await interaction.followup.send(embed=embed)
-
-        timer.mark("Sent embed")
 
     @app_commands.command(name="join")
     async def join(self, interaction: Interaction, canvas: str):
@@ -338,7 +361,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="canvases")
     async def canvases(self, interaction: Interaction):
         """View all canvases"""
-        canvases = self.sort_canvases()
+        canvases = await self.sort_canvases()
 
         canvas_names = [
             f"- **{canvas.name}**{' (read-only)' if canvas.locked else ''}"
