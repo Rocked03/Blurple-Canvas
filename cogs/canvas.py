@@ -71,10 +71,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.pool.release(connection)
 
     async def load_cache(self):
-        cache = [2023]
-        for canvas_id in cache:
-            print(f"Loading cache for canvas {canvas_id}")
-            self.cache[canvas_id] = Cache(canvas_id, await self.sql())
+        sql = await self.sql()
+        info = await sql.fetch_info()
+        cache = await sql.fetch_canvas_by_event(
+            info.current_event_id, info.cached_canvas_ids
+        )
+        await sql.close()
+
+        for canvas in cache:
+            print(f"Loading cache for canvas {canvas.name} ({canvas.id})")
+            self.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
 
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
         sql = await self.sql()

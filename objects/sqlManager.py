@@ -65,6 +65,24 @@ class SQLManager:
 
         return Canvas(bot=self.bot, **rename_invalid_keys(row))
 
+    async def fetch_canvas_by_event(
+        self, event_id: int, canvas_ids: list[int] = None
+    ) -> list[Canvas]:
+        if canvas_ids:
+            rows = await self.conn.fetch(
+                "SELECT * FROM canvas WHERE event_id = $1 OR id = ANY($2)",
+                event_id,
+                canvas_ids,
+            )
+        else:
+            rows = await self.conn.fetch(
+                "SELECT * FROM canvas WHERE event_id = $1", event_id
+            )
+
+        from objects.canvas import Canvas
+
+        return [Canvas(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+
     async def fetch_colors(
         self, *, color_ids: list[int] = None, color_codes: list[str] = None
     ) -> list[Color]:

@@ -15,11 +15,13 @@ class Info(DiscordObject):
         current_event_id: int = None,
         canvas_admin: list[int] = None,
         current_event: Event = None,
+        cached_canvas_ids: list[int] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.current_event_id = current_event_id
         self.canvas_admin = canvas_admin
+        self.cached_canvas_ids = cached_canvas_ids
 
         from objects.event import Event
 

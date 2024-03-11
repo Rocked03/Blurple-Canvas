@@ -1,5 +1,4 @@
 import asyncio
-from typing import Optional
 
 from objects.canvas import Canvas
 from objects.pixel import Pixel
@@ -8,10 +7,12 @@ from objects.timer import Timer
 
 
 class Cache:
-    def __init__(self, canvas_id: int, sql_manager: SQLManager):
+    def __init__(
+        self, sql_manager: SQLManager, *, canvas_id: int = None, canvas: Canvas = None
+    ):
         self.sql_manager: SQLManager = sql_manager
 
-        self.canvas: Optional[Canvas] = None
+        self.canvas: Canvas = canvas
         self.queue: set[Pixel] = set()
 
         self.setup_event = asyncio.Event()
@@ -22,7 +23,8 @@ class Cache:
 
     async def setup(self, canvas_id: int):
         timer = Timer()
-        self.canvas = await self.sql_manager.fetch_canvas_by_id(canvas_id)
+        if not self.canvas:
+            self.canvas = await self.sql_manager.fetch_canvas_by_id(canvas_id)
         self.canvas.is_cache = True
         pixels = await self.sql_manager.fetch_pixels(self.canvas.id, self.canvas.bbox)
         self.canvas.pixels = {pixel.xy: pixel for pixel in pixels}
