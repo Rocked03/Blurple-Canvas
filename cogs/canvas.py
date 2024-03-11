@@ -1,4 +1,5 @@
 import asyncio
+import re
 from functools import partial
 from io import BytesIO
 from typing import Optional, Callable
@@ -6,6 +7,7 @@ from typing import Optional, Callable
 from PIL.Image import Image
 from asyncpg import create_pool, Pool
 from discord import app_commands, Interaction, User as UserDiscord, Client, File, Embed
+from discord.app_commands import Choice
 from discord.ext import commands
 from discord.utils import utcnow
 
@@ -39,6 +41,10 @@ def format_bytes(size: int) -> str:
             return f"{size:.2f} {unit}"
         size /= 1024
     return f"{size:.2f} YB"
+
+
+def neutralise(txt: str) -> str:
+    return "".join([c for c in txt.lower() if re.match(r"\w", c)])
 
 
 class CanvasCog(commands.Cog, name="Canvas"):
@@ -98,7 +104,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def load_canvases(self):
         sql = await self.sql()
-        self.canvases = await sql.fetch_canvas_all()
+        self.canvases = list(await sql.fetch_canvas_all())
         await sql.close()
 
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
@@ -127,14 +133,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         file = File(bytes_io, filename=file_name)
         return file, f"attachment://{file_name}", size_bytes
 
-    def sort_canvases(self) -> tuple[list[Canvas], list[Canvas]]:
-        canvases = sorted(self.canvases, key=lambda canvas: canvas.name)
-        open_canvases = sorted(
-            filter(lambda canvas: not canvas.locked, canvases),
-            key=lambda canvas: not canvas.event_id == self.info.current_event_id,
+    def sort_canvases(self) -> list[Canvas]:
+        canvases = sorted(
+            sorted(
+                sorted(self.canvases, key=lambda canvas: canvas.name),
+                key=lambda canvas: not canvas.event_id == self.info.current_event_id,
+            ),
+            key=lambda canvas: canvas.locked,
         )
-        locked_canvases = filter(lambda canvas: canvas.locked, canvases)
-        return open_canvases, locked_canvases
+        return canvases
 
     def base_embed(
         self, *, user: UserDiscord = None, title: str = None, color: int = None
@@ -208,28 +215,53 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="join")
     async def join(self, interaction: Interaction, canvas: str):
         """Join the canvas"""
+        await interaction.response.defer()
+
         sql = await self.sql()
         user = await sql.fetch_user(interaction.user.id)
         canvas = await sql.fetch_canvas_by_name(canvas)
 
         if canvas is None:
             await sql.close()
-            return await interaction.response.send_message(
-                f"Canvas '{canvas}' does not exist."
-            )
+            return await interaction.followup.send(f"Canvas '{canvas}' does not exist.")
 
         await user.set_current_canvas(sql, canvas)
         await sql.close()
 
-        await interaction.response.send_message(f"Joined canvas '{canvas.name}'")
+        await interaction.followup.send(f"Joined canvas '{canvas.name}'")
+
+    @join.autocomplete("canvas")
+    async def join_autocomplete_canvas(self, interaction: Interaction, current: str):
+        canvases = self.sort_canvases()
+
+        options_dict = {
+            canvas.name + (" (read-only)" if canvas.locked else ""): canvas
+            for canvas in canvases
+        }
+
+        if current:
+            filtered = {
+                name: value
+                for name, value in options_dict.items()
+                if neutralise(current) in neutralise(name)
+                or current.isdigit()
+                and value.id == int(current)
+            }
+        else:
+            filtered = options_dict
+
+        return [
+            Choice(name=name, value=str(canvas.id)) for name, canvas in filtered.items()
+        ]
 
     @app_commands.command(name="canvases")
     async def canvases(self, interaction: Interaction):
         """View all canvases"""
-        open_canvases, locked_canvases = self.sort_canvases()
+        canvases = self.sort_canvases()
 
-        canvas_names = [f"- **{canvas.name}**" for canvas in open_canvases] + [
-            f"- **{canvas.name}** (read-only)" for canvas in locked_canvases
+        canvas_names = [
+            f"- **{canvas.name}**{' (read-only)' if canvas.locked else ''}"
+            for canvas in canvases
         ]
 
         embed = self.base_embed(
