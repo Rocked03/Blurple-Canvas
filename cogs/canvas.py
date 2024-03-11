@@ -213,12 +213,28 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
         """Toggle skip confirm"""
-        pass
+        await interaction.response.defer()
+        sql = await self.sql()
+        user = await sql.fetch_user(interaction.user.id)
+        await user.toggle_skip_confirm(sql)
+        await sql.close()
+        await interaction.followup.send(
+            f"{'Enabled' if user.skip_confirm else 'Disabled'} place color confirmation.",
+            ephemeral=True,
+        )
 
     @app_commands.command(name="toggle-remind")
     async def toggle_remind(self, interaction: Interaction):
         """Toggle cooldown remind"""
-        pass
+        await interaction.response.defer()
+        sql = await self.sql()
+        user = await sql.fetch_user(interaction.user.id)
+        await user.toggle_cooldown_remind(sql)
+        await sql.close()
+        await interaction.followup.send(
+            f"{'Enabled' if user.cooldown_remind else 'Disabled'} cooldown reminder.",
+            ephemeral=True,
+        )
 
     @app_commands.command(name="stats")
     async def stats(self, interaction: Interaction, user: UserDiscord = None):
@@ -234,6 +250,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
     # Imager stuff
     # - Frames
     # - Palette
+    # Other stuff
+    # - Cooldown reminder
 
 
 async def setup(bot):
