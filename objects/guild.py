@@ -61,14 +61,12 @@ class Participation(Guild):
         *,
         guild_id: int = None,
         event_id: int = None,
-        custom_color: bool = None,
         color_id: int = None,
         event: Event = None,
         color: Color = None,
         **kwargs,
     ):
         super().__init__(_id=guild_id, **kwargs)
-        self.custom_color = custom_color
 
         from objects.event import Event
         from objects.color import Color
@@ -80,15 +78,15 @@ class Participation(Guild):
         )
         self.color = (
             Color(_id=color_id, **kwargs)
-            if (color is None and color_id is not None) and custom_color
+            if color is None and color_id is not None
             else color
         )
 
     def has_custom_color(self):
-        return self.custom_color
+        return self.color is not None
 
     def get_color_id(self):
-        return self.color.id if self.custom_color and self.color else None
+        return self.color.id if self.color else None
 
     def __str__(self):
         return f"Participation {self.id} {self.event.id}"

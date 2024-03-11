@@ -496,6 +496,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         pass
 
     # Admin commands
+    # - PERMS!!
     # - Force refresh
     # - Partner stuff + colour stuff
     # - Blacklist

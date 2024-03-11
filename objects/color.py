@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING
 from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
-    from objects.guild import Guild
+    from objects.guild import Participation
     from objects.event import Event
 
 
@@ -21,7 +21,7 @@ class Color(DiscordObject):
         _global: bool = None,
         rgba: list[int] = None,
         guild_id: int = None,
-        guild: Guild = None,
+        guild: Participation = None,
         event_id: int = None,
         event: Event = None,
         **kwargs,
@@ -40,10 +40,10 @@ class Color(DiscordObject):
             else None
         )
 
-        from objects.guild import Guild
+        from objects.guild import Participation
         from objects.event import Event
 
-        self.guild = Guild(_id=guild_id, **kwargs) if guild_id else guild
+        self.guild = Participation(_id=guild_id, **kwargs) if guild_id else guild
         self.event = Event(_id=event_id, **kwargs) if event_id else event
 
     def emoji_formatted(self):
