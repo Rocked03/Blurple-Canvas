@@ -59,6 +59,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # Cache
         self.bot.loop.create_task(self.load_cache())
 
+        # Canvases
+        self.canvases: list[Canvas] = []
+        self.bot.loop.create_task(self.load_canvases())
+
     async def startup_connect_sql(self):
         self.pool = await create_pool(**POSTGRES_CREDENTIALS)
         self.sql_startup_event.set()
@@ -92,6 +96,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 print(f"Loading cache for canvas {canvas.name} ({canvas.id})")
                 self.bot.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
 
+    async def load_canvases(self):
+        sql = await self.sql()
+        self.canvases = await sql.fetch_canvas_all()
+        await sql.close()
+
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
         sql = await self.sql()
         user = await sql.fetch_user(user_id)
@@ -117,6 +126,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         file = File(bytes_io, filename=file_name)
         return file, f"attachment://{file_name}", size_bytes
+
+    def sort_canvases(self) -> tuple[list[Canvas], list[Canvas]]:
+        canvases = sorted(self.canvases, key=lambda canvas: canvas.name)
+        open_canvases = sorted(
+            filter(lambda canvas: not canvas.locked, canvases),
+            key=lambda canvas: not canvas.event_id == self.info.current_event_id,
+        )
+        locked_canvases = filter(lambda canvas: canvas.locked, canvases)
+        return open_canvases, locked_canvases
 
     def base_embed(
         self, *, user: UserDiscord = None, title: str = None, color: int = None
@@ -205,6 +223,26 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await interaction.response.send_message(f"Joined canvas '{canvas.name}'")
 
+    @app_commands.command(name="canvases")
+    async def canvases(self, interaction: Interaction):
+        """View all canvases"""
+        open_canvases, locked_canvases = self.sort_canvases()
+
+        canvas_names = [f"- **{canvas.name}**" for canvas in open_canvases] + [
+            f"- **{canvas.name}** (read-only)" for canvas in locked_canvases
+        ]
+
+        embed = self.base_embed(
+            user=interaction.user,
+            title="Canvas List",
+        )
+
+        embed.description = "\n".join(canvas_names)
+        if not canvas_names:
+            embed.description = "No canvases available."
+
+        await interaction.response.send_message(embed=embed)
+
     @app_commands.command(name="palette")
     async def palette(self, interaction: Interaction, color: str = None):
         """View the palette"""
@@ -246,7 +284,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     # - Partner stuff + colour stuff
     # - Blacklist
     # - Lock
-    # - Create board
+    # - Create canvas
     # Imager stuff
     # - Frames
     # - Palette
