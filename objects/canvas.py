@@ -75,7 +75,17 @@ class Canvas(DiscordObject):
         pixel = Pixel(xy=Coordinates(x, y), color=color, canvas=self)
         await sql_manager.update_pixel(pixel=pixel, user_id=user.id, guild_id=guild_id)
 
-    async def get_frame(self, sql_manager: SQLManager, bbox: BoundingBox) -> Frame:
+    async def lock(self, sql_manager: SQLManager):
+        self.locked = True
+        await sql_manager.lock_canvas(self)
+
+    async def unlock(self, sql_manager: SQLManager):
+        self.locked = False
+        await sql_manager.unlock_canvas(self)
+
+    async def get_frame(
+        self, sql_manager: SQLManager, bbox: BoundingBox, focus: Coordinates = None
+    ) -> Frame:
         if bbox not in self.bbox:
             raise ValueError("Coordinates out of bounds")
 
@@ -84,6 +94,7 @@ class Canvas(DiscordObject):
         frame = Frame(
             canvas_id=self.id,
             bbox=bbox,
+            focus=focus,
         )
         if self.is_cache:
             frame.load_pixels_from_local(self)
@@ -98,7 +109,11 @@ class Canvas(DiscordObject):
         )
 
     async def get_frame_from_coordinate(
-        self, sql_manager: SQLManager, xy: Coordinates, zoom: int
+        self,
+        sql_manager: SQLManager,
+        xy: Coordinates,
+        zoom: int,
+        focus: Coordinates = None,
     ) -> Frame:
         if zoom < 5:
             raise ValueError("Zoom must be at least 5")
@@ -107,7 +122,7 @@ class Canvas(DiscordObject):
 
         from objects.frame import Frame
 
-        frame = Frame.from_coordinate(self, xy, zoom)
+        frame = Frame.from_coordinate(self, xy, zoom, focus=focus)
         if self.is_cache:
             frame.load_pixels_from_local(self)
         else:
@@ -119,3 +134,10 @@ class Canvas(DiscordObject):
 
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"
+
+    def __contains__(self, item):
+        if isinstance(item, Coordinates):
+            return item in self.bbox
+        if isinstance(item, Pixel):
+            return item.xy in self
+        return False

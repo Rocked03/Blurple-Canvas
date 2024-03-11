@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def strf_delta(t_delta, fmt):
@@ -40,7 +40,7 @@ class Timer:
         else:
             msg = f"{message} in {format_delta(self.mark_raw())}"
         if time:
-            msg += f" ({datetime.now()})"
+            msg += f" ({datetime.now(timezone.utc)})"
         return msg
 
     def total(self):

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from discord import User as UserDiscord
 
 from objects.discordObject import DiscordObject
+from objects.timer import format_delta
 
 if TYPE_CHECKING:
     from objects.canvas import Canvas
@@ -89,11 +90,13 @@ class User(DiscordObject):
     async def get_cooldown(self, sql_manager: SQLManager) -> Cooldown:
         return await sql_manager.fetch_cooldown(self.id)
 
-    async def hit_cooldown(self, sql_manager: SQLManager, cooldown_length: int):
+    async def hit_cooldown(
+        self, sql_manager: SQLManager, cooldown_length: int
+    ) -> tuple[bool, Cooldown]:
         cooldown = await self.get_cooldown(sql_manager)
         if cooldown:
             if not cooldown.is_expired():
-                return False
+                return False, cooldown
 
         new_cooldown = Cooldown(
             user_id=self.id,
@@ -104,7 +107,7 @@ class User(DiscordObject):
             await sql_manager.add_cooldown(new_cooldown)
         elif cooldown.cooldown_time is not None:
             await sql_manager.set_cooldown(new_cooldown)
-        return True
+        return True, new_cooldown
 
     async def clear_cooldown(self, sql_manager: SQLManager):
         await sql_manager.clear_cooldown(self.id)
@@ -143,3 +146,9 @@ class Cooldown(DiscordObject):
             if self.cooldown_time
             else True
         )
+
+    def time_left(self):
+        return self.cooldown_time - datetime.now(tz=timezone.utc)
+
+    def time_left_strf(self):
+        return format_delta(self.time_left())

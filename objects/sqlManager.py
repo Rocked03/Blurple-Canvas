@@ -107,6 +107,24 @@ class SQLManager:
     async def fetch_colors_by_code(self, color_code: str) -> list[Color]:
         return await self.fetch_colors(color_codes=[color_code])
 
+    async def fetch_colors_by_participation(self, event_id: int = None) -> list[Color]:
+        if event_id:
+            rows = await self.conn.fetch(
+                "SELECT c.*, p.guild_id FROM color c "
+                "LEFT JOIN participation p ON c.id = p.color_id "
+                "WHERE p.event_id = $1 OR c.global = TRUE",
+                event_id,
+            )
+        else:
+            rows = await self.conn.fetch(
+                "SELECT c.*, p.guild_id FROM color c "
+                "LEFT JOIN participation p ON c.id = p.color_id "
+                "WHERE c.global = TRUE"
+            )
+        from objects.color import Color
+
+        return [Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+
     async def fetch_history_records(
         self, canvas_id: int, *, user_id: int = None
     ) -> Generator[HistoryRecord, Any, None]:
@@ -141,7 +159,23 @@ class SQLManager:
 
         from objects.guild import Participation
 
-        return Participation(bot=self.bot, **rename_invalid_keys(row))
+        return Participation(bot=self.bot, **rename_invalid_keys(row)) if row else None
+
+    async def fetch_participation_by_event(self, event_id: int) -> list[Participation]:
+        rows = await self.conn.fetch(
+            (
+                "SELECT p.*, g.id, c.code, c.name, c.emoji_name, c.emoji_id "
+                "FROM participation p "
+                "LEFT JOIN guild g ON p.guild_id = g.id "
+                "LEFT JOIN public.color c ON c.id = p.color_id "
+                "WHERE event_id = $1"
+            ),
+            event_id,
+        )
+
+        from objects.guild import Participation
+
+        return [Participation(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
     async def fetch_info(self) -> Info:
         row = await self.conn.fetchrow("SELECT * FROM info")
@@ -355,6 +389,18 @@ class SQLManager:
         await self.conn.execute(
             "DELETE FROM blacklist WHERE user_id = $1",
             user_id,
+        )
+
+    async def lock_canvas(self, canvas: Canvas):
+        await self.conn.execute(
+            "UPDATE canvas SET locked = TRUE WHERE id = $1",
+            canvas.id,
+        )
+
+    async def unlock_canvas(self, canvas: Canvas):
+        await self.conn.execute(
+            "UPDATE canvas SET locked = FALSE WHERE id = $1",
+            canvas.id,
         )
 
 

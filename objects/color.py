@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from objects.discordObject import DiscordObject
+
+if TYPE_CHECKING:
+    from objects.guild import Guild
 
 
 class Color(DiscordObject):
@@ -16,6 +19,8 @@ class Color(DiscordObject):
         emoji_id: int = None,
         _global: bool = None,
         rgba: list[int] = None,
+        guild_id: int = None,
+        guild: Guild = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -32,6 +37,10 @@ class Color(DiscordObject):
             else None
         )
 
+        from objects.guild import Guild
+
+        self.guild = Guild(_id=guild_id, **kwargs) if guild_id else guild
+
     def emoji_formatted(self):
         return f"<:{self.emoji_name}:{self.emoji_id}>" if self.emoji_name else None
 
@@ -40,3 +49,6 @@ class Color(DiscordObject):
 
     def __str__(self):
         return f"Color {self.name} {self.rgba_formatted()}"
+
+    def __eq__(self, other):
+        return self.id == other.id

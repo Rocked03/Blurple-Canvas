@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Optional
 
 from PIL import Image, ImageDraw
 
+from objects.color import Color
 from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
 
@@ -51,7 +52,9 @@ class Frame(DiscordObject):
         )
 
     @staticmethod
-    def from_coordinate(canvas: Canvas, xy: Coordinates, zoom: int):
+    def from_coordinate(
+        canvas: Canvas, xy: Coordinates, zoom: int, *, focus: bool = False
+    ):
         (x, y) = xy.to_tuple()
         if zoom < 1:
             raise ValueError("Zoom must be at least 1")
@@ -70,6 +73,7 @@ class Frame(DiscordObject):
                 ),
             ),
             highlight=xy,
+            focus=xy if focus else None,
         )
 
     async def load_pixels(self, sql_manager: SQLManager):
@@ -127,19 +131,20 @@ class Frame(DiscordObject):
             )
         return img
 
-    def to_emoji(self):
+    def to_emoji(self, focus: Color = None) -> str:
         pixels = self.justified_pixels()
+        if focus:
+            pixels[self.justified_focus()].color = focus
         emoji_list = []
         for y in range(self.bbox.height):
             emoji_list.append(
                 "".join(
                     [
-                        pixels.get(Coordinates(x, y), Pixel()).color.emoji_formatted()
+                        pixels.get(Coordinates(x, y)).color.emoji_formatted()
                         for x in range(self.bbox.width)
                     ]
                 )
             )
-            emoji_list.append("\n")
         return "\n".join(emoji_list)
 
     def multiply_zoom(self, zoom: int) -> tuple[int, int]:

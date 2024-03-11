@@ -14,7 +14,9 @@ from discord.utils import utcnow
 from config import POSTGRES_CREDENTIALS
 from objects.cache import Cache
 from objects.canvas import Canvas
+from objects.color import Color
 from objects.coordinates import Coordinates
+from objects.info import Info
 from objects.sqlManager import SQLManager
 from objects.timer import Timer
 from objects.user import User
@@ -59,7 +61,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.loop.create_task(self.startup_connect_sql())
 
         # Info
-        self.info = None
+        self.info: Optional[Info] = None
         self.bot.loop.create_task(self.load_info())
 
         # Cache
@@ -68,6 +70,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # Canvases
         self.canvases: list[Canvas] = []
         self.bot.loop.create_task(self.load_canvases())
+
+        # Colors
+        self.colors: list[Color] = []
+        self.edit_tile: Optional[Color] = None
+        self.bot.loop.create_task(self.load_colors())
 
     async def startup_connect_sql(self):
         self.pool = await create_pool(**POSTGRES_CREDENTIALS)
@@ -107,6 +114,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.canvases = list(await sql.fetch_canvas_all())
         await sql.close()
 
+    async def load_colors(self):
+        sql = await self.sql()
+        colors = await sql.fetch_colors_by_participation()
+        self.edit_tile = next((color for color in colors if color.code == "edit"), None)
+        self.colors = [color for color in colors if color.code != "edit"]
+        await sql.close()
+
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
         sql = await self.sql()
         user = await sql.fetch_user(user_id)
@@ -120,6 +134,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if canvas is None:
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
         return user, canvas
+
+    async def find_colors(self, guild_id: int = None):
+        filtered_colors = [
+            color
+            for color in self.colors
+            if color.is_global or (color.guild and color.guild.id == guild_id)
+        ]
+        return filtered_colors
 
     async def async_image(
         self, function: Callable, *args, file_name: str, **kwargs
@@ -154,6 +176,29 @@ class CanvasCog(commands.Cog, name="Canvas"):
             icon_url=self.bot.user.avatar,
         )
         return embed
+
+    async def autocomplete_canvas(self, interaction, current: str):
+        canvases = self.sort_canvases()
+
+        options_dict = {
+            canvas.name + (" (read-only)" if canvas.locked else ""): canvas
+            for canvas in canvases
+        }
+
+        if current:
+            filtered = {
+                name: value
+                for name, value in options_dict.items()
+                if neutralise(current) in neutralise(name)
+                or current.isdigit()
+                and value.id == int(current)
+            }
+        else:
+            filtered = options_dict
+
+        return [
+            Choice(name=name, value=str(canvas.id)) for name, canvas in filtered.items()
+        ]
 
     @app_commands.command(name="view")
     async def view(
@@ -210,7 +255,73 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="place")
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
-        pass
+        await interaction.response.defer()
+        sql = await self.sql()
+
+        timer = Timer()
+
+        try:
+            user, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
+
+        if canvas.locked:
+            await sql.close()
+            return await interaction.followup.send(f"**{canvas.name}** is read-only.")
+
+        coordinates = Coordinates(x, y)
+        if coordinates not in canvas:
+            await sql.close()
+            return await interaction.followup.send(
+                f"Coordinates {coordinates} are out of bounds."
+            )
+
+        timer.mark("Found canvas")
+
+        if canvas.cooldown_length is not None:
+            success, cooldown = await user.hit_cooldown(sql, canvas.cooldown_length)
+            if not success:
+                await sql.close()
+                return await interaction.followup.send(
+                    f"You are on cooldown. Please wait for {cooldown.time_left_strf()}.",
+                    ephemeral=True,
+                )
+
+        timer.mark("Checked cooldown")
+
+        colors = await self.find_colors(interaction.guild_id)
+        timer.mark("Found colors")
+        if color is not None:
+            color = next(
+                (
+                    c
+                    for c in colors
+                    if color == c.code or (color.isnumeric() and int(color) == c.id)
+                ),
+                None,
+            )
+
+        timer.mark("Found color")
+
+        if canvas.id in self.bot.cache:
+            canvas = await self.bot.cache[canvas.id].get_canvas()
+
+        frame = await canvas.get_frame_from_coordinate(sql, coordinates, 7, focus=True)
+
+        timer.mark("Fetched frame")
+
+        emoji = frame.to_emoji(focus=self.edit_tile)
+
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"Place Pixel • {canvas.name} {coordinates}",
+        )
+        embed.description = f"{emoji}"
+
+        await interaction.followup.send(embed=embed)
+
+        timer.mark("Sent embed")
 
     @app_commands.command(name="join")
     async def join(self, interaction: Interaction, canvas: str):
@@ -232,27 +343,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @join.autocomplete("canvas")
     async def join_autocomplete_canvas(self, interaction: Interaction, current: str):
-        canvases = self.sort_canvases()
-
-        options_dict = {
-            canvas.name + (" (read-only)" if canvas.locked else ""): canvas
-            for canvas in canvases
-        }
-
-        if current:
-            filtered = {
-                name: value
-                for name, value in options_dict.items()
-                if neutralise(current) in neutralise(name)
-                or current.isdigit()
-                and value.id == int(current)
-            }
-        else:
-            filtered = options_dict
-
-        return [
-            Choice(name=name, value=str(canvas.id)) for name, canvas in filtered.items()
-        ]
+        return await self.autocomplete_canvas(interaction, current)
 
     @app_commands.command(name="canvases")
     async def canvases(self, interaction: Interaction):
@@ -310,6 +401,57 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def stats(self, interaction: Interaction, user: UserDiscord = None):
         """View user stats"""
         pass
+
+    # Admin Commands
+    admin_group = app_commands.Group(name="admin", description="Admin commands")
+
+    @admin_group.command(name="lock-board")
+    async def lock_board(self, interaction: Interaction, canvas: str):
+        """Lock the canvas"""
+        sql = await self.sql()
+        canvas = await sql.fetch_canvas_by_name(canvas)
+        if canvas is None:
+            await sql.close()
+            return await interaction.response.send_message(
+                f"Canvas '{canvas}' does not exist."
+            )
+
+        if canvas.id in self.bot.cache:
+            canvas = await self.bot.cache[canvas.id].get_canvas()
+        await canvas.lock(sql)
+        await sql.close()
+
+        await interaction.response.send_message(f"Locked canvas '{canvas.name}'")
+
+    @lock_board.autocomplete("canvas")
+    async def lock_board_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
+    @admin_group.command(name="unlock-board")
+    async def unlock_board(self, interaction: Interaction, canvas: str):
+        """Unlock the canvas"""
+        sql = await self.sql()
+        canvas = await sql.fetch_canvas_by_name(canvas)
+        if canvas is None:
+            await sql.close()
+            return await interaction.response.send_message(
+                f"Canvas '{canvas}' does not exist."
+            )
+
+        if canvas.id in self.bot.cache:
+            canvas = await self.bot.cache[canvas.id].get_canvas()
+        await canvas.unlock(sql)
+        await sql.close()
+
+        await interaction.response.send_message(f"Unlocked canvas '{canvas.name}'")
+
+    @unlock_board.autocomplete("canvas")
+    async def unlock_board_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
 
     # Admin commands
     # - Force refresh

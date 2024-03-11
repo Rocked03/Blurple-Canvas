@@ -92,3 +92,7 @@ class Participation(Guild):
 
     def __str__(self):
         return f"Participation {self.id} {self.event.id}"
+
+    def __contains__(self, item):
+        if isinstance(item, Color):
+            return self.color == item
