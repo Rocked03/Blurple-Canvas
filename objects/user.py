@@ -22,11 +22,11 @@ class User(DiscordObject):
         skip_confirm: bool = None,
         cooldown_remind: bool = None,
         blacklist: Blacklist = None,
+        current_canvas: Canvas = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.id = _id
-        self.current_canvas_id = current_canvas_id
         self.skip_confirm = skip_confirm
         self.cooldown_remind = cooldown_remind
 
@@ -37,8 +37,10 @@ class User(DiscordObject):
         self.blacklist: Optional[Blacklist] = (
             Blacklist(user_id=self.id, **kwargs) if blacklist is None else None
         )
-        self.canvas: Optional[Canvas] = (
-            Canvas(_id=current_canvas_id, **kwargs) if current_canvas_id else None
+        self.current_canvas: Optional[Canvas] = (
+            Canvas(_id=current_canvas_id, **kwargs)
+            if current_canvas_id
+            else current_canvas
         )
 
     def set_user(self, user):
@@ -56,9 +58,11 @@ class User(DiscordObject):
     def is_blacklisted(self):
         return self.blacklist.is_blacklisted()
 
-    async def set_current_board(self, sql_manager: SQLManager, board_id: int):
-        self.current_canvas_id = board_id
-        await sql_manager.set_current_board(self)
+    async def set_current_canvas(self, sql_manager: SQLManager, canvas: Canvas):
+        if canvas.id is None:
+            raise ValueError("No Canvas ID provided")
+        self.current_canvas = canvas
+        await sql_manager.set_current_canvas(self)
 
     async def toggle_skip_confirm(self, sql_manager: SQLManager):
         self.skip_confirm = not self.skip_confirm

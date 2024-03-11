@@ -74,7 +74,7 @@ class Canvas(DiscordObject):
         await sql_manager.update_pixel(pixel=pixel, user_id=user.id, guild_id=guild_id)
 
     async def get_frame(self, sql_manager: SQLManager, bbox: BoundingBox) -> Frame:
-        if bbox in self.bbox:
+        if bbox not in self.bbox:
             raise ValueError("Coordinates out of bounds")
 
         from objects.frame import Frame
@@ -107,7 +107,7 @@ class Canvas(DiscordObject):
         return frame
 
     def name_safe(self):
-        return "".join([c for c in self.name if re.match(r"\w", c)])
+        return "".join([c for c in self.name.replace(" ", "_") if re.match(r"\w", c)])
 
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"

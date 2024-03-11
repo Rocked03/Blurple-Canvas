@@ -1,8 +1,4 @@
-aiohttp~=3.8.1
-motor~=2.5.1
-numpy~=1.22.3
-pymongo~=3.12.3
-Pillow~=9.0.1
-aiosqlite~=0.17.0
-asyncpg~=0.26.0
-discord.py~=2.2.2
+aiohttp~=3.9.2
+Pillow~=10.2.0
+asyncpg~=0.29.0
+discord.py~=2.3.2

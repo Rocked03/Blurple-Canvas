@@ -18,8 +18,8 @@ class BoundingBox:
         self.xy0 = xy0
         self.xy1 = xy1
 
-        self.x0, self.x1 = xy0.to_tuple()
-        self.y0, self.y1 = xy1.to_tuple()
+        self.x0, self.y0 = xy0.to_tuple()
+        self.x1, self.y1 = xy1.to_tuple()
 
         self.width = self.xy1.x - self.xy0.x + 1
         self.height = self.xy1.y - self.xy0.y + 1

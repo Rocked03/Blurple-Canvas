@@ -61,12 +61,12 @@ class Frame(DiscordObject):
             canvas=canvas,
             bbox=BoundingBox(
                 Coordinates(
-                    min(max(x - (zoom // 2), 0), canvas.width - zoom),
-                    min(max(y - (zoom // 2), 0), canvas.height - zoom),
+                    min(max(x - (zoom // 2), 1), canvas.width - zoom),
+                    min(max(y - (zoom // 2), 1), canvas.height - zoom),
                 ),
                 Coordinates(
-                    max(min(x + (zoom // 2), canvas.width), zoom),
-                    max(min(y + (zoom // 2), canvas.height), zoom),
+                    max(min(x + (zoom // 2), canvas.width), zoom + 1),
+                    max(min(y + (zoom // 2), canvas.height), zoom + 1),
                 ),
             ),
             highlight=xy,
@@ -90,11 +90,21 @@ class Frame(DiscordObject):
             return None
         return Coordinates(self.focus.x - self.bbox.x0, self.focus.y - self.bbox.y0)
 
-    def generate_image(self, *, zoom: int = 1) -> Image.Image:
+    def generate_image(
+        self, *, zoom: int = 1, max_size: Coordinates = None
+    ) -> Image.Image:
         img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         for coordinates, pixel in self.justified_pixels().items():
-            adjusted_coordinates = (coordinates[0] * zoom, coordinates[1] * zoom)
+            if zoom != 1:
+                adjusted_coordinates = (coordinates.x * zoom, coordinates.y * zoom)
+            elif max_size is not None:
+                adjusted_coordinates = (
+                    coordinates.x * max_size.x // self.bbox.width,
+                    coordinates.y * max_size.y // self.bbox.height,
+                )
+            else:
+                adjusted_coordinates = coordinates.to_tuple()
             opposite_corner = (
                 adjusted_coordinates[0] + zoom,
                 adjusted_coordinates[1] + zoom,

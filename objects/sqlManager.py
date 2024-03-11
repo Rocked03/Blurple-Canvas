@@ -24,10 +24,38 @@ class SQLManager:
         self.conn = conn
         self.bot = bot
 
-    async def fetch_canvas(self, canvas_id) -> Optional[Canvas]:
+    async def fetch_canvas_all(self) -> Generator[Canvas, Any, None]:
+        rows = await self.conn.fetch("SELECT * FROM canvas")
+
+        from objects.canvas import Canvas
+
+        return (Canvas(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
+
+    async def fetch_canvas_by_id(self, canvas_id: int) -> Optional[Canvas]:
         from objects.canvas import Canvas
 
         row = await self.conn.fetchrow("SELECT * FROM canvas WHERE id = $1", canvas_id)
+
+        if row is None:
+            return None
+
+        return Canvas(bot=self.bot, **rename_invalid_keys(row))
+
+    async def fetch_canvas_by_name(self, canvas_name: str) -> Optional[Canvas]:
+        from objects.canvas import Canvas
+
+        if not canvas_name.isdigit():
+            row = await self.conn.fetchrow(
+                "SELECT * FROM canvas WHERE LOWER(name) LIKE $1", canvas_name.lower()
+            )
+        else:
+            row = await self.conn.fetchrow(
+                "SELECT * FROM canvas "
+                "WHERE LOWER(name) LIKE $1 OR id = $2 "
+                "ORDER BY CASE WHEN id = $2 THEN 1 ELSE 0 END DESC",
+                canvas_name.lower(),
+                int(canvas_name),
+            )
 
         if row is None:
             return None
@@ -203,11 +231,11 @@ class SQLManager:
     async def insert_user(self, user: User):
         await self.conn.execute(
             (
-                "INSERT INTO public.user (id, current_board, skip_confirm, cooldown_remind) "
+                "INSERT INTO public.user (id, current_canvas_id, skip_confirm, cooldown_remind) "
                 "VALUES ($1, $2, $3, $4)"
             ),
             user.id,
-            user.current_canvas_id,
+            user.current_canvas.id,
             user.skip_confirm,
             user.cooldown_remind,
         )
@@ -251,11 +279,11 @@ class SQLManager:
         await self.insert_history_record(record)
         await self.set_pixel(pixel)
 
-    async def set_current_board(self, user: User):
+    async def set_current_canvas(self, user: User):
         await self.fetch_user(user.id, insert_on_fail=user)
         await self.conn.execute(
-            "UPDATE public.user SET current_board = $1 WHERE id = $2",
-            user.current_canvas_id,
+            "UPDATE public.user SET current_canvas_id = $1 WHERE id = $2",
+            user.current_canvas.id,
             user.id,
         )
 
