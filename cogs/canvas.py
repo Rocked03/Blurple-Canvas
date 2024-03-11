@@ -57,7 +57,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.bot.loop.create_task(self.load_info())
 
         # Cache
-        self.cache: dict[int, Cache] = {}
         self.bot.loop.create_task(self.load_cache())
 
     async def startup_connect_sql(self):
@@ -89,8 +88,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await sql.close()
 
         for canvas in cache:
-            print(f"Loading cache for canvas {canvas.name} ({canvas.id})")
-            self.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
+            if canvas.id not in self.bot.cache:
+                print(f"Loading cache for canvas {canvas.name} ({canvas.id})")
+                self.bot.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
 
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
         sql = await self.sql()
@@ -147,8 +147,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             timer = Timer()
             user, canvas = await self.find_canvas(interaction.user.id)
 
-            if canvas.id in self.cache:
-                canvas = await self.cache[canvas.id].get_canvas()
+            if canvas.id in self.bot.cache:
+                canvas = await self.bot.cache[canvas.id].get_canvas()
 
             # Get frame
             if not any([x, y]):

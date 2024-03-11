@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from config import *
+from objects.cache import Cache
 
 
 # logging.basicConfig(level=logging.INFO)
@@ -59,6 +60,8 @@ bot.modroles = {
 }
 
 bot.help = bot.description
+
+bot.cache: dict[int, Cache] = {}
 
 
 def strfdelta(tdelta, fmt):

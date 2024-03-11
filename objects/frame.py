@@ -127,6 +127,21 @@ class Frame(DiscordObject):
             )
         return img
 
+    def to_emoji(self):
+        pixels = self.justified_pixels()
+        emoji_list = []
+        for y in range(self.bbox.height):
+            emoji_list.append(
+                "".join(
+                    [
+                        pixels.get(Coordinates(x, y), Pixel()).color.emoji_formatted()
+                        for x in range(self.bbox.width)
+                    ]
+                )
+            )
+            emoji_list.append("\n")
+        return "\n".join(emoji_list)
+
     def multiply_zoom(self, zoom: int) -> tuple[int, int]:
         return tuple[int, int]([self.bbox.width * zoom, self.bbox.height * zoom])
 
