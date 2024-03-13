@@ -8,11 +8,10 @@ from asyncpg import Connection
 from discord import Client
 
 from objects.coordinates import BoundingBox
-from objects.palette import Palette
 
 if TYPE_CHECKING:
     from objects.canvas import Canvas
-    from objects.color import Color
+    from objects.color import Color, Palette
     from objects.guild import Participation
     from objects.historyRecord import HistoryRecord
     from objects.info import Info

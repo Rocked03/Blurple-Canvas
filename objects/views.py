@@ -6,8 +6,8 @@ from typing import Optional
 from discord import Interaction, ButtonStyle, SelectOption
 from discord.ui import View, Button, Select
 
+from objects.color import Palette
 from objects.coordinates import Coordinates
-from objects.palette import Palette
 
 
 class ConfirmEnum(Enum):

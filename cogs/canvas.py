@@ -22,9 +22,9 @@ from discord.utils import utcnow
 from config import POSTGRES_CREDENTIALS
 from objects.cache import Cache
 from objects.canvas import Canvas
+from objects.color import Palette
 from objects.coordinates import Coordinates
 from objects.info import Info
-from objects.palette import Palette
 from objects.sqlManager import SQLManager
 from objects.timer import Timer
 from objects.user import User
