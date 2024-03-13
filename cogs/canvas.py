@@ -65,6 +65,7 @@ class StartupEvents:
         await self.canvases.wait()
         await self.palette.wait()
         self.startup.set()
+        print("Startup complete")
 
 
 class CanvasCog(commands.Cog, name="Canvas"):
@@ -155,8 +156,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             raise ValueError(
                 "You have not joined a canvas! Please use `/join` to join a canvas."
             )
-        canvas = await sql.fetch_canvas_by_id(user.current_canvas.id)
         await sql.close()
+        canvas = user.current_canvas
         if canvas is None:
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
         return user, canvas

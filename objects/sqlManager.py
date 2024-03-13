@@ -218,10 +218,12 @@ class SQLManager:
 
     async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
         row = await self.conn.fetchrow(
-            "SELECT u.*, b.date_added "
+            "SELECT u.*, b.date_added, "
+            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length "
             "FROM public.user u "
             "LEFT JOIN blacklist b ON u.id = b.user_id "
-            "WHERE id = $1",
+            "LEFT JOIN canvas c ON u.current_canvas_id = c.id "
+            "WHERE u.id = $1",
             user_id,
         )
         if row:
