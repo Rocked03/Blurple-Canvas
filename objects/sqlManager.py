@@ -148,7 +148,7 @@ class SQLManager:
     async def fetch_participation(self, guild_id: int, event_id: int) -> Participation:
         row = await self.conn.fetchrow(
             (
-                "SELECT p.*, g.id, c.code, c.name, c.emoji_name, c.emoji_id "
+                "SELECT p.*, g.manager_role, g.invite, c.code, c.name, c.emoji_name, c.emoji_id "
                 "FROM participation p "
                 "LEFT JOIN guild g ON p.guild_id = g.id "
                 "LEFT JOIN public.color c ON c.id = p.color_id "
@@ -165,7 +165,7 @@ class SQLManager:
     async def fetch_participation_by_event(self, event_id: int) -> list[Participation]:
         rows = await self.conn.fetch(
             (
-                "SELECT p.*, g.id, c.code, c.name, c.emoji_name, c.emoji_id "
+                "SELECT p.*, g.manager_role, g.invite, c.code, c.name, c.emoji_name, c.emoji_id "
                 "FROM participation p "
                 "LEFT JOIN guild g ON p.guild_id = g.id "
                 "LEFT JOIN public.color c ON c.id = p.color_id "
@@ -261,12 +261,11 @@ class SQLManager:
     async def insert_participation(self, participation: Participation):
         await self.conn.execute(
             (
-                "INSERT INTO participation (guild_id, event_id, custom_color, color_id) "
-                "VALUES ($1, $2, $3, $4)"
+                "INSERT INTO participation (guild_id, event_id, color_id) "
+                "VALUES ($1, $2, $3)"
             ),
             participation.guild.id,
             participation.event.id,
-            participation.custom_color,
             participation.color.id,
         )
 
@@ -297,6 +296,8 @@ class SQLManager:
         )
 
     async def insert_empty_user(self, user_id: int) -> User:
+        from objects.user import User
+
         user = User(
             _id=user_id,
             current_canvas_id=None,

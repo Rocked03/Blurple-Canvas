@@ -12,10 +12,13 @@ if TYPE_CHECKING:
 
 
 class Guild(DiscordObject):
-    def __init__(self, *, _id: int = None, manager_role: int = None, **kwargs):
+    def __init__(
+        self, *, _id: int = None, manager_role: int = None, invite: str = None, **kwargs
+    ):
         super().__init__(**kwargs)
         self.id = _id
         self.manager_role_id = manager_role
+        self.invite = invite.lstrip("https://").rstrip("/") if invite else invite
 
         self.guild: Optional[GuildDiscord] = None
         self.manager_role: Optional[Role] = None
