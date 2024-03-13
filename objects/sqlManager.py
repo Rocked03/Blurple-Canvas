@@ -106,8 +106,7 @@ class SQLManager:
                 "LEFT JOIN participation p ON c.id = p.color_id "
             )
 
-        from objects.color import Color
-        from objects.palette import Palette
+        from objects.color import Color, Palette
 
         return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
@@ -131,8 +130,7 @@ class SQLManager:
                 "LEFT JOIN participation p ON c.id = p.color_id "
                 "WHERE c.global = TRUE OR c.code = 'edit'"
             )
-        from objects.color import Color
-        from objects.palette import Palette
+        from objects.color import Color, Palette
 
         return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
