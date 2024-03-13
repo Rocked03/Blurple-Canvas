@@ -89,16 +89,26 @@ class SQLManager:
     ) -> Palette:
         if color_ids:
             rows = await self.conn.fetch(
-                "SELECT * FROM color WHERE id = ANY($1)", color_ids
+                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "LEFT JOIN participation p ON c.id = p.color_id "
+                "WHERE c.id = ANY($1)",
+                color_ids,
             )
         elif color_codes:
             rows = await self.conn.fetch(
-                "SELECT * FROM color WHERE code = ANY($1)", color_codes
+                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "LEFT JOIN participation p ON c.id = p.color_id "
+                " WHERE c.code = ANY($1)",
+                color_codes,
             )
         else:
-            rows = await self.conn.fetch("SELECT * FROM color")
+            rows = await self.conn.fetch(
+                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "LEFT JOIN participation p ON c.id = p.color_id "
+            )
 
         from objects.color import Color
+        from objects.palette import Palette
 
         return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
@@ -113,16 +123,17 @@ class SQLManager:
             rows = await self.conn.fetch(
                 "SELECT c.*, p.guild_id, p.event_id FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
-                "WHERE p.event_id = $1 OR c.global = TRUE",
+                "WHERE p.event_id = $1 OR c.global = TRUE OR c.code = 'edit'",
                 event_id,
             )
         else:
             rows = await self.conn.fetch(
                 "SELECT c.*, p.guild_id, p.event_id FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
-                "WHERE c.global = TRUE"
+                "WHERE c.global = TRUE OR c.code = 'edit'"
             )
         from objects.color import Color
+        from objects.palette import Palette
 
         return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 

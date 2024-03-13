@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import copy
 from typing import TYPE_CHECKING, Optional
 
 from PIL import Image, ImageDraw
@@ -64,15 +65,14 @@ class Frame(DiscordObject):
             canvas=canvas,
             bbox=BoundingBox(
                 Coordinates(
-                    min(max(x - (zoom // 2), 1), canvas.width - zoom),
-                    min(max(y - (zoom // 2), 1), canvas.height - zoom),
+                    min(max(x - (zoom // 2), 1), canvas.width - zoom + 1),
+                    min(max(y - (zoom // 2), 1), canvas.height - zoom + 1),
                 ),
                 Coordinates(
-                    max(min(x + (zoom // 2), canvas.width), zoom + 1),
-                    max(min(y + (zoom // 2), canvas.height), zoom + 1),
+                    max(min(x + (zoom // 2), canvas.width), zoom),
+                    max(min(y + (zoom // 2), canvas.height), zoom),
                 ),
             ),
-            highlight=xy,
             focus=xy if focus else None,
         )
 
@@ -83,11 +83,14 @@ class Frame(DiscordObject):
         pixels = canvas.pixels
         self.pixels = [pixel for pixel in pixels.values() if pixel in self.bbox]
 
+    def regenerate(self, canvas: Canvas):
+        return Frame(canvas=canvas, bbox=self.bbox, focus=self.focus)
+
     def justified_pixels(self) -> dict[Coordinates, Pixel]:
         if self.pixels is None:
             return {}
         return {
-            Coordinates(pixel.x - self.bbox.x0, pixel.y - self.bbox.y0): pixel
+            Coordinates(pixel.x - self.bbox.x0, pixel.y - self.bbox.y0): copy(pixel)
             for pixel in self.pixels
             if self.bbox.x0 <= pixel.x <= self.bbox.x1
             and self.bbox.y0 <= pixel.y <= self.bbox.y1
@@ -131,20 +134,28 @@ class Frame(DiscordObject):
             )
         return img
 
-    def to_emoji(self, focus: Color = None) -> str:
+    def to_emoji(self, *, focus: Color = None, new_color: Color = None) -> str:
         pixels = self.justified_pixels()
-        if focus:
-            pixels[self.justified_focus()].color = focus
         emoji_list = []
+        justified_focus = self.justified_focus() if focus else None
         for y in range(self.bbox.height):
             emoji_list.append(
                 "".join(
                     [
-                        pixels.get(Coordinates(x, y)).color.emoji_formatted()
+                        (
+                            pixels.get(Coordinates(x, y)).color.emoji_formatted()
+                            if Coordinates(x, y) != justified_focus
+                            else focus.emoji_formatted()
+                        )
                         for x in range(self.bbox.width)
                     ]
                 )
             )
+        if focus:
+            txt = " • " + pixels.get(justified_focus).color.emoji_formatted()
+            if new_color:
+                txt += " \u2192 " + new_color.emoji_formatted()
+            emoji_list[justified_focus.y] += txt
         return "\n".join(emoji_list)
 
     def multiply_zoom(self, zoom: int) -> tuple[int, int]:

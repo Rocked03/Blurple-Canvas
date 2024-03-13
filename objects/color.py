@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import colorsys
 from typing import Optional, TYPE_CHECKING
 
 from objects.discordObject import DiscordObject
@@ -52,8 +53,31 @@ class Color(DiscordObject):
     def rgba_formatted(self):
         return f"rgba({', '.join(map(str, self.rgba))})" if self.rgba else None
 
+    def to_hsl(self):
+        h, s, l = colorsys.rgb_to_hsv(*map(lambda c: c / 255.0, self.rgba[:3]))
+        h = h if 0 < h else 1
+        return h, s, l
+
+    def is_valid(self, guild_id: int, event_id: int = None):
+        return self.is_global or (
+            self.guild.id == guild_id
+            and (self.event.id == event_id or self.event.id is None or event_id is None)
+        )
+
     def __str__(self):
         return f"Color {self.name} {self.rgba_formatted()}"
 
     def __eq__(self, other):
-        return self.id == other.id
+        if isinstance(other, Color):
+            return self.id == other.id
+        return False
+
+    def __gt__(self, other):
+        if isinstance(other, Color):
+            return self.to_hsl() > other.to_hsl()
+        raise TypeError
+
+    def __lt__(self, other):
+        if isinstance(other, Color):
+            return self.to_hsl() < other.to_hsl()
+        raise TypeError

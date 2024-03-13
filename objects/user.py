@@ -152,3 +152,6 @@ class Cooldown(DiscordObject):
 
     def time_left_strf(self):
         return format_delta(self.time_left())
+
+    def time_left_markdown(self):
+        return f"<t:{int(self.cooldown_time.timestamp())}:R>"

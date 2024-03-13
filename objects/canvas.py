@@ -68,11 +68,14 @@ class Canvas(DiscordObject):
         *,
         user: User,
         guild_id: int = None,
-        x: int,
-        y: int,
+        xy: Coordinates,
         color: Color,
     ):
-        pixel = Pixel(xy=Coordinates(x, y), color=color, canvas=self)
+        from objects.pixel import Pixel
+
+        pixel = Pixel(xy=xy, color=color, canvas=self)
+        if self.pixels:
+            self.pixels[xy] = pixel
         await sql_manager.update_pixel(pixel=pixel, user_id=user.id, guild_id=guild_id)
 
     async def lock(self, sql_manager: SQLManager):
@@ -96,11 +99,19 @@ class Canvas(DiscordObject):
             bbox=bbox,
             focus=focus,
         )
+        await self.load_frame_pixels(sql_manager, frame)
+        return frame
+
+    async def regenerate_frame(self, sql_manager: SQLManager, frame: Frame) -> Frame:
+        frame = frame.regenerate(self)
+        await self.load_frame_pixels(sql_manager, frame)
+        return frame
+
+    async def load_frame_pixels(self, sql_manager: SQLManager, frame: Frame):
         if self.is_cache:
             frame.load_pixels_from_local(self)
         else:
             await frame.load_pixels(sql_manager)
-        return frame
 
     async def get_frame_full(self, sql_manager: SQLManager) -> Frame:
         return await self.get_frame(

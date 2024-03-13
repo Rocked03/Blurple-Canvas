@@ -129,6 +129,8 @@ dmypy.json
 .pyre/
 
 
+.idea/
+
 
 
 # config

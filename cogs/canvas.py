@@ -6,7 +6,15 @@ from typing import Optional, Callable
 
 from PIL.Image import Image
 from asyncpg import create_pool, Pool
-from discord import app_commands, Interaction, User as UserDiscord, Client, File, Embed
+from discord import (
+    app_commands,
+    Interaction,
+    User as UserDiscord,
+    Client,
+    File,
+    Embed,
+    Message,
+)
 from discord.app_commands import Choice
 from discord.ext import commands
 from discord.utils import utcnow
@@ -20,6 +28,13 @@ from objects.palette import Palette
 from objects.sqlManager import SQLManager
 from objects.timer import Timer
 from objects.user import User
+from objects.views import (
+    ConfirmEnum,
+    NavigationEnum,
+    NavigateView,
+    PaletteView,
+    ConfirmView,
+)
 
 
 def image_to_bytes_io(image: Image) -> BytesIO:
@@ -162,9 +177,24 @@ class CanvasCog(commands.Cog, name="Canvas"):
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
         return user, canvas
 
-    async def get_available_colors(self, guild_id: int):
+    async def fetch_canvas_by_name(self, sql: SQLManager, name: str) -> Canvas:
+        canvas = await sql.fetch_canvas_by_name(name)
+        if canvas is None:
+            raise ValueError(f"Canvas '{canvas}' does not exist.")
+
+        canvas = await self.check_cache(canvas)
+        return canvas
+
+    async def check_cache(self, canvas: Canvas):
+        if canvas.id in self.bot.cache:
+            canvas = await self.bot.cache[canvas.id].get_canvas()
+        return canvas
+
+    async def get_available_colors(self, guild_id: int = None) -> Palette:
         await self.wait_for_startup()
-        return self.palette.get_available_colors(guild_id, self.info.current_event_id)
+        return self.palette.get_available_colors_as_palette(
+            guild_id, self.info.current_event_id
+        )
 
     async def sort_canvases(self) -> list[Canvas]:
         await self.wait_for_startup()
@@ -178,6 +208,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return canvases
 
     # Helper methods
+
     async def async_image(
         self, function: Callable, *args, file_name: str, **kwargs
     ) -> tuple[File, str, int]:
@@ -203,7 +234,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return embed
 
     # Autocomplete methods
-    async def autocomplete_canvas(self, interaction, current: str):
+
+    async def autocomplete_canvas(self, _, current: str):
         canvases = await self.sort_canvases()
 
         options_dict = {
@@ -227,6 +259,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         ]
 
     # Commands
+
     @app_commands.command(name="view")
     async def view(
         self, interaction: Interaction, x: int = None, y: int = None, zoom: int = 25
@@ -244,8 +277,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             timer = Timer()
             user, canvas = await self.find_canvas(interaction.user.id)
 
-            if canvas.id in self.bot.cache:
-                canvas = await self.bot.cache[canvas.id].get_canvas()
+            canvas = await self.check_cache(canvas)
 
             # Get frame
             if not any([x, y]):
@@ -309,33 +341,133 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if not success:
                 await sql.close()
                 return await interaction.followup.send(
-                    f"You are on cooldown. Please wait for {cooldown.time_left_strf()}.",
+                    f"You are on cooldown. You can place another pixel {cooldown.time_left_markdown()}.",
                     ephemeral=True,
                 )
 
-        colors = await self.get_available_colors(interaction.guild_id)
+        color = (await self.get_available_colors())[color]
         if color is not None:
-            if color not in colors:
-                color = None
-            else:
-                color = colors[color]
+            if not color.is_valid(interaction.guild_id, self.info.current_event_id):
+                await sql.close()
+                return await interaction.followup.send(
+                    f"{color.name} is not available in this guild."
+                )
 
-        if canvas.id in self.bot.cache:
-            canvas = await self.bot.cache[canvas.id].get_canvas()
+        canvas = await self.check_cache(canvas)
 
         # 7 is max emoji limit
         frame = await canvas.get_frame_from_coordinate(sql, coordinates, 7, focus=True)
 
-        emoji = frame.to_emoji(focus=self.palette.get_edit_color())
+        msg: Optional[Message] = None
 
-        embed = self.base_embed(
-            user=interaction.user,
-            title=f"Place Pixel • {canvas.name} {coordinates}",
+        async def send_msg(msg_: Message, *args, **kwargs):
+            if msg_ is None:
+                return await interaction.followup.send(*args, **kwargs)
+            else:
+                kwargs.pop("ephemeral", None)
+                await msg_.edit(*args, **kwargs)
+                return msg_
+
+        embed = self.base_embed(user=interaction.user)
+
+        if not user.skip_confirm or not color:
+            old_view: Optional[ConfirmView] = None
+            if not user.skip_confirm:
+                # Navigating pixels
+                while True:
+                    embed.title = f"Place pixel • {canvas.name} {coordinates}"
+                    embed.description = frame.to_emoji(
+                        focus=self.palette.get_edit_color(), new_color=color
+                    )
+
+                    view = NavigateView(
+                        interaction.user.id,
+                        disabled_directions=[
+                            direction
+                            for direction in NavigationEnum
+                            if not (coordinates + direction.value) in canvas.bbox
+                        ],
+                    )
+                    msg = await send_msg(msg, embed=embed, view=view, ephemeral=True)
+                    if old_view:
+                        await old_view.defer()
+
+                    timeout = await view.wait()
+
+                    if timeout or view.confirm == ConfirmEnum.CANCEL:
+                        if timeout:
+                            embed.title = f"Timed out • {canvas.name} {coordinates}"
+                        elif view.confirm == ConfirmEnum.CANCEL:
+                            embed.title = f"Cancelled • {canvas.name} {coordinates}"
+                        await send_msg(msg, embed=embed, view=None, ephemeral=True)
+                        await view.defer()
+                        await user.clear_cooldown(sql)
+                        await sql.close()
+                        return
+
+                    elif view.confirm == ConfirmEnum.CONFIRM:
+                        old_view = view
+                        break
+
+                    else:
+                        coordinates += view.direction.value
+                        frame = await canvas.get_frame_from_coordinate(
+                            sql, coordinates, 7, focus=True
+                        )
+                        old_view = view
+
+            if not color:
+                # Selecting color
+                embed.title = f"Select color • {canvas.name} {coordinates}"
+                embed.description = frame.to_emoji(focus=self.palette.get_edit_color())
+
+                view = PaletteView(
+                    await self.get_available_colors(interaction.guild_id),
+                    interaction.user.id,
+                )
+                msg = await send_msg(msg, embed=embed, view=view, ephemeral=True)
+                await old_view.defer() if old_view else None
+
+                timeout = await view.wait()
+
+                if (
+                    timeout
+                    or view.confirm == ConfirmEnum.CANCEL
+                    or not view.dropdown.values
+                ):
+                    if timeout:
+                        embed.title = f"Timed out • {canvas.name} {coordinates}"
+                    elif view.confirm == ConfirmEnum.CANCEL:
+                        embed.title = f"Cancelled • {canvas.name} {coordinates}"
+                    elif not view.dropdown.values:
+                        embed.title = f"No color selected • {canvas.name} {coordinates}"
+                    await send_msg(msg, embed=embed, view=None, ephemeral=True)
+                    await view.defer()
+                    await user.clear_cooldown(sql)
+                    await sql.close()
+                    return
+
+                color = self.palette[view.dropdown.values[0]]
+
+        # Place pixel
+        await canvas.place_pixel(
+            sql, user=user, xy=coordinates, color=color, guild_id=interaction.guild_id
         )
-        embed.description = f"{emoji}"
+        frame = await canvas.regenerate_frame(sql, frame)
+        embed.title = f"Placed pixel • {canvas.name} {coordinates}"
+        embed.description = frame.to_emoji()
+        await send_msg(msg, embed=embed, view=None, ephemeral=True)
 
-        # ephemeral to avoid cooldown?
-        await interaction.followup.send(embed=embed)
+    @place.autocomplete("color")
+    async def place_autocomplete_color(self, interaction: Interaction, current: str):
+        return [
+            Choice(name=color.name, value=str(color.id))
+            for color in (
+                await self.get_available_colors(interaction.guild_id)
+            ).sorted()
+            if neutralise(current) in neutralise(color.name)
+            or neutralise(current) in neutralise(color.code)
+        ]
 
     @app_commands.command(name="join")
     async def join(self, interaction: Interaction, canvas: str):
@@ -422,21 +554,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         pass
 
     # Admin Commands
+
     admin_group = app_commands.Group(name="admin", description="Admin commands")
 
     @admin_group.command(name="lock-board")
     async def lock_board(self, interaction: Interaction, canvas: str):
         """Lock the canvas"""
         sql = await self.sql()
-        canvas = await sql.fetch_canvas_by_name(canvas)
-        if canvas is None:
+        try:
+            canvas = await self.fetch_canvas_by_name(sql, canvas)
+        except ValueError as e:
             await sql.close()
-            return await interaction.response.send_message(
-                f"Canvas '{canvas}' does not exist."
-            )
+            return await interaction.response.send_message(str(e))
 
-        if canvas.id in self.bot.cache:
-            canvas = await self.bot.cache[canvas.id].get_canvas()
         await canvas.lock(sql)
         await sql.close()
 
@@ -452,15 +582,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def unlock_board(self, interaction: Interaction, canvas: str):
         """Unlock the canvas"""
         sql = await self.sql()
-        canvas = await sql.fetch_canvas_by_name(canvas)
-        if canvas is None:
+        try:
+            canvas = await self.fetch_canvas_by_name(sql, canvas)
+        except ValueError as e:
             await sql.close()
-            return await interaction.response.send_message(
-                f"Canvas '{canvas}' does not exist."
-            )
+            return await interaction.response.send_message(str(e))
 
-        if canvas.id in self.bot.cache:
-            canvas = await self.bot.cache[canvas.id].get_canvas()
         await canvas.unlock(sql)
         await sql.close()
 
@@ -496,17 +623,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # TODO: Implement
         pass
 
-    # Admin commands
-    # - PERMS!!
-    # - Force refresh
-    # - Partner stuff + colour stuff
-    # - Blacklist
-    # - Create canvas
-    # Imager stuff
-    # - Frames
-    # - Palette
-    # Other stuff
-    # - Cooldown reminder
+
+# Admin commands
+# - PERMS!!
+# - Force refresh
+# - Partner stuff + colour stuff
+# - Blacklist
+# - Create canvas
+# Imager stuff
+# - Frames
+# - Palette
+# Other stuff
+# - Cooldown reminder
 
 
 async def setup(bot):

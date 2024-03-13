@@ -20,6 +20,15 @@ class Coordinates:
     def __hash__(self):
         return hash((self.x, self.y))
 
+    def __add__(self, other):
+        if isinstance(other, Coordinates):
+            return Coordinates(self.x + other.x, self.y + other.y)
+        if isinstance(other, int):
+            return Coordinates(self.x + other, self.y + other)
+        if isinstance(other, tuple):
+            return Coordinates(self.x + other[0], self.y + other[1])
+        raise TypeError(f"Unsupported type: {type(other)}")
+
 
 class BoundingBox:
     def __init__(self, xy0: Coordinates, xy1: Coordinates):
@@ -67,3 +76,8 @@ class BoundingBox:
 
     def __hash__(self):
         return hash((self.xy0, self.xy1))
+
+    def __add__(self, other):
+        if isinstance(other, BoundingBox):
+            return BoundingBox(self.xy0 + other.xy0, self.xy1 + other.xy1)
+        raise TypeError(f"Unsupported type: {type(other)}")
