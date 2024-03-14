@@ -533,10 +533,46 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="palette")
-    async def palette(self, interaction: Interaction, color: str = None):
+    async def palette(
+        self, interaction: Interaction, palette: str = "all", color: str = None
+    ):
         """View the palette"""
-        # TODO: Implement
-        pass
+        await interaction.response.defer()
+
+        if color:
+            pass
+
+        else:
+            if palette == "all":
+                file, file_name, size_bytes = await self.async_image(
+                    self.palette.to_image_global, file_name="palette.png"
+                )
+            elif palette == "global":
+                file, file_name, size_bytes = await self.async_image(
+                    self.palette.to_image_global, file_name="palette.png"
+                )
+            elif palette == "guild":
+                file, file_name, size_bytes = await self.async_image(
+                    self.palette.to_image_guild, file_name="palette.png"
+                )
+            else:
+                return await interaction.followup.send("Invalid palette type.")
+
+            embed = self.base_embed(
+                user=interaction.user, title="Blurple Canvas Palette"
+            )
+            embed.set_image(url=file_name)
+            await interaction.followup.send(embed=embed, file=file)
+
+    @palette.autocomplete("palette")
+    async def palette_autocomplete_palette(
+        self, interaction: Interaction, current: str
+    ):
+        return [
+            Choice(name="All", value="all"),
+            Choice(name="Global", value="global"),
+            Choice(name="Partner", value="guild"),
+        ]
 
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
