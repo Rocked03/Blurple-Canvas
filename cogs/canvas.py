@@ -335,6 +335,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
 
+        if user.is_blacklisted():
+            await sql.close()
+            return await interaction.followup.send(
+                "You are blacklisted.", ephemeral=True
+            )
+
         if canvas.locked:
             await sql.close()
             return await interaction.followup.send(f"**{canvas.name}** is read-only.")
@@ -628,19 +634,55 @@ class CanvasCog(commands.Cog, name="Canvas"):
     ):
         return await self.autocomplete_canvas(interaction, current)
 
-    @admin_group.command(name="blacklist")
-    @app_commands.describe(user="User to blacklist")
-    async def blacklist(self, interaction: Interaction, user: UserDiscord):
-        """Blacklist a user"""
-        # TODO: Implement
-        pass
+    admin_blacklist_group = app_commands.Group(
+        name="blacklist", description="Blacklist commands", parent=admin_group
+    )
 
-    @admin_group.command(name="unblacklist")
+    @admin_blacklist_group.command(name="add")
+    @app_commands.describe(user="User to blacklist")
+    async def blacklist_add(self, interaction: Interaction, user: UserDiscord):
+        """Blacklist a user"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        user_obj = await sql.fetch_user(user.id)
+        if user_obj.is_blacklisted():
+            await sql.close()
+            return await interaction.followup.send(
+                f"{user.mention} is already blacklisted."
+            )
+        await user_obj.add_blacklist(sql)
+        await sql.close()
+        await interaction.followup.send(f"Blacklisted {user.mention}.")
+
+    @admin_blacklist_group.command(name="remove")
     @app_commands.describe(user="User to unblacklist")
-    async def unblacklist(self, interaction: Interaction, user: UserDiscord):
+    async def blacklist_remove(self, interaction: Interaction, user: UserDiscord):
         """Unblacklist a user"""
-        # TODO: Implement
-        pass
+        await interaction.response.defer()
+        sql = await self.sql()
+        user_obj = await sql.fetch_user(user.id)
+        if not user_obj.is_blacklisted():
+            await sql.close()
+            return await interaction.followup.send(
+                f"{user.mention} is not blacklisted."
+            )
+        await user_obj.remove_blacklist(sql)
+        await sql.close()
+        await interaction.followup.send(f"Unblacklisted {user.mention}.")
+
+    @admin_blacklist_group.command(name="view")
+    async def blacklist_view(self, interaction: Interaction):
+        """View the blacklist"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        blacklisted = await sql.fetch_blacklist()
+        await sql.close()
+
+        embed = self.base_embed(title="Blacklist")
+        embed.description = "\n".join([f"- {user}" for user in blacklisted])
+        if not blacklisted:
+            embed.description = "No users blacklisted."
+        await interaction.followup.send(embed=embed)
 
 
 # Admin commands

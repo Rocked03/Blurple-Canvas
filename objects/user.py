@@ -131,6 +131,9 @@ class Blacklist(DiscordObject):
     def is_blacklisted(self):
         return self.date_added is not None
 
+    def __str__(self):
+        return f"<@{self.user_id}> ({self.user_id})"
+
 
 class Cooldown(DiscordObject):
     def __init__(

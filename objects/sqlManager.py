@@ -254,6 +254,12 @@ class SQLManager:
 
         return Cooldown(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
+    async def fetch_blacklist(self):
+        from objects.user import Blacklist
+
+        rows = await self.conn.fetch("SELECT * FROM blacklist")
+        return [Blacklist(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+
     async def insert_color(self, color: Color):
         await self.conn.execute(
             (
