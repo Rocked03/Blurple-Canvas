@@ -369,6 +369,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 return msg_
 
         embed = self.base_embed(user=interaction.user)
+        view: Optional[ConfirmView] = None
 
         if not user.skip_confirm or not color:
             old_view: Optional[ConfirmView] = None
@@ -388,7 +389,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                             if not (coordinates + direction.value) in canvas.bbox
                         ],
                     )
-                    msg = await send_msg(msg, embed=embed, view=view, ephemeral=True)
+                    msg = await send_msg(msg, embed=embed, view=view)
                     if old_view:
                         await old_view.defer()
 
@@ -399,7 +400,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                             embed.title = f"Timed out • {canvas.name} {coordinates}"
                         elif view.confirm == ConfirmEnum.CANCEL:
                             embed.title = f"Cancelled • {canvas.name} {coordinates}"
-                        await send_msg(msg, embed=embed, view=None, ephemeral=True)
+                        await send_msg(msg, embed=embed, view=None)
                         await view.defer()
                         await user.clear_cooldown(sql)
                         await sql.close()
@@ -425,7 +426,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     await self.get_available_colors(interaction.guild_id),
                     interaction.user.id,
                 )
-                msg = await send_msg(msg, embed=embed, view=view, ephemeral=True)
+                msg = await send_msg(msg, embed=embed, view=view)
                 await old_view.defer() if old_view else None
 
                 timeout = await view.wait()
@@ -441,7 +442,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                         embed.title = f"Cancelled • {canvas.name} {coordinates}"
                     elif not view.dropdown.values:
                         embed.title = f"No color selected • {canvas.name} {coordinates}"
-                    await send_msg(msg, embed=embed, view=None, ephemeral=True)
+                    await send_msg(msg, embed=embed, view=None)
                     await view.defer()
                     await user.clear_cooldown(sql)
                     await sql.close()
@@ -456,7 +457,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         frame = await canvas.regenerate_frame(sql, frame)
         embed.title = f"Placed pixel • {canvas.name} {coordinates}"
         embed.description = frame.to_emoji()
-        await send_msg(msg, embed=embed, view=None, ephemeral=True)
+        if view is not None:
+            await send_msg(msg, embed=embed, view=None)
+        else:
+            await send_msg(msg, embed=embed)
 
     @place.autocomplete("color")
     async def place_autocomplete_color(self, interaction: Interaction, current: str):
@@ -520,20 +524,20 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
-        """Toggle skip confirm"""
-        await interaction.response.defer()
+        """Toggle skipping placing confirmation"""
+        await interaction.response.defer(ephemeral=True)
         sql = await self.sql()
         user = await sql.fetch_user(interaction.user.id)
         await user.toggle_skip_confirm(sql)
         await sql.close()
         await interaction.followup.send(
-            f"{'Enabled' if user.skip_confirm else 'Disabled'} place color confirmation.",
-            ephemeral=True,
+            f"{'Enabled' if not user.skip_confirm else 'Disabled'} "
+            f"placing confirmation.",
         )
 
     @app_commands.command(name="toggle-remind")
     async def toggle_remind(self, interaction: Interaction):
-        """Toggle cooldown remind"""
+        """Toggle cooldown reminders"""
         await interaction.response.defer()
         sql = await self.sql()
         user = await sql.fetch_user(interaction.user.id)
