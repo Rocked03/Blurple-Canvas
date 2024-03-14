@@ -261,6 +261,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
     # Commands
 
     @app_commands.command(name="view")
+    @app_commands.describe(
+        x="x coordinate",
+        y="y coordinate",
+        zoom="Zoom level (default 25)",
+    )
     async def view(
         self, interaction: Interaction, x: int = None, y: int = None, zoom: int = 25
     ):
@@ -312,6 +317,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
     @app_commands.command(name="place")
+    @app_commands.describe(
+        x="x coordinate",
+        y="y coordinate",
+        color="Color to place. Leave blank to select from dropdown.",
+    )
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
         await interaction.response.defer()
@@ -474,6 +484,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         ]
 
     @app_commands.command(name="join")
+    @app_commands.describe(canvas="Canvas to join")
     async def join(self, interaction: Interaction, canvas: str):
         """Join the canvas"""
         await interaction.response.defer()
@@ -562,6 +573,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     admin_group = app_commands.Group(name="admin", description="Admin commands")
 
     @admin_group.command(name="lock-board")
+    @app_commands.describe(canvas="Canvas to lock")
     async def lock_board(self, interaction: Interaction, canvas: str):
         """Lock the canvas"""
         sql = await self.sql()
@@ -583,6 +595,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return await self.autocomplete_canvas(interaction, current)
 
     @admin_group.command(name="unlock-board")
+    @app_commands.describe(canvas="Canvas to unlock")
     async def unlock_board(self, interaction: Interaction, canvas: str):
         """Unlock the canvas"""
         sql = await self.sql()
@@ -616,12 +629,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return await self.autocomplete_canvas(interaction, current)
 
     @admin_group.command(name="blacklist")
+    @app_commands.describe(user="User to blacklist")
     async def blacklist(self, interaction: Interaction, user: UserDiscord):
         """Blacklist a user"""
         # TODO: Implement
         pass
 
     @admin_group.command(name="unblacklist")
+    @app_commands.describe(user="User to unblacklist")
     async def unblacklist(self, interaction: Interaction, user: UserDiscord):
         """Unblacklist a user"""
         # TODO: Implement
