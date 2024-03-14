@@ -146,7 +146,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         for canvas in cache:
             if canvas.id not in self.bot.cache:
-                print(f"Loading cache for canvas {canvas.name} ({canvas.id})")
                 self.bot.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
 
     async def load_canvases(self):
@@ -627,10 +626,21 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return await self.autocomplete_canvas(interaction, current)
 
     @admin_canvas_group.command(name="refresh")
+    @app_commands.describe(canvas="Canvas to refresh")
     async def canvas_refresh(self, interaction: Interaction, canvas: str):
         """Force refresh the cache"""
-        # TODO: Implement
-        pass
+        await interaction.response.defer()
+        canvas: Canvas = await self.fetch_canvas_by_name(await self.sql(), canvas)
+        if canvas.id not in self.bot.cache:
+            return await interaction.followup.send(
+                f"Canvas '{canvas}' is not in the cache."
+            )
+
+        sql = await self.sql()
+        msg = await interaction.followup.send(f"Refreshing cache for {canvas}...")
+        await self.bot.cache[canvas.id].force_refresh(sql)
+        await sql.close()
+        await msg.edit(content=f"Refreshed cache for {canvas}.")
 
     @canvas_refresh.autocomplete("canvas")
     async def canvas_refresh_autocomplete_canvas(
