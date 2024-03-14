@@ -124,7 +124,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.startup_events.sql.wait()
         connection = await self.pool.acquire()
         self.bot.loop.create_task(self.timeout_connection(connection))
-        return SQLManager(connection)
+        return SQLManager(connection, self.bot)
 
     async def timeout_connection(self, connection):
         await asyncio.sleep(600)
@@ -573,9 +573,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 if color.is_global
                 else "This is an exclusive color! It is only available in "
                 + color.guild.invite_url_masked_markdown(
-                    f"{color.guild.guild.name}"
+                    f"__**{color.guild.guild.name}**__"
                     if color.guild.guild
-                    else "its own partner server"
+                    else "__its' own partner server__"
                 )
                 + "."
             )
@@ -621,7 +621,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @palette.autocomplete("color")
     async def palette_autocomplete_color(self, interaction: Interaction, current: str):
-        return self.autocomplete_color(interaction, current)
+        return await self.autocomplete_color(interaction, current)
 
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
@@ -795,6 +795,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Partner stuff + colour stuff
 # - Create canvas
 # - Paste
+# - Reload colors
 # Imager stuff
 # - Frames
 # Other stuff

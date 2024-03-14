@@ -52,18 +52,16 @@ class Guild(DiscordObject):
         if guild is not None:
             self.set_guild(guild)
         else:
-            raise ValueError(f"Guild with id {self.id} not found")
+            pass
 
     def load_manager_role(self):
         if self.guild is None:
-            raise ValueError("Guild not loaded")
+            return
         role = self.guild.get_role(self.manager_role_id)
         if role is not None:
             self.set_manager_role(role)
         else:
-            raise ValueError(
-                f"Role with id {self.manager_role_id} not found in guild {self.id}"
-            )
+            pass
 
     def __str__(self):
         return f"Guild {self.id}"
