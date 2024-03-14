@@ -707,9 +707,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 # Admin commands
 # - PERMS!!
-# - Force refresh
 # - Partner stuff + colour stuff
-# - Blacklist
 # - Create canvas
 # Imager stuff
 # - Frames

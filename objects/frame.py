@@ -56,7 +56,7 @@ class Frame(DiscordObject):
     def from_coordinate(
         canvas: Canvas, xy: Coordinates, zoom: int, *, focus: bool = False
     ):
-        (x, y) = xy.to_tuple
+        (x, y) = xy.to_tuple()
         if zoom < 1:
             raise ValueError("Zoom must be at least 1")
         if xy not in canvas.bbox:
@@ -125,7 +125,7 @@ class Frame(DiscordObject):
             #         coordinates.y * max_size.y // self.bbox.height,
             #     )
             else:
-                adjusted_coordinates = coordinates.to_tuple
+                adjusted_coordinates = coordinates.to_tuple()
             opposite_corner = (
                 adjusted_coordinates[0] + zoom,
                 adjusted_coordinates[1] + zoom,
