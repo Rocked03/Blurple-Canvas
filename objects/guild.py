@@ -28,6 +28,17 @@ class Guild(DiscordObject):
             if self.manager_role_id is not None:
                 self.load_manager_role()
 
+    @property
+    def name(self):
+        return self.guild.name if self.guild else None
+
+    @property
+    def invite_url(self):
+        return f"https://discord.gg/{self.invite}/" if self.invite else None
+
+    def invite_url_masked_markdown(self, text: str):
+        return f"[{text}]({self.invite_url})" if self.invite_url else text
+
     def set_guild(self, guild: GuildDiscord):
         self.guild = guild
 

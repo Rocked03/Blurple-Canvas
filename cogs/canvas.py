@@ -156,7 +156,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def load_colors(self):
         sql = await self.sql()
-        self.palette = await sql.fetch_colors_by_participation()
+        await self.startup_events.info.wait()
+        self.palette = await sql.fetch_colors_by_participation(
+            self.info.current_event_id
+        )
         await sql.close()
         self.startup_events.palette.set()
 
@@ -540,12 +543,37 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
 
         if color:
-            pass
+            color = self.palette[color]
+            if not color:
+                return await interaction.followup.send("Invalid color.")
+            file, file_name, size_bytes = await self.async_image(
+                color.to_image,
+                file_name=f"{neutralise(color.name.replace(' ', '_'))}.png",
+            )
+            embed = self.base_embed(
+                user=interaction.user, title=f"{color.name} • {color.code}"
+            )
+            embed.description = (
+                "This is a global color! It is available to use everywhere."
+                if color.is_global
+                else "This is an exclusive color! It is only available in "
+                + color.guild.invite_url_masked_markdown(
+                    f"{color.guild.guild.name}"
+                    if color.guild.guild
+                    else "its own partner server"
+                )
+                + "."
+            )
+
+            embed.set_image(url=file_name)
+            await interaction.followup.send(embed=embed, file=file)
 
         else:
             if palette == "all":
                 file, file_name, size_bytes = await self.async_image(
-                    self.palette.to_image_global, file_name="palette.png"
+                    self.palette.to_image_all,
+                    self.info.current_event_id,
+                    file_name="palette.png",
                 )
             elif palette == "global":
                 file, file_name, size_bytes = await self.async_image(
@@ -553,7 +581,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
             elif palette == "guild":
                 file, file_name, size_bytes = await self.async_image(
-                    self.palette.to_image_guild, file_name="palette.png"
+                    self.palette.to_image_guild,
+                    self.info.current_event_id,
+                    file_name="palette.png",
                 )
             else:
                 return await interaction.followup.send("Invalid palette type.")
@@ -573,6 +603,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
             Choice(name="Global", value="global"),
             Choice(name="Partner", value="guild"),
         ]
+
+    @palette.autocomplete("color")
+    async def palette_autocomplete_color(self, interaction: Interaction, current: str):
+        return [
+            Choice(name=color.name, value=str(color.id))
+            for color in self.palette.sorted()
+            if neutralise(current) in neutralise(color.name)
+            or neutralise(current) in neutralise(color.code)
+        ][:25]
 
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
@@ -745,6 +784,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - PERMS!!
 # - Partner stuff + colour stuff
 # - Create canvas
+# - Color exclusivity
+# - Paste
 # Imager stuff
 # - Frames
 # - Palette

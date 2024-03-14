@@ -37,18 +37,39 @@ class Imager:
             self.square_size = 300
             self.border_width = 100
 
-            self.text_spacing = 200
-            self.inner_text_spacing = round(self.square_size / 30)
-            self.edge_text_border = round(self.square_size / 10)
-
-            self.base_corners = 50
-            self.square_corners = 50
-
             self.name_width = 10
 
-            self.font_color_title = self.font(120)
-            self.font_name = self.font(int(round(self.square_size / 8.5, 0)))
-            self.font_code = self.font(int(round(self.square_size / 10.5, 0)))
+        @property
+        def text_spacing(self):
+            return round(self.square_size / 1.5)
+
+        @property
+        def inner_text_spacing(self):
+            return round(self.square_size / 30)
+
+        @property
+        def edge_text_border(self):
+            return round(self.square_size / 10)
+
+        @property
+        def base_corners(self):
+            return self.square_size // 6
+
+        @property
+        def square_corners(self):
+            return self.square_size // 6
+
+        @property
+        def font_color_title(self):
+            return self.font(round(self.square_size / 2.5))
+
+        @property
+        def font_name(self):
+            return self.font(round(self.square_size / 8.5))
+
+        @property
+        def font_code(self):
+            return self.font(round(self.square_size / 10.5))
 
     @staticmethod
     def round_corner(radius: int, fill):
@@ -127,7 +148,7 @@ class Imager:
                 Palette(palette.get_global_colors()),
                 category,
                 Imager.PaletteCategories.GLOBAL.value[1],
-                config,
+                config=config,
             )
             image.paste(
                 global_palette,
@@ -144,7 +165,7 @@ class Imager:
                 Palette(palette.get_guild_colors()),
                 category,
                 Imager.PaletteCategories.GUILD.value[1],
-                config,
+                config=config,
             )
             image.paste(
                 guild_palette,
@@ -159,6 +180,7 @@ class Imager:
         palette: Palette,
         category: PaletteCategories,
         title: str,
+        *,
         config: PaletteConfig = PaletteConfig(),
     ) -> Image.Image:
         n_height = ceil(palette.total_count / category.value[0])
@@ -196,60 +218,79 @@ class Imager:
         for coord, color in rows.items():
             x = coord.x * config.square_size
             y = config.text_spacing + coord.y * config.square_size
-            color_square = Imager.round_rectangle(
-                (config.square_size, config.square_size),
-                config.square_corners,
-                color.rgba,
-                bottom_left=coord.x == 0 and coord.y == n_height - 1,
-                bottom_right=coord.x == category.value[0] - 1
-                and coord.y == n_height - 1,
-            )
-            square_draw = ImageDraw.Draw(color_square)
-
-            text_color = config.black if color.to_hsl[2] == 1 else config.white
-            color_name = "\n".join(textwrap.wrap(color.name, config.name_width))
-            text_size = square_draw.multiline_textbbox(
-                text=color_name,
-                xy=(0, 0),
-                font=config.font_name,
-                align="center",
-                spacing=config.inner_text_spacing,
-            )
-            square_draw.multiline_text(
-                (
-                    round((config.square_size - text_size[2]) / 2),
-                    round((config.square_size - text_size[3]) / 2),
+            color_square = Imager.color_to_image(
+                color,
+                rounded_corners=(
+                    False,
+                    False,
+                    coord.x == 0 and coord.y == n_height - 1,
+                    coord.x == category.value[0] - 1 and coord.y == n_height - 1,
                 ),
-                color_name,
-                font=config.font_name,
-                fill=text_color,
-                align="center",
-                spacing=config.inner_text_spacing,
-            )
-
-            text_rgb = ", ".join(map(str, color.rgba[:3]))
-            text_size = config.font_code.getbbox(text_rgb)
-            square_draw.text(
-                (
-                    round((config.square_size - text_size[2]) / 2),
-                    config.edge_text_border,
-                ),
-                text_rgb,
-                font=config.font_code,
-                fill=text_color,
-            )
-
-            text_size = config.font_code.getbbox(color.code)
-            square_draw.text(
-                (
-                    round((config.square_size - text_size[2]) / 2),
-                    config.square_size - config.edge_text_border - text_size[3],
-                ),
-                color.code,
-                font=config.font_code,
-                fill=text_color,
+                config=config,
             )
 
             bg.paste(color_square, (x, y))
 
         return bg
+
+    @staticmethod
+    def color_to_image(
+        color: Color,
+        *,
+        rounded_corners: tuple[bool, bool, bool, bool] = None,
+        config: PaletteConfig = PaletteConfig(),
+    ):
+        if rounded_corners is None:
+            rounded_corners = (True, True, True, True)
+        color_square = Imager.round_rectangle(
+            (config.square_size, config.square_size),
+            config.square_corners,
+            color.rgba,
+            top_left=rounded_corners[0],
+            top_right=rounded_corners[1],
+            bottom_left=rounded_corners[2],
+            bottom_right=rounded_corners[3],
+        )
+        square_draw = ImageDraw.Draw(color_square)
+        text_color = config.black if color.to_hsl[2] == 1 else config.white
+        color_name = "\n".join(textwrap.wrap(color.name, config.name_width))
+        text_size = square_draw.multiline_textbbox(
+            text=color_name,
+            xy=(0, 0),
+            font=config.font_name,
+            align="center",
+            spacing=config.inner_text_spacing,
+        )
+        square_draw.multiline_text(
+            (
+                round((config.square_size - text_size[2]) / 2),
+                round((config.square_size - text_size[3]) / 2),
+            ),
+            color_name,
+            font=config.font_name,
+            fill=text_color,
+            align="center",
+            spacing=config.inner_text_spacing,
+        )
+        text_rgb = ", ".join(map(str, color.rgba[:3]))
+        text_size = config.font_code.getbbox(text_rgb)
+        square_draw.text(
+            (
+                round((config.square_size - text_size[2]) / 2),
+                config.edge_text_border,
+            ),
+            text_rgb,
+            font=config.font_code,
+            fill=text_color,
+        )
+        text_size = config.font_code.getbbox(color.code)
+        square_draw.text(
+            (
+                round((config.square_size - text_size[2]) / 2),
+                config.square_size - config.edge_text_border - text_size[3],
+            ),
+            color.code,
+            font=config.font_code,
+            fill=text_color,
+        )
+        return color_square

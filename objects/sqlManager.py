@@ -88,22 +88,25 @@ class SQLManager:
     ) -> Palette:
         if color_ids:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
+                "LEFT JOIN guild g ON p.guild_id = g.id "
                 "WHERE c.id = ANY($1)",
                 color_ids,
             )
         elif color_codes:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
+                "LEFT JOIN guild g ON p.guild_id = g.id "
                 " WHERE c.code = ANY($1)",
                 color_codes,
             )
         else:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
+                "LEFT JOIN guild g ON p.guild_id = g.id "
             )
 
         from objects.color import Color, Palette
@@ -119,16 +122,18 @@ class SQLManager:
     async def fetch_colors_by_participation(self, event_id: int = None) -> Palette:
         if event_id:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
+                "LEFT JOIN guild g ON p.guild_id = g.id "
                 "WHERE p.event_id = $1 OR c.global = TRUE OR c.code = 'edit'",
                 event_id,
             )
         else:
             rows = await self.conn.fetch(
-                "SELECT c.*, p.guild_id, p.event_id FROM color c "
+                "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
-                "WHERE c.global = TRUE OR c.code = 'edit'"
+                "LEFT JOIN guild g ON p.guild_id = g.id "
+                " c.global = TRUE OR c.code = 'edit'"
             )
         from objects.color import Color, Palette
 

@@ -47,8 +47,10 @@ class Color(DiscordObject):
         from objects.guild import Participation
         from objects.event import Event
 
-        self.guild = Participation(guild_id=guild_id, **kwargs) if guild_id else guild
-        self.event = Event(_id=event_id, **kwargs) if event_id else event
+        self.guild: Participation = (
+            Participation(guild_id=guild_id, **kwargs) if guild_id else guild
+        )
+        self.event: Event = Event(_id=event_id, **kwargs) if event_id else event
 
     @property
     def emoji_formatted(self):
@@ -69,6 +71,11 @@ class Color(DiscordObject):
             self.guild.id == guild_id
             and (self.event.id == event_id or self.event.id is None or event_id is None)
         )
+
+    def to_image(self):
+        config = Imager.PaletteConfig()
+        config.square_size = 1000
+        return Imager.color_to_image(self, config=config)
 
     def __str__(self):
         return f"Color {self.name} {self.rgba_formatted}"
