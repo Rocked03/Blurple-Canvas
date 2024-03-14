@@ -536,6 +536,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="palette")
+    @app_commands.describe(
+        palette="Palette selection",
+        color="Specific color to view",
+    )
     async def palette(
         self, interaction: Interaction, palette: str = "all", color: str = None
     ):
@@ -788,7 +792,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Paste
 # Imager stuff
 # - Frames
-# - Palette
 # Other stuff
 # - Cooldown reminder
 
