@@ -56,7 +56,7 @@ class Frame(DiscordObject):
     def from_coordinate(
         canvas: Canvas, xy: Coordinates, zoom: int, *, focus: bool = False
     ):
-        (x, y) = xy.to_tuple()
+        (x, y) = xy.to_tuple
         if zoom < 1:
             raise ValueError("Zoom must be at least 1")
         if xy not in canvas.bbox:
@@ -86,6 +86,7 @@ class Frame(DiscordObject):
     def regenerate(self, canvas: Canvas):
         return Frame(canvas=canvas, bbox=self.bbox, focus=self.focus)
 
+    @property
     def justified_pixels(self) -> dict[Coordinates, Pixel]:
         if self.pixels is None:
             return {}
@@ -96,6 +97,7 @@ class Frame(DiscordObject):
             and self.bbox.y0 <= pixel.y <= self.bbox.y1
         }
 
+    @property
     def justified_focus(self) -> Optional[Coordinates]:
         if self.focus is None:
             return None
@@ -114,7 +116,7 @@ class Frame(DiscordObject):
             )
         img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
-        for coordinates, pixel in self.justified_pixels().items():
+        for coordinates, pixel in self.justified_pixels.items():
             if zoom != 1:
                 adjusted_coordinates = (coordinates.x * zoom, coordinates.y * zoom)
             # elif max_size is not None:
@@ -123,7 +125,7 @@ class Frame(DiscordObject):
             #         coordinates.y * max_size.y // self.bbox.height,
             #     )
             else:
-                adjusted_coordinates = coordinates.to_tuple()
+                adjusted_coordinates = coordinates.to_tuple
             opposite_corner = (
                 adjusted_coordinates[0] + zoom,
                 adjusted_coordinates[1] + zoom,
@@ -135,26 +137,26 @@ class Frame(DiscordObject):
         return img
 
     def to_emoji(self, *, focus: Color = None, new_color: Color = None) -> str:
-        pixels = self.justified_pixels()
+        pixels = self.justified_pixels
         emoji_list = []
-        justified_focus = self.justified_focus() if focus else None
+        justified_focus = self.justified_focus if focus else None
         for y in range(self.bbox.height):
             emoji_list.append(
                 "".join(
                     [
                         (
-                            pixels.get(Coordinates(x, y)).color.emoji_formatted()
+                            pixels.get(Coordinates(x, y)).color.emoji_formatted
                             if Coordinates(x, y) != justified_focus
-                            else focus.emoji_formatted()
+                            else focus.emoji_formatted
                         )
                         for x in range(self.bbox.width)
                     ]
                 )
             )
         if focus:
-            txt = " • " + pixels.get(justified_focus).color.emoji_formatted()
+            txt = " • " + pixels.get(justified_focus).color.emoji_formatted
             if new_color:
-                txt += " \u2192 " + new_color.emoji_formatted()
+                txt += " \u2192 " + new_color.emoji_formatted
             emoji_list[justified_focus.y] += txt
         return "\n".join(emoji_list)
 

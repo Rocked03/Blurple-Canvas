@@ -146,7 +146,7 @@ class PaletteView(ConfirmView):
 
             options = [
                 SelectOption(
-                    label=color.name, value=str(color.id), emoji=color.emoji_formatted()
+                    label=color.name, value=str(color.id), emoji=color.emoji_formatted
                 )
                 for color in self.palette.sorted()
             ]

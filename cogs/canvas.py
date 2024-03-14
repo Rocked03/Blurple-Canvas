@@ -301,7 +301,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         file, file_name, size_bytes = await self.async_image(
             frame.generate_image,
             max_size=max_size,
-            file_name=f"canvas_{canvas.name_safe()}_{x}-{y}.png",
+            file_name=f"canvas_{canvas.name_safe}_{x}-{y}.png",
         )
 
         # Embed
@@ -334,7 +334,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
 
-        if user.is_blacklisted():
+        if user.is_blacklisted:
             await sql.close()
             return await interaction.followup.send(
                 "You are blacklisted.", ephemeral=True
@@ -356,7 +356,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if not success:
                 await sql.close()
                 return await interaction.followup.send(
-                    f"You are on cooldown. You can place another pixel {cooldown.time_left_markdown()}.",
+                    f"You are on cooldown. You can place another pixel {cooldown.time_left_markdown}.",
                     ephemeral=True,
                 )
 
@@ -393,7 +393,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 while True:
                     embed.title = f"Place pixel • {canvas.name} {coordinates}"
                     embed.description = frame.to_emoji(
-                        focus=self.palette.get_edit_color(), new_color=color
+                        focus=self.palette.edit_color, new_color=color
                     )
 
                     view = NavigateView(
@@ -435,7 +435,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if not color:
                 # Selecting color
                 embed.title = f"Select color • {canvas.name} {coordinates}"
-                embed.description = frame.to_emoji(focus=self.palette.get_edit_color())
+                embed.description = frame.to_emoji(focus=self.palette.edit_color)
 
                 view = PaletteView(
                     await self.get_available_colors(interaction.guild_id),
@@ -665,7 +665,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
         sql = await self.sql()
         user_obj = await sql.fetch_user(user.id)
-        if user_obj.is_blacklisted():
+        if user_obj.is_blacklisted:
             await sql.close()
             return await interaction.followup.send(
                 f"{user.mention} is already blacklisted."
@@ -681,7 +681,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
         sql = await self.sql()
         user_obj = await sql.fetch_user(user.id)
-        if not user_obj.is_blacklisted():
+        if not user_obj.is_blacklisted:
             await sql.close()
             return await interaction.followup.send(
                 f"{user.mention} is not blacklisted."

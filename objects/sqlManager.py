@@ -201,7 +201,7 @@ class SQLManager:
                 "x >= $2 AND x <= $4 AND y >= $3 AND y <= $5"
             ),
             canvas_id,
-            *bbox.to_tuple(),
+            *bbox.to_tuple,
         )
         colors = {
             c["id"]: rename_invalid_keys(c)

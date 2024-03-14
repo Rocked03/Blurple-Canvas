@@ -56,8 +56,9 @@ class User(DiscordObject):
         else:
             raise ValueError(f"User with id {self.id} not found")
 
+    @property
     def is_blacklisted(self):
-        return self.blacklist.is_blacklisted()
+        return self.blacklist.is_blacklisted
 
     async def set_current_canvas(self, sql_manager: SQLManager, canvas: Canvas):
         if canvas.id is None:
@@ -95,7 +96,7 @@ class User(DiscordObject):
     ) -> tuple[bool, Cooldown]:
         cooldown = await self.get_cooldown(sql_manager)
         if cooldown:
-            if not cooldown.is_expired():
+            if not cooldown.is_expired:
                 return False, cooldown
 
         new_cooldown = Cooldown(
@@ -128,7 +129,8 @@ class Blacklist(DiscordObject):
         self.user_id = user_id
         self.date_added = date_added
 
-    def is_blacklisted(self):
+    @property
+    def is_blacklisted(self) -> bool:
         return self.date_added is not None
 
     def __str__(self):
@@ -143,18 +145,22 @@ class Cooldown(DiscordObject):
         self.cooldown_time = cooldown_time
         self.user: User = User(_id=user_id, **kwargs) if user is None else user
 
-    def is_expired(self):
+    @property
+    def is_expired(self) -> bool:
         return (
             self.cooldown_time <= datetime.now(tz=timezone.utc)
             if self.cooldown_time
             else True
         )
 
+    @property
     def time_left(self):
         return self.cooldown_time - datetime.now(tz=timezone.utc)
 
+    @property
     def time_left_strf(self):
-        return format_delta(self.time_left())
+        return format_delta(self.time_left)
 
+    @property
     def time_left_markdown(self):
         return f"<t:{int(self.cooldown_time.timestamp())}:R>"

@@ -47,12 +47,15 @@ class Color(DiscordObject):
         self.guild = Participation(_id=guild_id, **kwargs) if guild_id else guild
         self.event = Event(_id=event_id, **kwargs) if event_id else event
 
+    @property
     def emoji_formatted(self):
         return f"<:{self.emoji_name}:{self.emoji_id}>" if self.emoji_name else None
 
+    @property
     def rgba_formatted(self):
         return f"rgba({', '.join(map(str, self.rgba))})" if self.rgba else None
 
+    @property
     def to_hsl(self):
         h, s, l = colorsys.rgb_to_hsv(*map(lambda c: c / 255.0, self.rgba[:3]))
         h = h if 0 < h else 1
@@ -65,7 +68,7 @@ class Color(DiscordObject):
         )
 
     def __str__(self):
-        return f"Color {self.name} {self.rgba_formatted()}"
+        return f"Color {self.name} {self.rgba_formatted}"
 
     def __eq__(self, other):
         if isinstance(other, Color):
@@ -74,24 +77,24 @@ class Color(DiscordObject):
 
     def __gt__(self, other):
         if isinstance(other, Color):
-            return self.to_hsl() > other.to_hsl()
+            return self.to_hsl > other.to_hsl
         raise TypeError
 
     def __lt__(self, other):
         if isinstance(other, Color):
-            return self.to_hsl() < other.to_hsl()
+            return self.to_hsl < other.to_hsl
         raise TypeError
 
 
 class Palette:
     def __init__(self, colors: Iterable[Color]):
         self.colors: dict[int, Color] = {color.id: color for color in colors}
-        self.edit: Color = next(
+        self.edit_color: Color = next(
             (color for color in self.colors.values() if color.code == "edit"), None
         )
 
     def get_all_colors(self) -> list[Color]:
-        return [color for color in self.colors.values() if color != self.edit]
+        return [color for color in self.colors.values() if color != self.edit_color]
 
     def get_global_colors(self) -> list[Color]:
         return [color for color in self.colors.values() if color.is_global]
@@ -121,11 +124,8 @@ class Palette:
     def get_available_colors_as_palette(self, guild_id: int, event_id: int) -> Palette:
         return Palette(
             self.get_available_colors(guild_id, event_id)
-            + ([self.edit] if self.edit else [])
+            + ([self.edit_color] if self.edit_color else [])
         )
-
-    def get_edit_color(self) -> Color:
-        return self.edit
 
     def sorted(self, colors: list[Color] = None) -> list[Color]:
         if colors is None:

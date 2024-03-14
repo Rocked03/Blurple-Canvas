@@ -36,12 +36,13 @@ class Timer:
 
     def mark_msg(self, message: str, total: bool = False, time: bool = False) -> str:
         if total:
-            msg = f"{message} in {format_delta(self.total())}"
+            msg = f"{message} in {format_delta(self.total)}"
         else:
             msg = f"{message} in {format_delta(self.mark_raw())}"
         if time:
             msg += f" ({datetime.now(timezone.utc)})"
         return msg
 
+    @property
     def total(self):
         return datetime.now() - self.true_start

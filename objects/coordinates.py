@@ -6,6 +6,7 @@ class Coordinates:
         self.x = x
         self.y = y
 
+    @property
     def to_tuple(self):
         return self.x, self.y
 
@@ -35,8 +36,8 @@ class BoundingBox:
         self.xy0 = xy0
         self.xy1 = xy1
 
-        self.x0, self.y0 = xy0.to_tuple()
-        self.x1, self.y1 = xy1.to_tuple()
+        self.x0, self.y0 = xy0.to_tuple
+        self.x1, self.y1 = xy1.to_tuple
 
         self.width = self.xy1.x - self.xy0.x + 1
         self.height = self.xy1.y - self.xy0.y + 1
@@ -48,6 +49,7 @@ class BoundingBox:
     def from_coordinates(x_0, y_0, x_1, y_1):
         return BoundingBox(Coordinates(x_0, y_0), Coordinates(x_1, y_1))
 
+    @property
     def to_tuple(self):
         return self.x0, self.y0, self.x1, self.y1
 

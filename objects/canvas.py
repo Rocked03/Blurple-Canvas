@@ -56,11 +56,17 @@ class Canvas(DiscordObject):
             else event
         )
 
-    def is_locked(self):
+    @property
+    def is_locked(self) -> bool:
         return self.locked
 
-    def get_dimensions(self):
+    @property
+    def dimensions(self) -> tuple[int, int]:
         return self.width, self.height
+
+    @property
+    def name_safe(self):
+        return "".join([c for c in self.name.replace(" ", "_") if re.match(r"\w", c)])
 
     async def place_pixel(
         self,
@@ -140,9 +146,6 @@ class Canvas(DiscordObject):
         else:
             await frame.load_pixels(sql_manager)
         return frame
-
-    def name_safe(self):
-        return "".join([c for c in self.name.replace(" ", "_") if re.match(r"\w", c)])
 
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"

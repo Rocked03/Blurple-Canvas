@@ -85,10 +85,12 @@ class Participation(Guild):
             else color
         )
 
-    def has_custom_color(self):
+    @property
+    def has_custom_color(self) -> bool:
         return self.color is not None
 
-    def get_color_id(self):
+    @property
+    def color_id(self) -> int:
         return self.color.id if self.color else None
 
     def __str__(self):

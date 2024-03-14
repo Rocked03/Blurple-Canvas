@@ -41,8 +41,9 @@ class Pixel(DiscordObject):
             else color
         )
 
-    def get_coordinates(self):
-        return self.x, self.y
+    @property
+    def coordinates(self) -> Coordinates:
+        return self.xy
 
     def __str__(self):
         return str(self.xy)
