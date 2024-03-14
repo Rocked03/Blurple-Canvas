@@ -3,7 +3,10 @@ from __future__ import annotations
 import colorsys
 from typing import Optional, TYPE_CHECKING, Iterable
 
+from PIL.Image import Image
+
 from objects.discordObject import DiscordObject
+from objects.imager import Imager
 
 if TYPE_CHECKING:
     from objects.guild import Participation
@@ -44,7 +47,7 @@ class Color(DiscordObject):
         from objects.guild import Participation
         from objects.event import Event
 
-        self.guild = Participation(_id=guild_id, **kwargs) if guild_id else guild
+        self.guild = Participation(guild_id=guild_id, **kwargs) if guild_id else guild
         self.event = Event(_id=event_id, **kwargs) if event_id else event
 
     @property
@@ -93,18 +96,32 @@ class Palette:
             (color for color in self.colors.values() if color.code == "edit"), None
         )
 
+    @property
+    def total_count(self):
+        return len(self.get_all_colors())
+
+    @property
+    def global_count(self):
+        return len(self.get_global_colors())
+
+    @property
+    def guild_count(self):
+        return self.total_count - self.global_count
+
     def get_all_colors(self) -> list[Color]:
         return [color for color in self.colors.values() if color != self.edit_color]
 
     def get_global_colors(self) -> list[Color]:
         return [color for color in self.colors.values() if color.is_global]
 
-    def get_guild_colors(self, guild_id: int) -> list[Color]:
-        return [
-            color
-            for color in self.colors.values()
-            if color.guild and color.guild.id == guild_id
-        ]
+    def get_guild_colors(self, guild_id: int = None) -> list[Color]:
+        if guild_id:
+            return [
+                color
+                for color in self.colors.values()
+                if color.guild and color.guild.id == guild_id
+            ]
+        return [color for color in self.colors.values() if not color.is_global]
 
     def get_event_colors(self, event_id: int) -> list[Color]:
         return [
@@ -112,6 +129,9 @@ class Palette:
             for color in self.colors.values()
             if color.event and color.event.id == event_id
         ]
+
+    def get_all_event_colors(self, event_id: int) -> list[Color]:
+        return self.get_global_colors() + self.get_event_colors(event_id)
 
     def get_available_colors(self, guild_id: int, event_id: int) -> list[Color]:
         return self.get_global_colors() + list(
@@ -137,6 +157,21 @@ class Palette:
         return sorted(
             self.sorted(colors),
             key=lambda color: color.is_global,
+        )
+
+    def to_image_all(self, event_id: int) -> Image:
+        return Imager.palette_to_image(
+            Palette(self.get_all_event_colors(event_id)), Imager.PaletteCategories.ALL
+        )
+
+    def to_image_global(self) -> Image:
+        return Imager.palette_to_image(
+            Palette(self.get_global_colors()), Imager.PaletteCategories.GLOBAL
+        )
+
+    def to_image_guild(self, event_id: int) -> Image:
+        return Imager.palette_to_image(
+            Palette(self.get_event_colors(event_id)), Imager.PaletteCategories.GUILD
         )
 
     def __getitem__(self, item):
