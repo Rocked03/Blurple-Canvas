@@ -22,7 +22,7 @@ from discord.utils import utcnow
 from config import POSTGRES_CREDENTIALS
 from objects.cache import Cache
 from objects.canvas import Canvas
-from objects.color import Palette
+from objects.color import Palette, Color
 from objects.coordinates import Coordinates
 from objects.info import Info
 from objects.sqlManager import SQLManager
@@ -262,6 +262,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     # Commands
 
+    async def autocomplete_color(
+        self, interaction, current, colors: list[Color] = None
+    ):
+        return [
+            Choice(name=color.name, value=str(color.id))
+            for color in (colors if colors else self.palette.sorted())
+            if neutralise(current) in neutralise(color.name)
+            or neutralise(current) in neutralise(color.code)
+            or current.isdigit()
+            and color.id == int(current)
+        ][:25]
+
     @app_commands.command(name="view")
     @app_commands.describe(
         x="x coordinate",
@@ -482,14 +494,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @place.autocomplete("color")
     async def place_autocomplete_color(self, interaction: Interaction, current: str):
-        return [
-            Choice(name=color.name, value=str(color.id))
-            for color in (
-                await self.get_available_colors(interaction.guild_id)
-            ).sorted()
-            if neutralise(current) in neutralise(color.name)
-            or neutralise(current) in neutralise(color.code)
-        ]
+        return await self.autocomplete_color(
+            interaction,
+            current,
+            (await self.get_available_colors(interaction.guild_id)).sorted(),
+        )
 
     @app_commands.command(name="join")
     @app_commands.describe(canvas="Canvas to join")
@@ -555,7 +564,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 file_name=f"{neutralise(color.name.replace(' ', '_'))}.png",
             )
             embed = self.base_embed(
-                user=interaction.user, title=f"{color.name} • {color.code}"
+                user=interaction.user,
+                title=f"{color.name} • {color.code}",
+                color=color.hex,
             )
             embed.description = (
                 "This is a global color! It is available to use everywhere."
@@ -610,12 +621,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @palette.autocomplete("color")
     async def palette_autocomplete_color(self, interaction: Interaction, current: str):
-        return [
-            Choice(name=color.name, value=str(color.id))
-            for color in self.palette.sorted()
-            if neutralise(current) in neutralise(color.name)
-            or neutralise(current) in neutralise(color.code)
-        ][:25]
+        return self.autocomplete_color(interaction, current)
 
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
@@ -788,7 +794,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - PERMS!!
 # - Partner stuff + colour stuff
 # - Create canvas
-# - Color exclusivity
 # - Paste
 # Imager stuff
 # - Frames

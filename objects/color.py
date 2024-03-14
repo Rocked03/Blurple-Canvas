@@ -53,24 +53,33 @@ class Color(DiscordObject):
         self.event: Event = Event(_id=event_id, **kwargs) if event_id else event
 
     @property
-    def emoji_formatted(self):
+    def emoji_formatted(self) -> str:
         return f"<:{self.emoji_name}:{self.emoji_id}>" if self.emoji_name else None
 
     @property
-    def rgba_formatted(self):
+    def rgba_formatted(self) -> str:
         return f"rgba({', '.join(map(str, self.rgba))})" if self.rgba else None
 
     @property
-    def to_hsl(self):
+    def to_hsl(self) -> tuple[float, float, float]:
         h, s, l = colorsys.rgb_to_hsv(*map(lambda c: c / 255.0, self.rgba[:3]))
         h = h if 0 < h else 1
         return h, s, l
 
+    @property
     def is_valid(self, guild_id: int, event_id: int = None):
         return self.is_global or (
             self.guild.id == guild_id
             and (self.event.id == event_id or self.event.id is None or event_id is None)
         )
+
+    @property
+    def hex_str(self) -> str:
+        return f"{''.join(f'{i:02x}' for i in self.rgba[:3])}"
+
+    @property
+    def hex(self) -> int:
+        return int(self.hex_str, 16)
 
     def to_image(self):
         config = Imager.PaletteConfig()
