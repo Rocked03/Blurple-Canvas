@@ -578,9 +578,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     admin_group = app_commands.Group(name="admin", description="Admin commands")
 
-    @admin_group.command(name="lock-board")
+    admin_canvas_group = app_commands.Group(
+        name="canvas", description="Canvas commands", parent=admin_group
+    )
+
+    @admin_canvas_group.command(name="lock")
     @app_commands.describe(canvas="Canvas to lock")
-    async def lock_board(self, interaction: Interaction, canvas: str):
+    async def canvas_lock(self, interaction: Interaction, canvas: str):
         """Lock the canvas"""
         sql = await self.sql()
         try:
@@ -594,15 +598,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await interaction.response.send_message(f"Locked canvas '{canvas.name}'")
 
-    @lock_board.autocomplete("canvas")
-    async def lock_board_autocomplete_canvas(
+    @canvas_lock.autocomplete("canvas")
+    async def canvas_lock_autocomplete_canvas(
         self, interaction: Interaction, current: str
     ):
         return await self.autocomplete_canvas(interaction, current)
 
-    @admin_group.command(name="unlock-board")
+    @admin_canvas_group.command(name="unlock")
     @app_commands.describe(canvas="Canvas to unlock")
-    async def unlock_board(self, interaction: Interaction, canvas: str):
+    async def canvas_unlock(self, interaction: Interaction, canvas: str):
         """Unlock the canvas"""
         sql = await self.sql()
         try:
@@ -616,23 +620,29 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await interaction.response.send_message(f"Unlocked canvas '{canvas.name}'")
 
-    @unlock_board.autocomplete("canvas")
-    async def unlock_board_autocomplete_canvas(
+    @canvas_unlock.autocomplete("canvas")
+    async def canvas_unlock_autocomplete_canvas(
         self, interaction: Interaction, current: str
     ):
         return await self.autocomplete_canvas(interaction, current)
 
-    @admin_group.command(name="force-refresh")
-    async def force_refresh(self, interaction: Interaction, canvas: str):
+    @admin_canvas_group.command(name="refresh")
+    async def canvas_refresh(self, interaction: Interaction, canvas: str):
         """Force refresh the cache"""
         # TODO: Implement
         pass
 
-    @force_refresh.autocomplete("canvas")
-    async def force_refresh_autocomplete_canvas(
+    @canvas_refresh.autocomplete("canvas")
+    async def canvas_refresh_autocomplete_canvas(
         self, interaction: Interaction, current: str
     ):
         return await self.autocomplete_canvas(interaction, current)
+
+    @admin_canvas_group.command(name="create")
+    async def canvas_create(self, interaction: Interaction, name: str):
+        """Create a new canvas"""
+        # TODO: Implement
+        pass
 
     admin_blacklist_group = app_commands.Group(
         name="blacklist", description="Blacklist commands", parent=admin_group
