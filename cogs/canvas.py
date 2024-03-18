@@ -909,14 +909,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 
 # Admin commands
-# - PERMS!!
 # - Partner stuff + colour stuff
 # - Create canvas
-# - Reload colors
 # Imager stuff
 # - Frames
 # Other stuff
 # - Cooldown reminder
+# - Stats
 
 
 async def setup(bot):
