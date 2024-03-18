@@ -285,7 +285,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
             and color.id == int(current)
         ][:25]
 
-    @commands.Cog.listener()
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         ignored = (commands.CommandNotFound, commands.CheckFailure)
         if isinstance(error, ignored):
