@@ -40,6 +40,13 @@ from objects.views import (
 )
 
 
+def admin_check():
+    async def check(interaction: Interaction):
+        return await interaction.client.info.check_perms(interaction)
+
+    return app_commands.check(check)
+
+
 def image_to_bytes_io(image: Image.Image) -> BytesIO:
     bytes_io, size = image_to_bytes_io(image)
     return bytes_io
@@ -136,6 +143,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def load_info(self):
         sql = await self.sql()
         self.info = await sql.fetch_info()
+        self.bot.info = self.info
         await sql.close()
         self.startup_events.info.set()
 
@@ -276,6 +284,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
             or current.isdigit()
             and color.id == int(current)
         ][:25]
+
+    @commands.Cog.listener()
+    async def cog_app_command_error(self, interaction: Interaction, error: Exception):
+        ignored = (commands.CommandNotFound, commands.CheckFailure)
+        if isinstance(error, ignored):
+            return
+        elif isinstance(error, commands.CommandError):
+            await interaction.response.send_message(str(error), ephemeral=True)
+        else:
+            raise error
 
     @app_commands.command(name="view")
     @app_commands.describe(
@@ -670,6 +688,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
 
     @admin_canvas_group.command(name="lock")
+    @admin_check()
     @app_commands.describe(canvas="Canvas to lock")
     async def canvas_lock(self, interaction: Interaction, canvas: str):
         """Lock the canvas"""
@@ -692,6 +711,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return await self.autocomplete_canvas(interaction, current)
 
     @admin_canvas_group.command(name="unlock")
+    @admin_check()
     @app_commands.describe(canvas="Canvas to unlock")
     async def canvas_unlock(self, interaction: Interaction, canvas: str):
         """Unlock the canvas"""
@@ -714,6 +734,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return await self.autocomplete_canvas(interaction, current)
 
     @admin_canvas_group.command(name="refresh")
+    @admin_check()
     @app_commands.describe(canvas="Canvas to refresh")
     async def canvas_refresh(self, interaction: Interaction, canvas: str):
         """Force refresh the cache"""
@@ -737,12 +758,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return await self.autocomplete_canvas(interaction, current)
 
     @admin_canvas_group.command(name="create")
+    @admin_check()
     async def canvas_create(self, interaction: Interaction, name: str):
         """Create a new canvas"""
         # TODO: Implement
         pass
 
     @admin_canvas_group.command(name="paste")
+    @admin_check()
+    @app_commands.describe(
+        image="Image to paste",
+        x="top-left x coordinate",
+        y="top-left y coordinate",
+    )
     async def canvas_paste(
         self, interaction: Interaction, image: Attachment, x: int, y: int
     ):
@@ -817,6 +845,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
 
     @admin_blacklist_group.command(name="add")
+    @admin_check()
     @app_commands.describe(user="User to blacklist")
     async def blacklist_add(self, interaction: Interaction, user: UserDiscord):
         """Blacklist a user"""
@@ -833,6 +862,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.followup.send(f"Blacklisted {user.mention}.")
 
     @admin_blacklist_group.command(name="remove")
+    @admin_check()
     @app_commands.describe(user="User to unblacklist")
     async def blacklist_remove(self, interaction: Interaction, user: UserDiscord):
         """Unblacklist a user"""
@@ -849,6 +879,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.followup.send(f"Unblacklisted {user.mention}.")
 
     @admin_blacklist_group.command(name="view")
+    @admin_check()
     async def blacklist_view(self, interaction: Interaction):
         """View the blacklist"""
         await interaction.response.defer()
@@ -867,6 +898,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
 
     @admin_colors_group.command(name="reload")
+    @admin_check()
     async def colors_reload(self, interaction: Interaction):
         """Reload the colors"""
         await interaction.response.defer()
