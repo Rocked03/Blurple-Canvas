@@ -862,6 +862,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
             embed.description = "No users blacklisted."
         await interaction.followup.send(embed=embed)
 
+    admin_colors_group = app_commands.Group(
+        name="colors", description="Color commands", parent=admin_group
+    )
+
+    @admin_colors_group.command(name="reload")
+    async def colors_reload(self, interaction: Interaction):
+        """Reload the colors"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        await self.load_colors()
+        await sql.close()
+        await interaction.followup.send("Reloaded colors.")
+
 
 # Admin commands
 # - PERMS!!
