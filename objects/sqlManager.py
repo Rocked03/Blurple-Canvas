@@ -329,16 +329,12 @@ class SQLManager:
         return user
 
     async def set_pixel(self, pixel: Pixel):
-        await self.conn.execute(
-            (
-                "UPDATE pixels "
-                "SET color_id = $1 "
-                "WHERE canvas_id = $2 AND x = $3 AND y = $4"
-            ),
-            pixel.color.id,
-            pixel.canvas.id,
-            pixel.x,
-            pixel.y,
+        await self.set_pixels([pixel])
+
+    async def set_pixels(self, pixels: list[Pixel]):
+        await self.conn.executemany(
+            "UPDATE pixels SET color_id = $1 WHERE canvas_id = $2 AND x = $3 AND y = $4",
+            [(pixel.color.id, pixel.canvas.id, pixel.x, pixel.y) for pixel in pixels],
         )
 
     async def update_pixel(
@@ -346,16 +342,49 @@ class SQLManager:
         *,
         pixel: Pixel,
         user_id: int,
-        timestamp: datetime = datetime.now(tz=timezone.utc),
+        timestamp: datetime = None,
         guild_id: int = None,
     ):
+        if timestamp is None:
+            timestamp = datetime.now(tz=timezone.utc)
+        await self.update_pixels(
+            pixels=[pixel], user_id=user_id, timestamp=timestamp, guild_id=guild_id
+        )
+
+    async def update_pixels(
+        self,
+        *,
+        pixels: list[Pixel],
+        user_id: int,
+        timestamp: datetime = None,
+        guild_id: int = None,
+    ):
+        if timestamp is None:
+            timestamp = datetime.now(tz=timezone.utc)
         from objects.historyRecord import HistoryRecord
 
-        record = HistoryRecord(
-            pixel=pixel, user_id=user_id, guild_id=guild_id, timestamp=timestamp
+        records = [
+            HistoryRecord(
+                pixel=pixel, user_id=user_id, guild_id=guild_id, timestamp=timestamp
+            )
+            for pixel in pixels
+        ]
+        await self.conn.executemany(
+            "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp) VALUES ($1, $2, $3, $4, $5, $6)",
+            [
+                (
+                    record.pixel.canvas.id,
+                    record.user.id,
+                    record.pixel.x,
+                    record.pixel.y,
+                    record.pixel.color.id,
+                    record.timestamp,
+                )
+                for record in records
+            ],
         )
-        await self.insert_history_record(record)
-        await self.set_pixel(pixel)
+
+        await self.set_pixels(pixels)
 
     async def set_current_canvas(self, user: User):
         await self.fetch_user(user.id, insert_on_fail=user)

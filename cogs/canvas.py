@@ -4,7 +4,8 @@ from functools import partial
 from io import BytesIO
 from typing import Optional, Callable
 
-from PIL.Image import Image
+import numpy
+from PIL import Image
 from asyncpg import create_pool, Pool
 from discord import (
     app_commands,
@@ -14,6 +15,7 @@ from discord import (
     File,
     Embed,
     Message,
+    Attachment,
 )
 from discord.app_commands import Choice
 from discord.ext import commands
@@ -25,6 +27,7 @@ from objects.canvas import Canvas
 from objects.color import Palette, Color
 from objects.coordinates import Coordinates
 from objects.info import Info
+from objects.pixel import Pixel
 from objects.sqlManager import SQLManager
 from objects.timer import Timer
 from objects.user import User
@@ -37,12 +40,12 @@ from objects.views import (
 )
 
 
-def image_to_bytes_io(image: Image) -> BytesIO:
+def image_to_bytes_io(image: Image.Image) -> BytesIO:
     bytes_io, size = image_to_bytes_io(image)
     return bytes_io
 
 
-def image_to_bytes_io_with_size(image: Image) -> tuple[BytesIO, int]:
+def image_to_bytes_io_with_size(image: Image.Image) -> tuple[BytesIO, int]:
     buffer = BytesIO()
     image.save(buffer, "png")
     size = buffer.tell()
@@ -739,6 +742,76 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # TODO: Implement
         pass
 
+    @admin_canvas_group.command(name="paste")
+    async def canvas_paste(
+        self, interaction: Interaction, image: Attachment, x: int, y: int
+    ):
+        """Paste an image onto the canvas"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        user, canvas = await self.find_canvas(interaction.user.id)
+
+        if canvas.is_locked:
+            await sql.close()
+            return await interaction.followup.send(f"**{canvas.name}** is read-only.")
+
+        canvas = await self.check_cache(canvas)
+
+        pixels, size = await self.bot.loop.run_in_executor(
+            None, self.paste_from_bytes, BytesIO(await image.read())
+        )
+
+        xy0 = Coordinates(x, y)
+        xy1 = xy0 + size
+        bbox = xy0.bbox_to(xy1)
+
+        if bbox not in canvas:
+            await sql.close()
+            return await interaction.followup.send(f"Image is out of bounds. ({bbox})")
+
+        final_pixels = []
+        for pixel in pixels:
+            pixel.xy += xy0
+            final_pixels.append(pixel)
+
+        await canvas.place_pixels(sql, user=user, pixels=final_pixels)
+
+        await sql.close()
+
+        await interaction.followup.send(f"Placed image at ({x}, {y}) on {canvas.name}.")
+
+    def paste_from_bytes(self, img_bytes: BytesIO):
+        colors = Palette(self.palette.get_all_event_colors(self.info.current_event_id))
+        blank_rgb = (1, 1, 1)
+
+        img = Image.open(img_bytes, "r")
+        img = img.convert("RGBA")
+        width, height = img.size
+        pixel_values = numpy.array(list(img.getdata())).reshape((height, width, 4))
+
+        pixels = []
+        for row, i in enumerate(pixel_values):
+            for col, pixel in enumerate(i):
+                if pixel[3] == 0:
+                    continue
+                rgb = tuple(pixel[:3])
+                if rgb == blank_rgb:
+                    color = colors["blank"]
+                else:
+                    color = colors[rgb]
+                if color is None:
+                    raise ValueError(f"Invalid pixel color at ({col}, {row})")
+
+                pixels.append(
+                    Pixel(
+                        xy=Coordinates(col, row),
+                        color=color,
+                    )
+                )
+
+        return pixels, (width, height)
+
     admin_blacklist_group = app_commands.Group(
         name="blacklist", description="Blacklist commands", parent=admin_group
     )
@@ -794,7 +867,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - PERMS!!
 # - Partner stuff + colour stuff
 # - Create canvas
-# - Paste
 # - Reload colors
 # Imager stuff
 # - Frames

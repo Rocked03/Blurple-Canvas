@@ -84,6 +84,24 @@ class Canvas(DiscordObject):
             self.pixels[xy] = pixel
         await sql_manager.update_pixel(pixel=pixel, user_id=user.id, guild_id=guild_id)
 
+    async def place_pixels(
+        self,
+        sql_manager: SQLManager,
+        *,
+        user: User,
+        guild_id: int = None,
+        pixels: list[Pixel],
+    ):
+        for pixel in pixels:
+            if pixel.canvas is None:
+                pixel.canvas = self
+            if self.pixels:
+                self.pixels[pixel.xy] = pixel
+
+        await sql_manager.update_pixels(
+            pixels=pixels, user_id=user.id, guild_id=guild_id
+        )
+
     async def lock(self, sql_manager: SQLManager):
         self.locked = True
         await sql_manager.lock_canvas(self)
@@ -151,7 +169,11 @@ class Canvas(DiscordObject):
         return f"Canvas {self.name} ({self.id})"
 
     def __contains__(self, item):
+        from objects.pixel import Pixel
+
         if isinstance(item, Coordinates):
+            return item in self.bbox
+        elif isinstance(item, BoundingBox):
             return item in self.bbox
         if isinstance(item, Pixel):
             return item.xy in self

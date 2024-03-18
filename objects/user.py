@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from discord import User as UserDiscord
 
+from objects.coordinates import Coordinates
 from objects.discordObject import DiscordObject
 from objects.timer import format_delta
 
@@ -85,7 +86,11 @@ class User(DiscordObject):
         color: Color,
     ):
         await canvas.place_pixel(
-            sql_manager=sql_manager, user=self, guild_id=guild_id, x=x, y=y, color=color
+            sql_manager=sql_manager,
+            user=self,
+            guild_id=guild_id,
+            xy=Coordinates(x, y),
+            color=color,
         )
 
     async def get_cooldown(self, sql_manager: SQLManager) -> Cooldown:

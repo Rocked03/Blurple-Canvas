@@ -61,17 +61,14 @@ class Color(DiscordObject):
         return f"rgba({', '.join(map(str, self.rgba))})" if self.rgba else None
 
     @property
+    def rgb(self) -> tuple[int, int, int]:
+        return self.rgba[:3]
+
+    @property
     def to_hsl(self) -> tuple[float, float, float]:
         h, s, l = colorsys.rgb_to_hsv(*map(lambda c: c / 255.0, self.rgba[:3]))
         h = h if 0 < h else 1
         return h, s, l
-
-    @property
-    def is_valid(self, guild_id: int, event_id: int = None):
-        return self.is_global or (
-            self.guild.id == guild_id
-            and (self.event.id == event_id or self.event.id is None or event_id is None)
-        )
 
     @property
     def hex_str(self) -> str:
@@ -80,6 +77,12 @@ class Color(DiscordObject):
     @property
     def hex(self) -> int:
         return int(self.hex_str, 16)
+
+    def is_valid(self, guild_id: int, event_id: int = None):
+        return self.is_global or (
+            self.guild.id == guild_id
+            and (self.event.id == event_id or self.event.id is None or event_id is None)
+        )
 
     def to_image(self):
         config = Imager.PaletteConfig()
@@ -92,6 +95,13 @@ class Color(DiscordObject):
     def __eq__(self, other):
         if isinstance(other, Color):
             return self.id == other.id
+        elif isinstance(other, int):
+            return self.id == other
+        elif isinstance(other, tuple):
+            if len(other) == 3:
+                return self.rgb == other
+            elif len(other) == 4:
+                return self.rgba == other
         return False
 
     def __gt__(self, other):
@@ -206,6 +216,10 @@ class Palette:
             )
         elif isinstance(item, Color):
             return item
+        elif isinstance(item, tuple):
+            return next(
+                (color for color in self.colors.values() if color.rgb == item), None
+            )
         elif item is None:
             return None
         else:

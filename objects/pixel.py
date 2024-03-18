@@ -25,7 +25,6 @@ class Pixel(DiscordObject):
     ):
         super().__init__(**kwargs)
         self.xy = xy if xy else Coordinates(x, y)
-        self.x, self.y = self.xy.x, self.xy.y
 
         from objects.color import Color
         from objects.canvas import Canvas
@@ -44,6 +43,14 @@ class Pixel(DiscordObject):
     @property
     def coordinates(self) -> Coordinates:
         return self.xy
+
+    @property
+    def x(self) -> int:
+        return self.xy.x
+
+    @property
+    def y(self) -> int:
+        return self.xy.y
 
     def __str__(self):
         return str(self.xy)
