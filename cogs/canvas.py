@@ -1091,6 +1091,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @admin_register_group.command(name="participation")
     @admin_check()
+    @app_commands.describe(
+        guild_id="ID of the guild to register",
+        event_id="ID of the event to register for. Leave blank to use the current event.",
+        color_code="Code of custom color. Must already exist.",
+        invite="Invite link to the guild",
+        manager_role_id="ID of the manager role",
+    )
     async def participate(
         self,
         interaction: Interaction,
