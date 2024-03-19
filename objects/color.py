@@ -78,16 +78,22 @@ class Color(DiscordObject):
     def hex(self) -> int:
         return int(self.hex_str, 16)
 
-    def is_valid(self, guild_id: int, event_id: int = None):
+    def is_valid(self, guild_id: int, event_id: int = None) -> bool:
         return self.is_global or (
             self.guild.id == guild_id
             and (self.event.id == event_id or self.event.id is None or event_id is None)
         )
 
-    def to_image(self):
+    def to_image(self) -> Image:
         config = Imager.PaletteConfig()
         config.square_size = 1000
         return Imager.color_to_image(self, config=config)
+
+    def to_image_emoji(self) -> Image:
+        config = Imager.PaletteConfig()
+        config.square_size = 885
+        config.corner_radius_percentage = 0.1
+        return Imager.color_to_image(self, config=config, text=False)
 
     def __str__(self):
         return f"Color {self.name} {self.rgba_formatted}"

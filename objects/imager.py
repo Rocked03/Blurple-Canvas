@@ -36,6 +36,7 @@ class Imager:
             super().__init__()
             self.square_size = 300
             self.border_width = 100
+            self.corner_radius_percentage = 1 / 6
 
             self.name_width = 10
 
@@ -56,8 +57,8 @@ class Imager:
             return self.square_size // 6
 
         @property
-        def square_corners(self):
-            return self.square_size // 6
+        def corner_radius(self):
+            return round(self.square_size * self.corner_radius_percentage)
 
         @property
         def font_color_title(self):
@@ -189,7 +190,7 @@ class Imager:
                 category.value[0] * config.square_size,
                 config.text_spacing + config.square_size * n_height,
             ),
-            config.square_corners,
+            config.corner_radius,
             config.dark_blurple_rgba(255),
             all_corners=True,
         )
@@ -239,12 +240,13 @@ class Imager:
         *,
         rounded_corners: tuple[bool, bool, bool, bool] = None,
         config: PaletteConfig = PaletteConfig(),
+        text: bool = True,
     ):
         if rounded_corners is None:
             rounded_corners = (True, True, True, True)
         color_square = Imager.round_rectangle(
             (config.square_size, config.square_size),
-            config.square_corners,
+            config.corner_radius,
             color.rgba,
             top_left=rounded_corners[0],
             top_right=rounded_corners[1],
@@ -252,45 +254,47 @@ class Imager:
             bottom_right=rounded_corners[3],
         )
         square_draw = ImageDraw.Draw(color_square)
-        text_color = config.black if color.to_hsl[2] == 1 else config.white
-        color_name = "\n".join(textwrap.wrap(color.name, config.name_width))
-        text_size = square_draw.multiline_textbbox(
-            text=color_name,
-            xy=(0, 0),
-            font=config.font_name,
-            align="center",
-            spacing=config.inner_text_spacing,
-        )
-        square_draw.multiline_text(
-            (
-                round((config.square_size - text_size[2]) / 2),
-                round((config.square_size - text_size[3]) / 2),
-            ),
-            color_name,
-            font=config.font_name,
-            fill=text_color,
-            align="center",
-            spacing=config.inner_text_spacing,
-        )
-        text_rgb = ", ".join(map(str, color.rgba[:3]))
-        text_size = config.font_code.getbbox(text_rgb)
-        square_draw.text(
-            (
-                round((config.square_size - text_size[2]) / 2),
-                config.edge_text_border,
-            ),
-            text_rgb,
-            font=config.font_code,
-            fill=text_color,
-        )
-        text_size = config.font_code.getbbox(color.code)
-        square_draw.text(
-            (
-                round((config.square_size - text_size[2]) / 2),
-                config.square_size - config.edge_text_border - text_size[3],
-            ),
-            color.code,
-            font=config.font_code,
-            fill=text_color,
-        )
+
+        if text:
+            text_color = config.black if color.to_hsl[2] == 1 else config.white
+            color_name = "\n".join(textwrap.wrap(color.name, config.name_width))
+            text_size = square_draw.multiline_textbbox(
+                text=color_name,
+                xy=(0, 0),
+                font=config.font_name,
+                align="center",
+                spacing=config.inner_text_spacing,
+            )
+            square_draw.multiline_text(
+                (
+                    round((config.square_size - text_size[2]) / 2),
+                    round((config.square_size - text_size[3]) / 2),
+                ),
+                color_name,
+                font=config.font_name,
+                fill=text_color,
+                align="center",
+                spacing=config.inner_text_spacing,
+            )
+            text_rgb = ", ".join(map(str, color.rgba[:3]))
+            text_size = config.font_code.getbbox(text_rgb)
+            square_draw.text(
+                (
+                    round((config.square_size - text_size[2]) / 2),
+                    config.edge_text_border,
+                ),
+                text_rgb,
+                font=config.font_code,
+                fill=text_color,
+            )
+            text_size = config.font_code.getbbox(color.code)
+            square_draw.text(
+                (
+                    round((config.square_size - text_size[2]) / 2),
+                    config.square_size - config.edge_text_border - text_size[3],
+                ),
+                color.code,
+                font=config.font_code,
+                fill=text_color,
+            )
         return color_square

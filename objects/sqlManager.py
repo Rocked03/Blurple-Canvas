@@ -269,8 +269,8 @@ class SQLManager:
     async def insert_color(self, color: Color):
         await self.conn.execute(
             (
-                "INSERT INTO color (id, code, emoji_name, emoji_id, global, name, rgba) "
-                "VALUES ($1, $2, $3, $4, $5, $6, $7)"
+                "INSERT INTO color (code, emoji_name, emoji_id, global, name, rgba) "
+                "VALUES ($1, $2, $3, $4, $5, $6)"
             ),
             color.code,
             color.emoji_name,
@@ -278,7 +278,7 @@ class SQLManager:
             color.is_global,
             color.name,
             color.rgba,
-        )  # TODO: color ID auto increment?
+        )
 
     async def insert_participation(self, participation: Participation):
         await self.conn.execute(

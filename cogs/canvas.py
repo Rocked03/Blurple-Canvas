@@ -6,7 +6,7 @@ from typing import Optional, Callable
 
 import numpy
 from PIL import Image
-from asyncpg import create_pool, Pool
+from asyncpg import create_pool, Pool, UniqueViolationError
 from discord import (
     app_commands,
     Interaction,
@@ -16,6 +16,7 @@ from discord import (
     Embed,
     Message,
     Attachment,
+    Emoji,
 )
 from discord.app_commands import Choice
 from discord.ext import commands
@@ -48,7 +49,7 @@ def admin_check():
 
 
 def image_to_bytes_io(image: Image.Image) -> BytesIO:
-    bytes_io, size = image_to_bytes_io(image)
+    bytes_io, _ = image_to_bytes_io_with_size(image)
     return bytes_io
 
 
@@ -222,15 +223,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     # Helper methods
 
-    async def async_image(
-        self, function: Callable, *args, file_name: str, **kwargs
-    ) -> tuple[File, str, int]:
+    async def async_image_bytes(
+        self, function: Callable, *args, **kwargs
+    ) -> tuple[BytesIO, int]:
         image = await self.bot.loop.run_in_executor(
             None, partial(function, *args, **kwargs)
         )
-        bytes_io, size_bytes = await self.bot.loop.run_in_executor(
-            None, image_to_bytes_io_with_size, image
-        )
+        return image_to_bytes_io_with_size(image)
+
+    async def async_image(
+        self, function: Callable, file_name: str, *args, **kwargs
+    ) -> tuple[File, str, int]:
+        bytes_io, size_bytes = await self.async_image_bytes(function, *args, **kwargs)
         file = File(bytes_io, filename=file_name)
         return file, f"attachment://{file_name}", size_bytes
 
@@ -908,6 +912,73 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.load_colors()
         await sql.close()
         await interaction.followup.send("Reloaded colors.")
+
+    @admin_colors_group.command(name="create")
+    @admin_check()
+    async def colors_create(
+        self,
+        interaction: Interaction,
+        name: str,
+        code: str,
+        hex: str = None,
+        r: int = None,
+        g: int = None,
+        b: int = None,
+        emoji: str = None,
+    ):
+        """Create a new color"""
+        if hex is not None == all(i is not None for i in [r, g, b]):
+            return await interaction.response.send_message(
+                "Please provide either a hex code or all of the RGB values."
+            )
+
+        if r and g and b:
+            if not all([0 <= c <= 255 for c in [r, g, b]]):
+                return await interaction.response.send_message(
+                    "Invalid RGB values. Please provide values between 0 and 255."
+                )
+        elif hex:
+            if len(hex) != 6:
+                return await interaction.response.send_message(
+                    "Invalid hex code. Please provide a 6-character hex code."
+                )
+            else:
+                r, g, b = tuple(int(hex[i : i + 2], 16) for i in (0, 2, 4))
+
+        await interaction.response.defer()
+
+        color = Color(name=name, code=code, rgba=[r, g, b, 255], _global=False)
+
+        if emoji is not None:
+            if not re.match(r"<a?:\w+:(\d+)>$", emoji):
+                return await interaction.followup.send("Invalid emoji.")
+            else:
+                emoji_id = int(re.match(r"<a?:\w+:(\d+)>", emoji).group(1))
+                emoji_name = re.match(r"<a?:(\w+):\d+>", emoji).group(1)
+                color.emoji_id = emoji_id
+                color.emoji_name = emoji_name
+        else:
+            image_bytes, _ = await self.async_image_bytes(color.to_image_emoji)
+            emoji = await self.info.current_emoji_server.create_custom_emoji(
+                name=f"pl_{neutralise(color.code)}", image=image_bytes.read()
+            )
+
+            color.emoji_name = emoji.name
+            color.emoji_id = emoji.id
+
+        sql = await self.sql()
+        while True:
+            try:
+                await sql.insert_color(color)
+            except UniqueViolationError:
+                pass
+            else:
+                break
+        await sql.close()
+
+        await interaction.followup.send(
+            f"Created color {color.name} ({color.code}). {color.emoji_formatted}"
+        )
 
 
 # Admin commands

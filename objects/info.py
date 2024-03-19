@@ -22,6 +22,8 @@ class Info(DiscordObject):
         highlight_color: int = None,
         admin_server_id: int = None,
         admin_server: Guild = None,
+        current_emoji_server_id: int = None,
+        current_emoji_server: Guild = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -43,6 +45,12 @@ class Info(DiscordObject):
             self.bot.get_guild(admin_server_id)
             if admin_server_id and self.bot
             else admin_server
+        )
+
+        self.current_emoji_server: Optional[Guild] = (
+            self.bot.get_guild(current_emoji_server_id)
+            if current_emoji_server_id and self.bot
+            else current_emoji_server
         )
 
         self.canvas_admin_roles = (
