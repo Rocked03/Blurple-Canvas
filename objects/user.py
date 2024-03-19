@@ -93,13 +93,13 @@ class User(DiscordObject):
             color=color,
         )
 
-    async def get_cooldown(self, sql_manager: SQLManager) -> Cooldown:
-        return await sql_manager.fetch_cooldown(self.id)
+    async def get_cooldown(self, sql_manager: SQLManager, canvas: Canvas) -> Cooldown:
+        return await sql_manager.fetch_cooldown(self.id, canvas.id)
 
     async def hit_cooldown(
-        self, sql_manager: SQLManager, cooldown_length: int
+        self, sql_manager: SQLManager, canvas: Canvas
     ) -> tuple[bool, Cooldown]:
-        cooldown = await self.get_cooldown(sql_manager)
+        cooldown = await self.get_cooldown(sql_manager, canvas)
         if cooldown:
             if not cooldown.is_expired:
                 return False, cooldown
@@ -107,7 +107,7 @@ class User(DiscordObject):
         new_cooldown = Cooldown(
             user_id=self.id,
             cooldown_time=datetime.now(tz=timezone.utc)
-            + timedelta(seconds=cooldown_length),
+            + timedelta(seconds=canvas.cooldown_length),
         )
         if cooldown is None:
             await sql_manager.add_cooldown(new_cooldown)
@@ -144,11 +144,24 @@ class Blacklist(DiscordObject):
 
 class Cooldown(DiscordObject):
     def __init__(
-        self, *, user_id: int, cooldown_time: datetime, user: User = None, **kwargs
+        self,
+        *,
+        user_id: int,
+        canvas_id: int,
+        cooldown_time: datetime,
+        user: User = None,
+        canvas: Canvas = None,
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.cooldown_time = cooldown_time
         self.user: User = User(_id=user_id, **kwargs) if user is None else user
+
+        from objects.canvas import Canvas
+
+        self.canvas: Canvas = (
+            Canvas(_id=canvas_id, **kwargs) if canvas is None else canvas
+        )
 
     @property
     def is_expired(self) -> bool:

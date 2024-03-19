@@ -232,7 +232,7 @@ class SQLManager:
     async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
         row = await self.conn.fetchrow(
             "SELECT u.*, b.date_added, "
-            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length "
+            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length, c.canvas_id "
             "FROM public.user u "
             "LEFT JOIN blacklist b ON u.id = b.user_id "
             "LEFT JOIN canvas c ON u.current_canvas_id = c.id "
@@ -249,10 +249,11 @@ class SQLManager:
         else:
             return await self.insert_empty_user(user_id)
 
-    async def fetch_cooldown(self, user_id: int) -> Cooldown:
+    async def fetch_cooldown(self, user_id: int, canvas_id: int) -> Cooldown:
         row = await self.conn.fetchrow(
-            "SELECT * FROM cooldown WHERE user_id = $1",
+            "SELECT * FROM cooldown WHERE user_id = $1 and canvas_id = $2",
             user_id,
+            canvas_id,
         )
 
         from objects.user import Cooldown
@@ -412,8 +413,9 @@ class SQLManager:
 
     async def add_cooldown(self, cooldown: Cooldown):
         await self.conn.execute(
-            "INSERT INTO cooldown (user_id, cooldown_time) VALUES ($1, $2)",
+            "INSERT INTO cooldown (user_id, canvas_id, cooldown_time) VALUES ($1, $2, $3)",
             cooldown.user.id,
+            cooldown.canvas.id,
             cooldown.cooldown_time,
         )
 

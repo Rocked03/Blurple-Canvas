@@ -387,7 +387,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
 
         if canvas.cooldown_length is not None:
-            success, cooldown = await user.hit_cooldown(sql, canvas.cooldown_length)
+            success, cooldown = await user.hit_cooldown(sql, canvas)
             if not success:
                 await sql.close()
                 return await interaction.followup.send(
