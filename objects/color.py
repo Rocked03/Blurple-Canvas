@@ -250,3 +250,6 @@ class Palette:
             ]
         else:
             return False
+
+    def __len__(self):
+        return len(self.colors)

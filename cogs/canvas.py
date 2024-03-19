@@ -30,6 +30,7 @@ from objects.cooldownManager import CooldownManager
 from objects.coordinates import Coordinates
 from objects.event import Event
 from objects.info import Info
+from objects.guild import Participation
 from objects.pixel import Pixel
 from objects.sqlManager import SQLManager
 from objects.timer import Timer
@@ -1082,6 +1083,65 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.followup.send(
             f"Created color {color.name} ({color.code}). {color.emoji_formatted}"
         )
+        await self.load_colors()
+
+    admin_register_group = app_commands.Group(
+        name="register", description="Register commands", parent=admin_group
+    )
+
+    @admin_register_group.command(name="participation")
+    @admin_check()
+    async def participate(
+        self,
+        interaction: Interaction,
+        guild_id: str,
+        event_id: int = None,
+        color_code: str = None,
+        invite: str = None,
+        manager_role_id: int = None,
+    ):
+        """Register a guild to participate"""
+        if not guild_id.isdigit():
+            return await interaction.response.send_message("Invalid guild ID.")
+        else:
+            guild_id = int(guild_id)
+        if event_id is None:
+            event_id = self.info.current_event_id
+
+        await interaction.response.defer()
+        from objects.guild import Guild
+
+        sql = await self.sql()
+
+        if color_code.isdigit():
+            color = await sql.fetch_color_by_id(int(color_code))
+        else:
+            color = await sql.fetch_colors_by_code(color_code)
+            color = color[color_code] if color else None
+        if color is None:
+            return await interaction.followup.send("Invalid color code.")
+
+        if await sql.fetch_participation(guild_id, event_id):
+            return await interaction.followup.send("Guild is already participating.")
+
+        await sql.fetch_guild(
+            guild_id,
+            insert_on_fail=Guild(
+                _id=guild_id, invite=invite, manager_role_id=manager_role_id
+            ),
+        )
+
+        participation = Participation(
+            guild_id=guild_id,
+            event_id=event_id,
+            color=color,
+        )
+
+        await sql.insert_participation(participation)
+
+        await sql.close()
+
+        await interaction.followup.send(f"Registered guild {guild_id} to participate.")
 
 
 # Admin commands

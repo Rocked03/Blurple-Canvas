@@ -12,7 +12,7 @@ from objects.coordinates import BoundingBox
 if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.color import Color, Palette
-    from objects.guild import Participation
+    from objects.guild import Participation, Guild
     from objects.historyRecord import HistoryRecord
     from objects.info import Info
     from objects.pixel import Pixel
@@ -99,7 +99,8 @@ class SQLManager:
                 "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
                 "LEFT JOIN guild g ON p.guild_id = g.id "
-                " WHERE c.code = ANY($1)",
+                "WHERE c.code = ANY($1) "
+                "ORDER BY c.id DESC",
                 color_codes,
             )
         else:
@@ -249,6 +250,32 @@ class SQLManager:
         else:
             return await self.insert_empty_user(user_id)
 
+    async def fetch_guild(
+        self, guild_id: int, *, insert_on_fail: Guild = None
+    ) -> Guild:
+        row = await self.conn.fetchrow(
+            "SELECT * FROM guild WHERE id = $1",
+            guild_id,
+        )
+        if row:
+            from objects.guild import Guild
+
+            guild = Guild(bot=self.bot, **rename_invalid_keys(row))
+            if insert_on_fail and (
+                insert_on_fail.invite or insert_on_fail.manager_role_id
+            ):
+                await self.update_guild(
+                    guild,
+                    invite=insert_on_fail.invite,
+                    manager_role_id=insert_on_fail.manager_role_id,
+                )
+            return guild
+        elif insert_on_fail:
+            await self.insert_guild(insert_on_fail)
+            return insert_on_fail
+        else:
+            return await self.insert_empty_guild(guild_id)
+
     async def fetch_cooldown(self, user_id: int, canvas_id: int) -> Cooldown:
         row = await self.conn.fetchrow(
             "SELECT * FROM cooldown WHERE user_id = $1 and canvas_id = $2",
@@ -286,10 +313,29 @@ class SQLManager:
                 "INSERT INTO participation (guild_id, event_id, color_id) "
                 "VALUES ($1, $2, $3)"
             ),
-            participation.guild.id,
+            participation.guild_id,
             participation.event.id,
             participation.color.id,
         )
+
+    async def insert_guild(self, guild: Guild):
+        await self.conn.execute(
+            ("INSERT INTO guild (id, manager_role, invite) " "VALUES ($1, $2, $3)"),
+            guild.id,
+            guild.manager_role,
+            guild.invite,
+        )
+
+    async def insert_empty_guild(self, guild_id: int) -> Guild:
+        from objects.guild import Guild
+
+        guild = Guild(
+            _id=guild_id,
+            manager_role=None,
+            invite=None,
+        )
+        await self.insert_guild(guild)
+        return guild
 
     async def insert_history_record(self, history_record: HistoryRecord):
         await self.conn.execute(
@@ -366,6 +412,16 @@ class SQLManager:
         )
         await self.conn.execute(
             f"ALTER TABLE {name} ADD PRIMARY KEY (canvas_id, x, y)",
+        )
+
+    async def update_guild(
+        self, guild: Guild, invite: str = None, manager_role_id: int = None
+    ):
+        await self.conn.execute(
+            "UPDATE guild SET manager_role = COALESCE($1, manager_role), invite = COALESCE($2, invite) WHERE id = $3",
+            manager_role_id,
+            invite,
+            guild.id,
         )
 
     async def update_canvas(self, canvas: Canvas):

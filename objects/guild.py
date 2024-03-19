@@ -63,6 +63,10 @@ class Guild(DiscordObject):
         else:
             pass
 
+    @property
+    def guild_id(self) -> int:
+        return self.id
+
     def __str__(self):
         return f"Guild {self.id}"
 

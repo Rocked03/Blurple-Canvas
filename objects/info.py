@@ -28,7 +28,6 @@ class Info(DiscordObject):
     ):
         super().__init__(**kwargs)
         self.title = title
-        self.current_event_id = current_event_id
         self.canvas_admin_ids = canvas_admin
         self.cached_canvas_ids = cached_canvas_ids
         self.highlight_color = highlight_color
@@ -58,6 +57,10 @@ class Info(DiscordObject):
             if self.admin_server
             else []
         )
+
+    @property
+    def current_event_id(self):
+        return self.current_event.id if self.current_event else None
 
     async def check_perms(self, interaction: Interaction):
         member = await self.admin_server.fetch_member(interaction.user.id)
