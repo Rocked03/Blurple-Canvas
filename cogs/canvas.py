@@ -17,7 +17,6 @@ from discord import (
     Embed,
     Message,
     Attachment,
-    Emoji,
 )
 from discord.app_commands import Choice
 from discord.ext import commands
@@ -29,6 +28,7 @@ from objects.canvas import Canvas
 from objects.color import Palette, Color
 from objects.cooldownManager import CooldownManager
 from objects.coordinates import Coordinates
+from objects.event import Event
 from objects.info import Info
 from objects.pixel import Pixel
 from objects.sqlManager import SQLManager
@@ -774,13 +774,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
     ):
         return await self.autocomplete_canvas(interaction, current)
 
-    @admin_canvas_group.command(name="create")
-    @admin_check()
-    async def canvas_create(self, interaction: Interaction, name: str):
-        """Create a new canvas"""
-        # TODO: Implement
-        pass
-
     @admin_canvas_group.command(name="paste")
     @admin_check()
     @app_commands.describe(
@@ -856,6 +849,56 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
 
         return pixels, (width, height)
+
+    @admin_canvas_group.command(name="create")
+    @admin_check()
+    @app_commands.describe(
+        name="Name of the canvas",
+        width="Pixel width",
+        height="Pixel height",
+        event="Event ID",
+        id="Canvas ID (leave blank to auto-generate)",
+        cooldown_length="Cooldown length in seconds (default 30s)",
+    )
+    async def canvas_create(
+        self,
+        interaction: Interaction,
+        name: str,
+        width: int,
+        height: int,
+        event: int = None,
+        id: int = None,
+        cooldown_length: int = 30,
+    ):
+        """Create a new canvas"""
+        await interaction.response.defer()
+
+        canvas = Canvas(
+            _id=id,
+            name=name,
+            width=width,
+            height=height,
+            event=Event(_id=event),
+            cooldown_length=cooldown_length,
+        )
+
+        print(f"Creating canvas {canvas.name} ({canvas.width}x{canvas.height})")
+
+        timer = Timer()
+
+        sql = await self.sql()
+        _id = await sql.insert_canvas(canvas)
+        timer.mark("Inserted canvas")
+        canvas.id = _id
+        await sql.create_canvas_partition(canvas)
+        timer.mark("Created canvas partition")
+        await sql.create_pixels(canvas, self.palette.blank_color)
+        timer.mark("Inserted blank pixels")
+        await sql.close()
+
+        await interaction.followup.send(
+            f"Created canvas {canvas.name} ({canvas.width}x{canvas.height})."
+        )
 
     admin_blacklist_group = app_commands.Group(
         name="blacklist", description="Blacklist commands", parent=admin_group

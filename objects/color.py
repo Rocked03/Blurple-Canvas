@@ -130,6 +130,9 @@ class Palette:
         self.edit_color: Color = next(
             (color for color in self.colors.values() if color.code == "edit"), None
         )
+        self.blank_color: Color = next(
+            (color for color in self.colors.values() if color.code == "blank"), None
+        )
 
     @property
     def total_count(self):
