@@ -1,5 +1,6 @@
 import asyncio
 import re
+import traceback
 from functools import partial
 from io import BytesIO
 from typing import Optional, Callable
@@ -26,6 +27,7 @@ from config import POSTGRES_CREDENTIALS
 from objects.cache import Cache
 from objects.canvas import Canvas
 from objects.color import Palette, Color
+from objects.cooldownManager import CooldownManager
 from objects.coordinates import Coordinates
 from objects.info import Info
 from objects.pixel import Pixel
@@ -102,6 +104,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         # Startup
         self.startup_events = StartupEvents()
+
+        # Cooldown Manager
+        self.bot.cooldown_manager = CooldownManager()
 
         # SQL
         self.pool: Optional[Pool] = None
@@ -232,7 +237,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return image_to_bytes_io_with_size(image)
 
     async def async_image(
-        self, function: Callable, file_name: str, *args, **kwargs
+        self, function: Callable, *args, file_name: str, **kwargs
     ) -> tuple[File, str, int]:
         bytes_io, size_bytes = await self.async_image_bytes(function, *args, **kwargs)
         file = File(bytes_io, filename=file_name)
@@ -296,6 +301,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         elif isinstance(error, commands.CommandError):
             await interaction.response.send_message(str(error), ephemeral=True)
         else:
+            traceback.print_exc()
             raise error
 
     @app_commands.command(name="view")
@@ -390,8 +396,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 f"Coordinates {canvas.get_f_coordinates(coordinates)} are out of bounds."
             )
 
+        cooldown = None
         if canvas.cooldown_length is not None:
-            success, cooldown = await user.hit_cooldown(sql, canvas)
+            success, cooldown = await user.hit_cooldown_with_message(
+                sql, canvas, interaction.channel
+            )
             if not success:
                 await sql.close()
                 return await interaction.followup.send(
@@ -457,7 +466,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                             embed.title = f"Cancelled • {suffix}"
                         await send_msg(msg, embed=embed, view=None)
                         await view.defer()
-                        await user.clear_cooldown(sql)
+                        if cooldown is not None:
+                            await user.clear_cooldown(sql, cooldown)
                         await sql.close()
                         return
 
@@ -501,7 +511,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
                         embed.title = f"No color selected • {suffix}"
                     await send_msg(msg, embed=embed, view=None)
                     await view.defer()
-                    await user.clear_cooldown(sql)
+                    if cooldown is not None:
+                        await user.clear_cooldown(sql, cooldown)
                     await sql.close()
                     return
 
@@ -987,7 +998,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # Imager stuff
 # - Frames
 # Other stuff
-# - Cooldown reminder
 # - Stats
 
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Optional
 
-from discord import User as UserDiscord
+from discord import User as UserDiscord, TextChannel
 
 from objects.coordinates import Coordinates
 from objects.discordObject import DiscordObject
@@ -61,6 +62,10 @@ class User(DiscordObject):
     def is_blacklisted(self):
         return self.blacklist.is_blacklisted
 
+    @property
+    def mention(self):
+        return f"<@{self.id}>" if self.user is None else self.user.mention
+
     async def set_current_canvas(self, sql_manager: SQLManager, canvas: Canvas):
         if canvas.id is None:
             raise ValueError("No Canvas ID provided")
@@ -97,7 +102,7 @@ class User(DiscordObject):
         return await sql_manager.fetch_cooldown(self.id, canvas.id)
 
     async def hit_cooldown(
-        self, sql_manager: SQLManager, canvas: Canvas
+        self, sql_manager: SQLManager, canvas: Canvas, function: partial = None
     ) -> tuple[bool, Cooldown]:
         cooldown = await self.get_cooldown(sql_manager, canvas)
         if cooldown:
@@ -112,12 +117,26 @@ class User(DiscordObject):
         )
         if cooldown is None:
             await sql_manager.add_cooldown(new_cooldown)
+            await self.bot.cooldown_manager.add_cooldown(new_cooldown, function)
         elif cooldown.cooldown_time is not None:
             await sql_manager.set_cooldown(new_cooldown)
+            await self.bot.cooldown_manager.set_cooldown(new_cooldown, function)
         return True, new_cooldown
 
-    async def clear_cooldown(self, sql_manager: SQLManager):
+    async def hit_cooldown_with_message(
+        self, sql_manager: SQLManager, canvas: Canvas, channel: TextChannel
+    ):
+        async def send_message(user: User, channel: TextChannel):
+            if user.cooldown_remind:
+                await channel.send(f"{user.mention}, you can place another pixel!")
+
+        return await self.hit_cooldown(
+            sql_manager, canvas, partial(send_message, self, channel)
+        )
+
+    async def clear_cooldown(self, sql_manager: SQLManager, cooldown: Cooldown):
         await sql_manager.clear_cooldown(self.id)
+        await self.bot.cooldown_manager.clear_cooldown(self.id, cooldown.canvas.id)
 
     async def add_blacklist(self, sql_manager: SQLManager):
         await sql_manager.add_blacklist(self.id)
