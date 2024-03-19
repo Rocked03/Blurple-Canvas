@@ -926,6 +926,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @admin_colors_group.command(name="create")
     @admin_check()
+    @app_commands.describe(
+        name="Name of the color",
+        code="Abbreviated code",
+        hex="Hex code",
+        r="Red value",
+        g="Green value",
+        b="Blue value",
+        emoji="Emoji to use. Leave blank to generate new emoji.",
+    )
     async def colors_create(
         self,
         interaction: Interaction,
