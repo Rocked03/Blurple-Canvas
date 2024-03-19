@@ -1098,7 +1098,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         invite="Invite link to the guild",
         manager_role_id="ID of the manager role",
     )
-    async def participate(
+    async def register_participate(
         self,
         interaction: Interaction,
         guild_id: str,
@@ -1150,9 +1150,44 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await interaction.followup.send(f"Registered guild {guild_id} to participate.")
 
+    @admin_register_group.command(name="edit-guild")
+    @admin_check()
+    @app_commands.describe(
+        guild_id="ID of the guild to register/edit",
+        invite="Invite link to the guild",
+        manager_role_id="ID of the manager role",
+    )
+    async def register_guild(
+        self,
+        interaction: Interaction,
+        guild_id: str,
+        invite: str = None,
+        manager_role_id: int = None,
+    ):
+        """Register a new guild / Edit an existing guild"""
+        if not guild_id.isdigit():
+            return await interaction.response.send_message("Invalid guild ID.")
+        else:
+            guild_id = int(guild_id)
 
-# Admin commands
-# - Partner stuff + colour stuff
+        await interaction.response.defer()
+
+        from objects.guild import Guild
+
+        sql = await self.sql()
+
+        guild = await sql.fetch_guild(
+            guild_id,
+            insert_on_fail=Guild(
+                _id=guild_id, invite=invite, manager_role_id=manager_role_id
+            ),
+        )
+
+        await sql.close()
+
+        await interaction.followup.send(f"Registered/edited guild {guild.id}.")
+
+
 # Imager stuff
 # - Frames
 # Other stuff
