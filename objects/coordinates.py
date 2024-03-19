@@ -32,12 +32,18 @@ class Coordinates:
             return Coordinates(self.x + other[0], self.y + other[1])
         raise TypeError(f"Unsupported type: {type(other)}")
 
+    def __sub__(self, other):
+        if isinstance(other, Coordinates):
+            return Coordinates(self.x - other.x, self.y - other.y)
+        if isinstance(other, int):
+            return Coordinates(self.x - other, self.y - other)
+        if isinstance(other, tuple):
+            return Coordinates(self.x - other[0], self.y - other[1])
+        raise TypeError(f"Unsupported type: {type(other)}")
+
 
 class BoundingBox:
-    def __init__(self, xy0: Coordinates, xy1: Coordinates):
-        self.xy0 = xy0
-        self.xy1 = xy1
-
+    def __init__(self, xy0: Coordinates, xy1: Coordinates = Coordinates(0, 0)):
         self.x0, self.y0 = xy0.to_tuple()
         self.x1, self.y1 = xy1.to_tuple()
 
@@ -45,6 +51,9 @@ class BoundingBox:
             self.x0, self.x1 = self.x1, self.x0
         if self.y0 > self.y1:
             self.y0, self.y1 = self.y1, self.y0
+
+        self.xy0 = Coordinates(self.x0, self.y0)
+        self.xy1 = Coordinates(self.x1, self.y1)
 
         self.width = self.xy1.x - self.xy0.x + 1
         self.height = self.xy1.y - self.xy0.y + 1

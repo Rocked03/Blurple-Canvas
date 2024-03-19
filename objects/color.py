@@ -114,6 +114,9 @@ class Color(DiscordObject):
             return self.to_hsl < other.to_hsl
         raise TypeError
 
+    def __hash__(self):
+        return hash(self.id)
+
 
 class Palette:
     def __init__(self, colors: Iterable[Color]):

@@ -52,5 +52,17 @@ class Pixel(DiscordObject):
     def y(self) -> int:
         return self.xy.y
 
+    @property
+    def f_coordinates(self) -> Coordinates:
+        return self.xy + self.canvas.start_coordinates if self.canvas else self.xy
+
+    @property
+    def f_x(self) -> int:
+        return self.f_coordinates.x
+
+    @property
+    def f_y(self) -> int:
+        return self.f_coordinates.y
+
     def __str__(self):
         return str(self.xy)

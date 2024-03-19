@@ -29,6 +29,7 @@ class Canvas(DiscordObject):
         pixels: dict[Coordinates, Pixel] = None,
         cooldown_length: int = None,
         is_cache: bool = False,
+        start_coordinates: list[int] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -42,8 +43,14 @@ class Canvas(DiscordObject):
         self.cooldown_length = cooldown_length
         self.is_cache = is_cache
 
+        self.start_coordinates: Coordinates = (
+            Coordinates(start_coordinates[0], start_coordinates[1])
+            if start_coordinates and len(start_coordinates) >= 2
+            else Coordinates(1, 1)
+        )
+
         self.bbox: Optional[BoundingBox] = (
-            BoundingBox(Coordinates(1, 1), Coordinates(width, height))
+            BoundingBox(Coordinates(width - 1, height - 1))
             if width and height
             else None
         )
@@ -140,7 +147,7 @@ class Canvas(DiscordObject):
     async def get_frame_full(self, sql_manager: SQLManager) -> Frame:
         return await self.get_frame(
             sql_manager,
-            BoundingBox(Coordinates(1, 1), Coordinates(self.width, self.height)),
+            self.bbox,
         )
 
     async def get_frame_from_coordinate(
@@ -164,6 +171,12 @@ class Canvas(DiscordObject):
         else:
             await frame.load_pixels(sql_manager)
         return frame
+
+    def get_true_coordinates(self, x: int, y: int) -> Coordinates:
+        return Coordinates(x, y) - self.start_coordinates
+
+    def get_f_coordinates(self, xy: Coordinates) -> Coordinates:
+        return xy + self.start_coordinates
 
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"

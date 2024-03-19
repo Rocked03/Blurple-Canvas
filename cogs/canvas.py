@@ -323,7 +323,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 frame = await canvas.get_frame_full(sql)
             else:
                 frame = await canvas.get_frame_from_coordinate(
-                    sql, Coordinates(x, y), zoom
+                    sql, canvas.get_true_coordinates(x, y), zoom
                 )
             await sql.close()
 
@@ -379,11 +379,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
             return await interaction.followup.send(f"**{canvas.name}** is read-only.")
 
-        coordinates = Coordinates(x, y)
+        coordinates = canvas.get_true_coordinates(x, y)
         if coordinates not in canvas:
             await sql.close()
             return await interaction.followup.send(
-                f"Coordinates {coordinates} are out of bounds."
+                f"Coordinates {canvas.get_f_coordinates(coordinates)} are out of bounds."
             )
 
         if canvas.cooldown_length is not None:
@@ -420,18 +420,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         embed = self.base_embed(user=interaction.user)
         view: Optional[ConfirmView] = None
+        suffix = f"{canvas.name} {canvas.get_f_coordinates(coordinates)}"
 
         if not user.skip_confirm or not color:
             old_view: Optional[ConfirmView] = None
             if not user.skip_confirm:
                 # Navigating pixels
                 while True:
-                    embed.title = f"Place pixel • {canvas.name} {coordinates}"
+                    embed.title = f"Place pixel • {suffix}"
                     embed.description = frame.to_emoji(
                         focus=self.palette.edit_color, new_color=color
                     )
 
-                    view = NavigateView(
+                    view: NavigateView = NavigateView(
                         interaction.user.id,
                         disabled_directions=[
                             direction
@@ -447,9 +448,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
                     if timeout or view.confirm == ConfirmEnum.CANCEL:
                         if timeout:
-                            embed.title = f"Timed out • {canvas.name} {coordinates}"
+                            embed.title = f"Timed out • {suffix}"
                         elif view.confirm == ConfirmEnum.CANCEL:
-                            embed.title = f"Cancelled • {canvas.name} {coordinates}"
+                            embed.title = f"Cancelled • {suffix}"
                         await send_msg(msg, embed=embed, view=None)
                         await view.defer()
                         await user.clear_cooldown(sql)
@@ -467,12 +468,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
                         )
                         old_view = view
 
+                    suffix = f"{canvas.name} {canvas.get_f_coordinates(coordinates)}"
+
             if not color:
                 # Selecting color
-                embed.title = f"Select color • {canvas.name} {coordinates}"
+                embed.title = f"Select color • {suffix}"
                 embed.description = frame.to_emoji(focus=self.palette.edit_color)
 
-                view = PaletteView(
+                view: PaletteView = PaletteView(
                     await self.get_available_colors(interaction.guild_id),
                     interaction.user.id,
                 )
@@ -487,11 +490,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     or not view.dropdown.values
                 ):
                     if timeout:
-                        embed.title = f"Timed out • {canvas.name} {coordinates}"
+                        embed.title = f"Timed out • {suffix}"
                     elif view.confirm == ConfirmEnum.CANCEL:
-                        embed.title = f"Cancelled • {canvas.name} {coordinates}"
+                        embed.title = f"Cancelled • {suffix}"
                     elif not view.dropdown.values:
-                        embed.title = f"No color selected • {canvas.name} {coordinates}"
+                        embed.title = f"No color selected • {suffix}"
                     await send_msg(msg, embed=embed, view=None)
                     await view.defer()
                     await user.clear_cooldown(sql)
@@ -505,7 +508,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             sql, user=user, xy=coordinates, color=color, guild_id=interaction.guild_id
         )
         frame = await canvas.regenerate_frame(sql, frame)
-        embed.title = f"Placed pixel • {canvas.name} {coordinates}"
+        embed.title = f"Placed pixel • {suffix}"
         embed.description = frame.to_emoji()
         if view is not None:
             await send_msg(msg, embed=embed, view=None)

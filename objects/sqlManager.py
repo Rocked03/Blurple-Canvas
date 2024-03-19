@@ -133,7 +133,7 @@ class SQLManager:
                 "SELECT c.*, p.guild_id, p.event_id, g.invite FROM color c "
                 "LEFT JOIN participation p ON c.id = p.color_id "
                 "LEFT JOIN guild g ON p.guild_id = g.id "
-                " c.global = TRUE OR c.code = 'edit'"
+                "WHERE c.global = TRUE OR c.code = 'edit'"
             )
         from objects.color import Color, Palette
 
@@ -232,7 +232,7 @@ class SQLManager:
     async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
         row = await self.conn.fetchrow(
             "SELECT u.*, b.date_added, "
-            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length, c.canvas_id "
+            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length "
             "FROM public.user u "
             "LEFT JOIN blacklist b ON u.id = b.user_id "
             "LEFT JOIN canvas c ON u.current_canvas_id = c.id "
@@ -371,7 +371,8 @@ class SQLManager:
             for pixel in pixels
         ]
         await self.conn.executemany(
-            "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp) VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp, guild_id) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7)",
             [
                 (
                     record.pixel.canvas.id,
@@ -380,6 +381,7 @@ class SQLManager:
                     record.pixel.y,
                     record.pixel.color.id,
                     record.timestamp,
+                    record.guild.id,
                 )
                 for record in records
             ],

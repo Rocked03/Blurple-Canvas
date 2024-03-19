@@ -108,6 +108,7 @@ class User(DiscordObject):
             user_id=self.id,
             cooldown_time=datetime.now(tz=timezone.utc)
             + timedelta(seconds=canvas.cooldown_length),
+            canvas_id=canvas.id,
         )
         if cooldown is None:
             await sql_manager.add_cooldown(new_cooldown)

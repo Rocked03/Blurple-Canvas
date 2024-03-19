@@ -65,12 +65,12 @@ class Frame(DiscordObject):
             canvas=canvas,
             bbox=BoundingBox(
                 Coordinates(
-                    min(max(x - (zoom // 2), 1), canvas.width - zoom + 1),
-                    min(max(y - (zoom // 2), 1), canvas.height - zoom + 1),
+                    min(max(x - (zoom // 2), 0), canvas.width - zoom),
+                    min(max(y - (zoom // 2), 0), canvas.height - zoom),
                 ),
                 Coordinates(
-                    max(min(x + (zoom // 2), canvas.width), zoom),
-                    max(min(y + (zoom // 2), canvas.height), zoom),
+                    max(min(x + (zoom // 2), canvas.width - 1), zoom - 1),
+                    max(min(y + (zoom // 2), canvas.height - 1), zoom - 1),
                 ),
             ),
             focus=xy if focus else None,
