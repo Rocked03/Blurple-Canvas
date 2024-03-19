@@ -368,6 +368,16 @@ class SQLManager:
             f"ALTER TABLE {name} ADD PRIMARY KEY (canvas_id, x, y)",
         )
 
+    async def update_canvas(self, canvas: Canvas):
+        await self.conn.execute(
+            "UPDATE canvas "
+            "SET name = $1, event_id = $2, cooldown_length = $3 WHERE id = $4",
+            canvas.name,
+            canvas.event.id,
+            canvas.cooldown_length,
+            canvas.id,
+        )
+
     async def create_pixels(self, canvas: Canvas, color: Color):
         await self.conn.execute(
             "INSERT INTO pixels (canvas_id, x, y, color_id) "

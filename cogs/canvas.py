@@ -900,6 +900,46 @@ class CanvasCog(commands.Cog, name="Canvas"):
             f"Created canvas {canvas.name} ({canvas.width}x{canvas.height})."
         )
 
+    @admin_canvas_group.command(name="edit")
+    @admin_check()
+    @app_commands.describe(
+        canvas="Canvas to edit",
+        name="New name",
+        event="New event ID",
+        cooldown_length="New cooldown length in seconds",
+    )
+    async def canvas_edit(
+        self,
+        interaction: Interaction,
+        canvas: str,
+        name: str = None,
+        event: int = None,
+        cooldown_length: int = None,
+    ):
+        """Edit a canvas"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        canvas = await self.fetch_canvas_by_name(sql, canvas)
+
+        if name:
+            canvas.name = name
+        if event:
+            canvas.event = Event(_id=event)
+        if cooldown_length:
+            canvas.cooldown_length = cooldown_length
+
+        await canvas.edit(sql)
+        await sql.close()
+
+        await interaction.followup.send(f"Edited canvas '{canvas.name}'")
+
+    @canvas_edit.autocomplete("canvas")
+    async def canvas_edit_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
     admin_blacklist_group = app_commands.Group(
         name="blacklist", description="Blacklist commands", parent=admin_group
     )
@@ -1046,7 +1086,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 # Admin commands
 # - Partner stuff + colour stuff
-# - Create canvas
 # Imager stuff
 # - Frames
 # Other stuff

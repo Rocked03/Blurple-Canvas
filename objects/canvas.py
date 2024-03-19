@@ -178,6 +178,9 @@ class Canvas(DiscordObject):
     def get_f_coordinates(self, xy: Coordinates) -> Coordinates:
         return xy + self.start_coordinates
 
+    async def edit(self, sql_manager: SQLManager):
+        await sql_manager.update_canvas(self)
+
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"
 
