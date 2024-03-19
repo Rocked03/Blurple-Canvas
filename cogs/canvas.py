@@ -901,6 +901,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             f"Created canvas {canvas.name} ({canvas.width}x{canvas.height})."
         )
 
+        self.bot.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
+
     @admin_canvas_group.command(name="edit")
     @admin_check()
     @app_commands.describe(
