@@ -293,19 +293,22 @@ class SQLManager:
         rows = await self.conn.fetch("SELECT * FROM blacklist")
         return [Blacklist(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
-    async def insert_color(self, color: Color):
-        await self.conn.execute(
-            (
-                "INSERT INTO color (code, emoji_name, emoji_id, global, name, rgba) "
-                "VALUES ($1, $2, $3, $4, $5, $6)"
-            ),
-            color.code,
-            color.emoji_name,
-            color.emoji_id,
-            color.is_global,
-            color.name,
-            color.rgba,
-        )
+    async def insert_color(self, color: Color) -> int:
+        return (
+            await self.conn.fetch(
+                (
+                    "INSERT INTO color (code, emoji_name, emoji_id, global, name, rgba) "
+                    "VALUES ($1, $2, $3, $4, $5, $6) "
+                    "RETURNING id"
+                ),
+                color.code,
+                color.emoji_name,
+                color.emoji_id,
+                color.is_global,
+                color.name,
+                color.rgba,
+            )
+        )[0]["id"]
 
     async def insert_participation(self, participation: Participation):
         await self.conn.execute(
@@ -408,10 +411,10 @@ class SQLManager:
     async def create_canvas_partition(self, canvas: Canvas):
         name = f"public.pixels_{canvas.id}"
         await self.conn.execute(
-            f"CREATE TABLE {name} PARTITION OF pixels FOR VALUES IN ({canvas.id})",
-        )
-        await self.conn.execute(
-            f"ALTER TABLE {name} ADD PRIMARY KEY (canvas_id, x, y)",
+            f"CREATE TABLE {name} "
+            f"PARTITION OF pixels "
+            f"(PRIMARY KEY (canvas_id, x, y))"
+            f"FOR VALUES IN ({canvas.id})",
         )
 
     async def update_guild(
