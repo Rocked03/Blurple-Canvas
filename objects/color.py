@@ -230,7 +230,7 @@ class Palette:
             return item
         elif isinstance(item, tuple):
             return next(
-                (color for color in self.colors.values() if color.rgb == item), None
+                (color for color in self.colors.values() if color == item), None
             )
         elif item is None:
             return None
