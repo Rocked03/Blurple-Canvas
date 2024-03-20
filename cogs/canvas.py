@@ -419,8 +419,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         canvas = await self.check_cache(canvas)
 
-        # 7 is max emoji limit
-        frame = await canvas.get_frame_from_coordinate(sql, coordinates, 7, focus=True)
+        # 11 is max emoji limit
+        zoom = 11
+        frame = await canvas.get_frame_from_coordinate(
+            sql, coordinates, zoom, focus=True
+        )
 
         msg: Optional[Message] = None
 
@@ -479,7 +482,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     else:
                         coordinates += view.direction.value
                         frame = await canvas.get_frame_from_coordinate(
-                            sql, coordinates, 7, focus=True
+                            sql, coordinates, zoom, focus=True
                         )
                         old_view = view
 
