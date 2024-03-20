@@ -343,7 +343,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return await interaction.followup.send(str(e), ephemeral=True)
 
         # Generate image
-        max_size = Coordinates(2500, 2500)
+        max_size = Coordinates(3000, 3000)
         file, file_name, size_bytes = await self.async_image(
             frame.generate_image,
             max_size=max_size,
