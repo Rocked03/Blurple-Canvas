@@ -106,9 +106,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # Startup
         self.startup_events = StartupEvents()
 
-        # Cooldown Manager
-        self.bot.cooldown_manager = CooldownManager()
-
         # SQL
         self.pool: Optional[Pool] = None
         self.bot.loop.create_task(self.startup_connect_sql())
@@ -127,6 +124,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # Colors
         self.palette: Optional[Palette] = None
         self.bot.loop.create_task(self.load_colors())
+
+        # Cooldown Manager
+        self.bot.cooldown_manager = CooldownManager()
+        self.bot.loop.create_task(self.tidy_cooldown_scheduler())
 
     # Startup methods
     async def wait_for_startup(self):
@@ -180,6 +181,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         await sql.close()
         self.startup_events.palette.set()
+
+    async def tidy_cooldown_scheduler(self):
+        await self.wait_for_startup()
+        while True:
+            sql = await self.sql()
+            await sql.trigger_delete_surpassed_cooldowns()
+            await sql.close()
+            await asyncio.sleep(3600)
 
     # Fetch methods
     async def find_canvas(self, user_id) -> tuple[User, Canvas]:
@@ -1197,6 +1206,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Frames
 # Other stuff
 # - Stats
+# - Frames
+# - Auto-clear cooldown function delete_surpassed_cooldowns()
 
 
 async def setup(bot):

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Generator, Any, Optional
 from typing import TYPE_CHECKING
 
-from asyncpg import Connection
+from asyncpg import Connection, UndefinedFunctionError
 from discord import Client
 
 from objects.coordinates import BoundingBox
@@ -576,6 +576,20 @@ class SQLManager:
             "UPDATE canvas SET locked = FALSE WHERE id = $1",
             canvas.id,
         )
+
+    async def trigger_delete_surpassed_cooldowns(self):
+        try:
+            await self.conn.execute("SELECT delete_surpassed_cooldowns()")
+        except UndefinedFunctionError:
+            await self.conn.execute(
+                "CREATE OR REPLACE FUNCTION delete_surpassed_cooldowns() VOID AS $$"
+                "BEGIN "
+                "   DELETE FROM cooldown "
+                "   WHERE cooldown_time < NOW(); "
+                "END; "
+                "$$ LANGUAGE plpgsql;"
+            )
+            await self.conn.execute("SELECT delete_surpassed_cooldowns()")
 
 
 def rename_invalid_keys(data: dict) -> dict:
