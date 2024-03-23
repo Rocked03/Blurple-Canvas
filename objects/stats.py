@@ -7,7 +7,13 @@ from objects.color import Color
 from objects.discordObject import DiscordObject
 
 
-class UserStatsBase(DiscordObject):
+class StatsBase(DiscordObject):
+    def __init__(self, canvas_id: int = None, **kwargs):
+        super().__init__(**kwargs)
+        self.canvas_id = canvas_id
+
+
+class UserStatsBase(StatsBase):
     def __init__(self, user_id: int, **kwargs):
         super().__init__(**kwargs)
         self.user_id = user_id
@@ -32,6 +38,31 @@ class UserStatsBase(DiscordObject):
             self.set_user(user)
 
 
+class GuildStatsBase(StatsBase):
+    def __init__(self, guild_id: int, **kwargs):
+        super().__init__(**kwargs)
+        self.guild_id = guild_id
+
+        self.guild = None
+
+        if self.bot is not None:
+            asyncio.run(self.load_guild())
+
+    @property
+    def name(self):
+        return self.guild.name if self.guild else str(self.guild_id)
+
+    def set_guild(self, guild):
+        self.guild = guild
+
+    async def load_guild(self):
+        if self.bot is None:
+            raise ValueError("Bot not loaded")
+        guild = await self.bot.fetch_guild(self.guild_id)
+        if guild is not None:
+            self.set_guild(guild)
+
+
 class Ranking(UserStatsBase):
     def __init__(self, rank: int, total_pixels: int, **kwargs):
         super().__init__(**kwargs)
@@ -51,7 +82,7 @@ class Ranking(UserStatsBase):
         return self.ranking == other.ranking
 
 
-class MostFrequentColorStat(UserStatsBase):
+class MostFrequentColorStat:
     def __init__(self, most_frequent_color_id: int, color_count: int, **kwargs):
         super().__init__(**kwargs)
         self.color_count = color_count
@@ -59,7 +90,7 @@ class MostFrequentColorStat(UserStatsBase):
         self.most_frequent_color: Color = Color(_id=most_frequent_color_id, **kwargs)
 
     def __str__(self):
-        return f"{self.name} - {self.color_count} pixels"
+        return f"{self.most_frequent_color} - {self.color_count} pixels"
 
 
 class UserStats(Ranking, MostFrequentColorStat):
@@ -68,3 +99,12 @@ class UserStats(Ranking, MostFrequentColorStat):
 
     def __str__(self):
         return f"User Stats - {self.name}"
+
+
+class GuildStats(MostFrequentColorStat, GuildStatsBase):
+    def __init__(self, total_pixels: int, **kwargs):
+        super().__init__(**kwargs)
+        self.total_pixels = total_pixels
+
+    def __str__(self):
+        return f"Guild Stats - {self.name}"
