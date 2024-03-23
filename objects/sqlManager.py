@@ -333,18 +333,74 @@ class SQLManager:
             )
         else:
             rankings = await self.conn.fetch(
-                "SELECT * FROM leaderboard "
-                "WHERE canvas_id = $1 "
-                "ORDER BY rank "
-                "LIMIT $2",
+                "SELECT * FROM leaderboard WHERE canvas_id = $1 "
+                "ORDER BY rank LIMIT $2",
                 canvas_id,
                 limit,
             )
 
         return [Ranking(bot=self.bot, **rename_invalid_keys(row)) for row in rankings]
 
-    async def fetch_ranking(self, canvas_id: int, user_id: int) -> Ranking:
-        ranking = await self.fetch_leaderboard(canvas_id=canvas_id, user_id=user_id)
+    async def fetch_leaderboard_guild(
+        self,
+        canvas_id: int,
+        guild_id: int,
+        *,
+        user_id: int = None,
+        max_rank: int = None,
+        limit: int = None,
+    ) -> list[Ranking]:
+        if max_rank is not None:
+            if limit is not None and limit < max_rank:
+                limit = max_rank
+            rankings = await self.conn.fetch(
+                "WITH ranked AS (SELECT * FROM leaderboard_guild WHERE canvas_id = $1 and guild_id = $5), "
+                "min_excluded_rank AS ("
+                "   SELECT MAX(rank) AS rank "
+                "   FROM (SELECT rank FROM ranked ORDER BY rank LIMIT $2) AS top_ranks) "
+                "SELECT DISTINCT * FROM ("
+                "   SELECT * FROM ranked "
+                "   WHERE rank < (SELECT rank FROM min_excluded_rank) and rank <= $3 "
+                "   UNION ALL "
+                "   SELECT * FROM ranked WHERE user_id = $4 "
+                ") as combined "
+                "ORDER BY rank",
+                canvas_id,
+                limit + 1 if limit else None,
+                max_rank,
+                user_id if user_id else -1,
+                guild_id,
+            )
+        elif user_id is not None:
+            rankings = await self.conn.fetch(
+                "SELECT * FROM leaderboard_guild "
+                "WHERE canvas_id = $1 AND user_id = $2 AND guild_id = $4 "
+                "LIMIT $3",
+                canvas_id,
+                user_id,
+                limit,
+                guild_id,
+            )
+        else:
+            rankings = await self.conn.fetch(
+                "SELECT * FROM leaderboard_guild WHERE canvas_id = $1 and guild_id = $3 "
+                "ORDER BY rank LIMIT $2",
+                canvas_id,
+                limit,
+                guild_id,
+            )
+
+        return [Ranking(bot=self.bot, **rename_invalid_keys(row)) for row in rankings]
+
+    async def fetch_ranking(
+        self, canvas_id: int, user_id: int, *, guild_id: int = None
+    ) -> Ranking:
+        if guild_id is None:
+            ranking = await self.fetch_leaderboard(canvas_id=canvas_id, user_id=user_id)
+        else:
+            ranking = await self.fetch_leaderboard_guild(
+                canvas_id=canvas_id, user_id=user_id, guild_id=guild_id
+            )
         return ranking[0] if ranking else None
 
     async def insert_color(self, color: Color) -> int:
