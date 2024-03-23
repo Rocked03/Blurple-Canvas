@@ -8,7 +8,7 @@ from asyncpg import Connection, UndefinedFunctionError
 from discord import Client
 
 from objects.coordinates import BoundingBox
-from objects.stats import Ranking
+from objects.stats import Ranking, UserStats
 
 if TYPE_CHECKING:
     from objects.canvas import Canvas
@@ -402,6 +402,20 @@ class SQLManager:
                 canvas_id=canvas_id, user_id=user_id, guild_id=guild_id
             )
         return ranking[0] if ranking else None
+
+    async def fetch_user_stats(self, user_id: int, canvas_id: int):
+        row = await self.conn.fetchrow(
+            "SELECT u.*, code, emoji_name, emoji_id, global, name, rgba "
+            "FROM user_stats u LEFT JOIN color c "
+            "ON u.most_frequent_color_id = c.id "
+            "WHERE user_id = $1 AND canvas_id = $2",
+            user_id,
+            canvas_id,
+        )
+
+        rows = rename_invalid_keys(row)
+        rows["total_pixels"] = int(rows["total_pixels"])
+        return UserStats(bot=self.bot, **rows) if row else None
 
     async def insert_color(self, color: Color) -> int:
         return (
