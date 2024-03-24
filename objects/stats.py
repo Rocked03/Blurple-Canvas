@@ -99,7 +99,7 @@ class Ranking(UserStatsBase):
             txt.append(f"{self.mention} (you) - ")
         else:
             txt.append(f"{self.name} - ")
-        txt.append(f"{self.total_pixels} pixels")
+        txt.append(f"{self.total_pixels:,} pixels")
         return "".join(txt)
 
     def __str__(self):
@@ -122,8 +122,15 @@ class MostFrequentColorStat:
 
         self.most_frequent_color: Color = Color(_id=most_frequent_color_id, **kwargs)
 
+    @property
+    def most_frequent_color_formatted(self):
+        return (
+            f"{self.most_frequent_color.emoji_formatted} {self.most_frequent_color.name}"
+            f" ({self.color_count:,} pixels placed)"
+        )
+
     def __str__(self):
-        return f"{self.most_frequent_color} - {self.color_count} pixels"
+        return self.most_frequent_color_formatted
 
 
 class UserStats(MostFrequentColorStat, Ranking):

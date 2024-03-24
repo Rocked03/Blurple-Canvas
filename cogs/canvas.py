@@ -739,14 +739,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         embed.description = f"Showing stats in **{canvas.name}**"
 
-        embed.add_field(name="Pixels placed", value=stats.total_pixels)
+        embed.add_field(name="Pixels placed", value=f"{stats.total_pixels:,}")
         embed.add_field(
             name="Total pixels leaderboard", value=f"{stats.ranking_ordinal} place"
         )
         embed.add_field(
             name="Most frequent color placed",
-            value=f"{stats.most_frequent_color.emoji_formatted} {stats.most_frequent_color.name} "
-            f"({stats.color_count} pixels placed)",
+            value=stats.most_frequent_color_formatted,
         )
 
         await interaction.followup.send(embed=embed)
@@ -804,12 +803,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         embed.description = f"Showing stats in **{canvas.name}**"
 
-        embed.add_field(name="Total pixels placed", value=stats.total_pixels)
+        embed.add_field(name="Total pixels placed", value=f"{stats.total_pixels:,}")
 
         embed.add_field(
             name="Most frequent color placed",
-            value=f"{stats.most_frequent_color.emoji_formatted} {stats.most_frequent_color.name} "
-            f"({stats.color_count} pixels placed)",
+            value=stats.most_frequent_color_formatted,
         )
 
         if stats.leaderboard:
