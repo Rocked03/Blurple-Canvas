@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-from discord import User as UserDiscord
+from discord import User as UserDiscord, NotFound
 
 from objects.color import Color
 from objects.discordObject import DiscordObject
@@ -29,6 +29,10 @@ class UserStatsBase(StatsBase):
     @property
     def name(self):
         return str(self.user) if self.user else str(self.user_id)
+
+    @property
+    def mention(self):
+        return self.user.name if self.user else f"{self.user_id}"
 
     def set_user(self, user: UserDiscord):
         self.user = user
@@ -61,9 +65,11 @@ class GuildStatsBase(StatsBase):
     async def load_guild(self):
         if self.bot is None:
             raise ValueError("Bot not loaded")
-        guild = await self.bot.fetch_guild(self.guild_id)
-        if guild is not None:
+        try:
+            guild = await self.bot.fetch_guild(self.guild_id)
             self.set_guild(guild)
+        except NotFound:
+            pass
 
 
 class Ranking(UserStatsBase):
@@ -85,7 +91,9 @@ class Ranking(UserStatsBase):
         return suffix
 
     def __str__(self):
-        return f"{self.ranking}. {self.name} - {self.total_pixels} pixels"
+        return (
+            f"**{self.ranking_ordinal}**: {self.mention} - {self.total_pixels} pixels"
+        )
 
     def __gt__(self, other):
         return self.ranking > other.ranking
@@ -125,7 +133,7 @@ class GuildStats(MostFrequentColorStat, GuildStatsBase):
 
     async def load_leaderboard(self, sql: SQLManager, *, max_rank: int = 10):
         self.leaderboard = await sql.fetch_leaderboard_guild(
-            self.canvas_id, self.guild_id, max_rank=max_rank
+            self.canvas_id, self.guild_id, max_rank=max_rank, limit=20
         )
 
     def __str__(self):

@@ -36,7 +36,6 @@ class Canvas(DiscordObject):
         self.id = _id
         self.name = name
         self.locked = locked
-        self.event_id = event_id
         self.width = width
         self.height = height
         self.pixels = pixels

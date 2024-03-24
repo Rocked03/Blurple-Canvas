@@ -230,7 +230,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         canvases = sorted(
             sorted(
                 sorted(self.canvases, key=lambda canvas: canvas.name),
-                key=lambda canvas: not canvas.event_id == self.info.current_event_id,
+                key=lambda canvas: canvas.event is None
+                or not canvas.event.id == self.info.current_event_id,
             ),
             key=lambda canvas: canvas.locked,
         )
@@ -311,7 +312,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         ][:25]
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
-        ignored = (commands.CommandNotFound, commands.CheckFailure)
+        ignored = (
+            commands.CommandNotFound,
+            commands.CheckFailure,
+            commands.CommandInvokeError,
+        )
         if isinstance(error, ignored):
             return
         elif isinstance(error, commands.CommandError):
@@ -709,7 +714,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     stats_group = app_commands.Group(name="stats", description="Stats commands")
 
     @stats_group.command(name="me")
+    @app_commands.describe(user="User to view stats for. Leave blank to view your own.")
     async def stats_me(self, interaction: Interaction, user: UserDiscord = None):
+        """View your own stats. If you mention a user, view their stats instead."""
         if user is None:
             user = interaction.user
 
@@ -749,8 +756,68 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.followup.send(embed=embed)
 
     @stats_group.command(name="guild")
-    async def stats_guild(self, interaction: Interaction, guild_id: str):
-        pass
+    @app_commands.describe(
+        guild_id="ID of guild to view stats for. Leave blank to view this current server."
+    )
+    async def stats_guild(self, interaction: Interaction, guild_id: str = None):
+        """View guild stats"""
+        if guild_id is None:
+            guild = interaction.guild
+            guild_id = guild.id
+        else:
+            if not guild_id.isdigit():
+                return await interaction.response.send_message("Invalid guild ID.")
+            else:
+                guild_id = int(guild_id)
+
+            guild = self.bot.get_guild(guild_id)
+        guild_name = guild.name if guild else str(guild_id)
+
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
+
+        if canvas.event is None:
+            await sql.close()
+            return await interaction.followup.send(
+                "Cannot show guild stats for canvases without events."
+            )
+
+        stats = await sql.fetch_guild_stats(guild_id, canvas.id)
+
+        if stats is None:
+            return await interaction.followup.send(
+                f"I couldn't find any stats for this guild ({guild_name}) in {canvas.name}!"
+            )
+
+        await stats.load_leaderboard(sql)
+
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{guild_name}'s stats",
+            footer=f"{canvas.id}",
+        )
+
+        embed.description = f"Showing stats in **{canvas.name}**"
+
+        embed.add_field(name="Total pixels placed", value=stats.total_pixels)
+
+        embed.add_field(
+            name="Most frequent color placed",
+            value=f"{stats.most_frequent_color.emoji_formatted} {stats.most_frequent_color.name} "
+            f"({stats.color_count} pixels placed)",
+        )
+
+        if stats.leaderboard:
+            leaderboard = "\n".join(str(user) for user in stats.leaderboard)
+            embed.add_field(name="Leaderboard", value=leaderboard, inline=False)
+
+        await interaction.followup.send(embed=embed)
 
     @stats_group.command(name="leaderboard")
     async def stats_leaderboard(self, interaction: Interaction, guild_id: str):
@@ -1259,7 +1326,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # Other stuff
 # - Stats
 # - Frames
-# - Auto-clear cooldown function delete_surpassed_cooldowns()
+# - Setup - modular setup views that set up servers
+#   - Start - set completely new values
+#   - Edit - edit existing values
+#   - View
+#   - Values
+#       - Manager role - (+ admin and manage server always have access)
+#       - Color - select previous color or create new one (participation-only)
+#       - Invite url - (participation-only)
+# - Follow channel https://discordpy.readthedocs.io/en/stable/api.html?highlight=textchannel#discord.TextChannel.follow
 
 
 async def setup(bot):

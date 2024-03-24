@@ -354,19 +354,17 @@ class SQLManager:
             if limit is not None and limit < max_rank:
                 limit = max_rank
             rankings = await self.conn.fetch(
-                "WITH ranked AS (SELECT * FROM leaderboard_guild WHERE canvas_id = $1 and guild_id = $5), "
-                "min_excluded_rank AS ("
-                "   SELECT MAX(rank) AS rank "
-                "   FROM (SELECT rank FROM ranked ORDER BY rank LIMIT $2) AS top_ranks) "
+                "WITH ranked AS (SELECT * FROM leaderboard_guild WHERE canvas_id = $1 and guild_id = $5) "
                 "SELECT DISTINCT * FROM ("
-                "   SELECT * FROM ranked "
-                "   WHERE rank < (SELECT rank FROM min_excluded_rank) and rank <= $3 "
+                "   (SELECT * FROM ranked "
+                "   WHERE rank <= $3 "
+                "   LIMIT $2 )"
                 "   UNION ALL "
                 "   SELECT * FROM ranked WHERE user_id = $4 "
                 ") as combined "
                 "ORDER BY rank",
                 canvas_id,
-                limit + 1 if limit else None,
+                limit,
                 max_rank,
                 user_id if user_id else -1,
                 guild_id,
