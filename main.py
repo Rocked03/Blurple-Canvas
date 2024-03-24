@@ -187,7 +187,7 @@ async def ping(ctx):
     embed.set_author(name="Ping!")
     embed.add_field(name="Bot latency", value=latency + "ms")
     embed.set_footer(
-        text=f"{str(ctx.author)} | {bot.user.name} | {ctx.prefix}{ctx.command.emoji_name}",
+        text=f"{str(ctx.author)} | {bot.user.name} | {ctx.prefix}{ctx.command.name}",
         icon_url=bot.user.avatar,
     )
     await ctx.send(embed=embed)
