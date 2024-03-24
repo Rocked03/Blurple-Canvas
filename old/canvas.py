@@ -851,7 +851,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             hours, remainder = divmod(int(seconds), 3600)
             minutes, seconds = divmod(remainder, 60)
 
-            if ctx.command.emoji_name == "place":
+            if ctx.command.name == "place":
                 if ctx.author.id in self.bot.cd:
                     self.bot.cd.remove(ctx.author.id)
                     await ctx.reinvoke()
@@ -1001,7 +1001,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     name=f"{board.name} | Image took {end - start:.2f}s to load"
                 )
                 embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.emoji_name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar,
                 )
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
@@ -1479,7 +1479,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     name=f"{board.name} | Image took {end - start:.2f}s to load"
                 )
                 embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar,
                 )
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
@@ -1533,7 +1533,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         embed = discord.Embed(colour=self.blurplehex, timestamp=discord.utils.utcnow())
         # embed.add_field(emoji_name = "Board", value = display)
         embed.set_footer(
-            text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+            text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
             icon_url=self.bot.user.avatar,
         )
         embed.set_author(name=board.name)
@@ -1676,7 +1676,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 )
                 embed.set_author(name=f"Image took {end - start:.2f}s to load")
                 embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar,
                 )
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
@@ -1809,7 +1809,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         # embed.add_field(emoji_name = "Board", value = display)
         embed.set_footer(
-            text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+            text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
             icon_url=self.bot.user.avatar,
         )
         # msg = await ctx.reply(display, embed=embed)
@@ -2281,7 +2281,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 timestamp=discord.utils.utcnow(),
             )
             embed.set_footer(
-                text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+                text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
                 icon_url=self.bot.user.avatar,
             )
             embed.set_image(url="attachment://Blurple_Canvas_Colour_Palette.png")
@@ -2294,7 +2294,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             embed = discord.Embed(title=c["emoji_name"], colour=hexint)
             embed.set_footer(
-                text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+                text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
                 icon_url=self.bot.user.avatar,
             )
             embed.add_field(
@@ -2436,7 +2436,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     name=f"{board.name} | Image took {end - start:.2f}s to load"
                 )
                 embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.emoji_name}",
+                    text=f"{str(ctx.author)} | {self.bot.user.emoji_name} | {ctx.prefix}{ctx.command.name}",
                     icon_url=self.bot.user.avatar,
                 )
                 embed.set_image(url=f"attachment://board_{x}-{y}.png")
