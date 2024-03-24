@@ -33,6 +33,7 @@ from objects.info import Info
 from objects.guild import Participation
 from objects.pixel import Pixel
 from objects.sqlManager import SQLManager
+from objects.stats import Leaderboard
 from objects.timer import Timer
 from objects.user import User
 from objects.views import (
@@ -720,15 +721,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if user is None:
             user = interaction.user
 
-        await interaction.response.defer()
-
         sql = await self.sql()
 
         try:
             _, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
-            return await interaction.followup.send(str(e), ephemeral=True)
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        await interaction.response.defer()
 
         stats = await sql.fetch_user_stats(user.id, canvas.id)
         await sql.close()
@@ -766,21 +767,23 @@ class CanvasCog(commands.Cog, name="Canvas"):
             guild_id = guild.id
         else:
             if not guild_id.isdigit():
-                return await interaction.response.send_message("Invalid guild ID.")
+                return await interaction.response.send_message(
+                    "Invalid guild ID.", ephemeral=True
+                )
             else:
                 guild_id = int(guild_id)
 
             guild = self.bot.get_guild(guild_id)
         guild_name = guild.name if guild else str(guild_id)
 
-        await interaction.response.defer()
-
         sql = await self.sql()
         try:
             _, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
-            return await interaction.followup.send(str(e), ephemeral=True)
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        await interaction.response.defer()
 
         if canvas.event is None:
             await sql.close()
@@ -795,7 +798,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 f"I couldn't find any stats for this guild ({guild_name}) in {canvas.name}!"
             )
 
-        await stats.load_leaderboard(sql)
+        await stats.load_leaderboard(sql, max_rank=5, limit=5)
 
         embed = self.base_embed(
             user=interaction.user,
@@ -814,14 +817,97 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
         if stats.leaderboard:
-            leaderboard = "\n".join(str(user) for user in stats.leaderboard)
-            embed.add_field(name="Leaderboard", value=leaderboard, inline=False)
+            await stats.leaderboard.load_colors(sql, canvas.id)
+            embed.add_field(
+                name="Leaderboard", value=stats.leaderboard.formatted(), inline=False
+            )
+        await sql.close()
 
         await interaction.followup.send(embed=embed)
 
     @stats_group.command(name="leaderboard")
-    async def stats_leaderboard(self, interaction: Interaction, guild_id: str):
-        pass
+    @app_commands.describe(
+        guild_id="ID of the guild to view the leaderboard for. Leave blank to view the global leaderboard.",
+        include_yourself="Include yourself in the leaderboard? Default is True.",
+    )
+    async def stats_leaderboard(
+        self,
+        interaction: Interaction,
+        guild_id: str = None,
+        include_yourself: bool = True,
+    ):
+        """View the leaderboard"""
+        user_id = interaction.user.id if include_yourself else None
+
+        if not guild_id:
+            guild = guild_id = guild_name = None
+        else:
+            if not guild_id.isdigit():
+                return await interaction.response.send_message(
+                    "Invalid guild ID.", ephemeral=True
+                )
+            else:
+                guild_id = int(guild_id)
+                guild = self.bot.get_guild(guild_id)
+                guild_name = guild.name if guild else str(guild_id)
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        if guild_id:
+            leaderboard = Leaderboard(
+                await sql.fetch_leaderboard_guild(canvas.id, guild_id, user_id=user_id)
+            )
+        else:
+            leaderboard = Leaderboard(
+                await sql.fetch_leaderboard(canvas.id, user_id=user_id)
+            )
+
+        if not leaderboard:
+            if guild_id:
+                return await interaction.followup.send(
+                    f"No leaderboard found for guild {guild_name} in *{canvas.name}*. "
+                    + (
+                        "I'm not in that guild, perhaps you entered the incorrect ID?"
+                        if not guild
+                        else "Better start placing some pixels!"
+                    )
+                )
+            else:
+                return await interaction.followup.send(
+                    f"No global leaderboard found for *{canvas.name}*."
+                )
+
+        await leaderboard.load_colors(sql, canvas.id)
+        await sql.close()
+
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{canvas.name} Leaderboard"
+            + (f" • {guild_name}" if guild_id else ""),
+        )
+        embed.description = leaderboard.formatted(highlighted_user_id=user_id)
+
+        await interaction.followup.send(embed=embed)
+
+    @stats_leaderboard.autocomplete("guild_id")
+    async def stats_leaderboard_autocomplete_guild_id(
+        self, interaction: Interaction, current: str
+    ):
+        choices = [
+            Choice(name="Global", value=""),
+            Choice(name=interaction.guild.name, value=str(interaction.guild_id)),
+        ]
+        if current.isdigit():
+            guild = self.bot.get_guild(int(current))
+            if guild:
+                choices.append(Choice(name=guild.name, value=str(guild.id)))
+        return choices
 
     # Admin Commands
 

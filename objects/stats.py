@@ -32,7 +32,7 @@ class UserStatsBase(StatsBase):
 
     @property
     def mention(self):
-        return self.user.name if self.user else f"{self.user_id}"
+        return self.user.mention if self.user else f"<@{self.user_id}>"
 
     def set_user(self, user: UserDiscord):
         self.user = user
@@ -90,10 +90,20 @@ class Ranking(UserStatsBase):
             suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
         return suffix
 
+    def str(self, *, color: Color = None, highlighted_user_id: int = None):
+        txt = []
+        if color:
+            txt.append(f"{color.emoji_formatted} ")
+        txt.append(f"**{self.ranking_ordinal}**: ")
+        if highlighted_user_id == self.user_id:
+            txt.append(f"{self.mention} (you) - ")
+        else:
+            txt.append(f"{self.name} - ")
+        txt.append(f"{self.total_pixels} pixels")
+        return "".join(txt)
+
     def __str__(self):
-        return (
-            f"**{self.ranking_ordinal}**: {self.mention} - {self.total_pixels} pixels"
-        )
+        return self.str()
 
     def __gt__(self, other):
         return self.ranking > other.ranking
@@ -124,16 +134,45 @@ class UserStats(MostFrequentColorStat, Ranking):
         return f"User Stats - {self.name}"
 
 
+class Leaderboard:
+    def __init__(self, leaderboard: list[Ranking]):
+        self.leaderboard: list[Ranking] = leaderboard
+
+        self.colors: dict[int, Color] = {}
+
+    def formatted(
+        self, *, highlighted_user_id: int = None, colors: dict[int, Color] = None
+    ):
+        if colors is None and self.colors:
+            colors = self.colors
+        return "\n".join(
+            r.str(
+                highlighted_user_id=highlighted_user_id,
+                color=colors[r.user_id] if colors and r.user_id in colors else None,
+            )
+            for r in self.leaderboard
+        )
+
+    async def load_colors(self, sql: SQLManager, canvas_id: int):
+        self.colors = await sql.fetch_user_colors(
+            [r.user_id for r in self.leaderboard], canvas_id
+        )
+
+
 class GuildStats(MostFrequentColorStat, GuildStatsBase):
     def __init__(self, total_pixels: int, **kwargs):
         super().__init__(**kwargs)
         self.total_pixels = total_pixels
 
-        self.leaderboard: list[Ranking] = []
+        self.leaderboard: Optional[Leaderboard] = None
 
-    async def load_leaderboard(self, sql: SQLManager, *, max_rank: int = 10):
-        self.leaderboard = await sql.fetch_leaderboard_guild(
-            self.canvas_id, self.guild_id, max_rank=max_rank, limit=20
+    async def load_leaderboard(
+        self, sql: SQLManager, *, max_rank: int = None, limit: int = None
+    ):
+        self.leaderboard = Leaderboard(
+            await sql.fetch_leaderboard_guild(
+                self.canvas_id, self.guild_id, max_rank=max_rank, limit=limit
+            )
         )
 
     def __str__(self):

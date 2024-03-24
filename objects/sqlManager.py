@@ -299,26 +299,23 @@ class SQLManager:
         canvas_id: int,
         *,
         user_id: int = None,
-        max_rank: int = None,
-        limit: int = None,
+        max_rank: Optional[int] = 10,
+        limit: int = 20,
     ) -> list[Ranking]:
         if max_rank is not None:
             if limit is not None and limit < max_rank:
                 limit = max_rank
             rankings = await self.conn.fetch(
-                "WITH ranked AS (SELECT * FROM leaderboard WHERE canvas_id = $1), "
-                "min_excluded_rank AS ("
-                "   SELECT MAX(rank) AS rank "
-                "   FROM (SELECT rank FROM ranked ORDER BY rank LIMIT $2) AS top_ranks) "
+                "WITH ranked AS (SELECT * FROM leaderboard WHERE canvas_id = $1) "
                 "SELECT DISTINCT * FROM ("
-                "   SELECT * FROM ranked "
-                "   WHERE rank < (SELECT rank FROM min_excluded_rank) and rank <= $3 "
+                "   (SELECT * FROM ranked "
+                "   WHERE rank <= $3 LIMIT $2) "
                 "   UNION ALL "
                 "   SELECT * FROM ranked WHERE user_id = $4 "
                 ") as combined "
                 "ORDER BY rank",
                 canvas_id,
-                limit + 1 if limit else None,
+                limit,
                 max_rank,
                 user_id if user_id else -1,
             )
@@ -339,6 +336,8 @@ class SQLManager:
                 limit,
             )
 
+        from objects.stats import Ranking
+
         return [Ranking(bot=self.bot, **rename_invalid_keys(row)) for row in rankings]
 
     async def fetch_leaderboard_guild(
@@ -347,8 +346,8 @@ class SQLManager:
         guild_id: int,
         *,
         user_id: int = None,
-        max_rank: int = None,
-        limit: int = None,
+        max_rank: Optional[int] = 10,
+        limit: int = 20,
     ) -> list[Ranking]:
         if max_rank is not None:
             if limit is not None and limit < max_rank:
@@ -357,8 +356,7 @@ class SQLManager:
                 "WITH ranked AS (SELECT * FROM leaderboard_guild WHERE canvas_id = $1 and guild_id = $5) "
                 "SELECT DISTINCT * FROM ("
                 "   (SELECT * FROM ranked "
-                "   WHERE rank <= $3 "
-                "   LIMIT $2 )"
+                "   WHERE rank <= $3 LIMIT $2 )"
                 "   UNION ALL "
                 "   SELECT * FROM ranked WHERE user_id = $4 "
                 ") as combined "
@@ -396,10 +394,12 @@ class SQLManager:
         self, canvas_id: int, user_id: int, *, guild_id: int = None
     ) -> Ranking:
         if guild_id is None:
-            ranking = await self.fetch_leaderboard(canvas_id=canvas_id, user_id=user_id)
+            ranking = await self.fetch_leaderboard(
+                canvas_id=canvas_id, user_id=user_id, max_rank=None
+            )
         else:
             ranking = await self.fetch_leaderboard_guild(
-                canvas_id=canvas_id, user_id=user_id, guild_id=guild_id
+                canvas_id=canvas_id, user_id=user_id, guild_id=guild_id, max_rank=None
             )
         return ranking[0] if ranking else None
 
@@ -430,6 +430,25 @@ class SQLManager:
         from objects.stats import GuildStats
 
         return GuildStats(bot=self.bot, **rename_invalid_keys(row)) if row else None
+
+    async def fetch_user_colors(
+        self, user_ids: list[int], canvas_id: int
+    ) -> dict[int, Color]:
+        rows = await self.conn.fetch(
+            "SELECT u.user_id, c.* "
+            "FROM user_stats u "
+            "LEFT JOIN color c ON u.most_frequent_color_id = c.id "
+            "WHERE u.user_id = ANY($1) AND u.canvas_id = $2",
+            user_ids,
+            canvas_id,
+        )
+
+        from objects.color import Color
+
+        return {
+            row["user_id"]: Color(bot=self.bot, **rename_invalid_keys(row))
+            for row in rows
+        }
 
     async def insert_color(self, color: Color) -> int:
         return (
