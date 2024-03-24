@@ -1418,6 +1418,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Frames
 # Other stuff
 # - Frames
+#   - id int - ids will need to be massively randomised since sharing
+#   - owner_id + is_guild bool - is_guild will be used to determine if it's a guild or user frame
+#   - public bool (for sharing)
+#       - (must be true if is_guild is true using CHECK (NOT (is_guild AND NOT public)) constraint)
+#   - style id? (nullable) - for applying styles to frames when generating images
+# - Auto-join canvas (default)
 # - Setup - modular setup views that set up servers
 #   - Start - set completely new values
 #   - Edit - edit existing values
@@ -1427,6 +1433,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #       - Color - select previous color or create new one (participation-only)
 #       - Invite url - (participation-only)
 # - Follow channel https://discordpy.readthedocs.io/en/stable/api.html?highlight=textchannel#discord.TextChannel.follow
+# - Schema
+# - Regenerate all emoji???
 
 
 async def setup(bot):
