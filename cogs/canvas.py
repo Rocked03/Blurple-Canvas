@@ -718,7 +718,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
 
         try:
-            user, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
