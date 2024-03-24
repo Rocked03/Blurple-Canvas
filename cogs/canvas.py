@@ -700,13 +700,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
             ephemeral=True,
         )
 
-    @app_commands.command(name="stats")
-    async def stats(self, interaction: Interaction, user: UserDiscord = None):
-        """View user stats"""
-        # TODO: Implement
-        # - me
-        # - guild
-        # - leaderboard
+    stats_group = app_commands.Group(name="stats", description="Stats commands")
+
+    @stats_group.command(name="me")
+    async def stats_me(self, interaction: Interaction, user: UserDiscord = None):
+        pass
+
+    @stats_group.command(name="guild")
+    async def stats_guild(self, interaction: Interaction, guild_id: str):
+        pass
+
+    @stats_group.command(name="leaderboard")
+    async def stats_leaderboard(self, interaction: Interaction, guild_id: str):
         pass
 
     # Admin Commands

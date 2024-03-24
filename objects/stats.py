@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from typing import Optional
 
@@ -5,6 +7,7 @@ from discord import User as UserDiscord
 
 from objects.color import Color
 from objects.discordObject import DiscordObject
+from objects.sqlManager import SQLManager
 
 
 class StatsBase(DiscordObject):
@@ -105,6 +108,13 @@ class GuildStats(MostFrequentColorStat, GuildStatsBase):
     def __init__(self, total_pixels: int, **kwargs):
         super().__init__(**kwargs)
         self.total_pixels = total_pixels
+
+        self.leaderboard: list[Ranking] = []
+
+    async def load_leaderboard(self, sql: SQLManager, *, max_rank: int = 10):
+        self.leaderboard = await sql.fetch_leaderboard_guild(
+            self.canvas_id, self.guild_id, max_rank=max_rank
+        )
 
     def __str__(self):
         return f"Guild Stats - {self.name}"

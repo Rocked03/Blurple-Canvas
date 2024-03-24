@@ -8,7 +8,6 @@ from asyncpg import Connection, UndefinedFunctionError
 from discord import Client
 
 from objects.coordinates import BoundingBox
-from objects.stats import Ranking, UserStats, GuildStats
 
 if TYPE_CHECKING:
     from objects.canvas import Canvas
@@ -17,7 +16,8 @@ if TYPE_CHECKING:
     from objects.historyRecord import HistoryRecord
     from objects.info import Info
     from objects.pixel import Pixel
-    from objects.user import User, Cooldown
+    from objects.user import User, Cooldown, Blacklist
+    from objects.stats import Ranking, UserStats, GuildStats
 
 
 class SQLManager:
@@ -288,7 +288,7 @@ class SQLManager:
 
         return Cooldown(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
-    async def fetch_blacklist(self):
+    async def fetch_blacklist(self) -> list[Blacklist]:
         from objects.user import Blacklist
 
         rows = await self.conn.fetch("SELECT * FROM blacklist")
@@ -390,6 +390,8 @@ class SQLManager:
                 guild_id,
             )
 
+        from objects.stats import Ranking
+
         return [Ranking(bot=self.bot, **rename_invalid_keys(row)) for row in rankings]
 
     async def fetch_ranking(
@@ -403,7 +405,7 @@ class SQLManager:
             )
         return ranking[0] if ranking else None
 
-    async def fetch_user_stats(self, user_id: int, canvas_id: int):
+    async def fetch_user_stats(self, user_id: int, canvas_id: int) -> UserStats:
         row = await self.conn.fetchrow(
             "SELECT u.*, code, emoji_name, emoji_id, global, name, rgba "
             "FROM user_stats u LEFT JOIN color c "
@@ -413,9 +415,11 @@ class SQLManager:
             canvas_id,
         )
 
+        from objects.stats import UserStats
+
         return UserStats(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
-    async def fetch_guild_stats(self, guild_id: int, canvas_id: int):
+    async def fetch_guild_stats(self, guild_id: int, canvas_id: int) -> GuildStats:
         row = await self.conn.fetchrow(
             "SELECT g.*, code, emoji_name, emoji_id, global, name, rgba "
             "FROM guild_stats g LEFT JOIN color c "
@@ -424,6 +428,8 @@ class SQLManager:
             guild_id,
             canvas_id,
         )
+
+        from objects.stats import GuildStats
 
         return GuildStats(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
