@@ -8,6 +8,7 @@ from discord import User as UserDiscord, TextChannel
 
 from objects.coordinates import Coordinates
 from objects.discordObject import DiscordObject
+from objects.stats import UserStats
 from objects.timer import format_delta
 
 if TYPE_CHECKING:
@@ -79,6 +80,9 @@ class User(DiscordObject):
     async def toggle_cooldown_remind(self, sql_manager: SQLManager):
         self.cooldown_remind = not self.cooldown_remind
         await sql_manager.set_cooldown_remind(self)
+
+    async def fetch_stats(self, sql_manager: SQLManager, canvas_id: int) -> UserStats:
+        return await sql_manager.fetch_user_stats(self.id, canvas_id)
 
     async def place_pixel(
         self,

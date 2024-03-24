@@ -96,7 +96,7 @@ class Color(DiscordObject):
         return Imager.color_to_image(self, config=config, text=False)
 
     def __str__(self):
-        return f"Color {self.name} {self.rgba_formatted}"
+        return f"{self.name} {self.rgba_formatted}"
 
     def __eq__(self, other):
         if isinstance(other, Color):

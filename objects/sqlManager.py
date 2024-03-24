@@ -501,7 +501,7 @@ class SQLManager:
                 "VALUES ($1, $2, $3, $4)"
             ),
             user.id,
-            user.current_canvas.id,
+            user.current_canvas.id if user.current_canvas else None,
             user.skip_confirm,
             user.cooldown_remind,
         )

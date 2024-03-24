@@ -254,13 +254,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return file, f"attachment://{file_name}", size_bytes
 
     def base_embed(
-        self, *, user: UserDiscord = None, title: str = None, color: int = None
+        self,
+        *,
+        user: UserDiscord = None,
+        title: str = None,
+        color: int = None,
+        footer: str = None,
     ):
         embed = Embed(
             title=title, timestamp=utcnow(), color=color or self.info.highlight_color
         )
+        footer_text = f"{f'{user} • ' if user else ''}" f"{self.bot.user.name}"
         embed.set_footer(
-            text=f"{f'{user} • ' if user else ''}" f"{self.bot.user.name}",
+            text=(footer + " • " if footer else "") + footer_text,
             icon_url=self.bot.user.avatar,
         )
         return embed
@@ -704,7 +710,43 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @stats_group.command(name="me")
     async def stats_me(self, interaction: Interaction, user: UserDiscord = None):
-        pass
+        if user is None:
+            user = interaction.user
+
+        await interaction.response.defer()
+
+        sql = await self.sql()
+
+        try:
+            user, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
+
+        stats = await sql.fetch_user_stats(user.id, canvas.id)
+        await sql.close()
+
+        if stats is None:
+            return await interaction.followup.send(
+                f"I couldn't find any stats for you in {canvas.name}!"
+            )
+
+        embed = self.base_embed(
+            user=user, title=f"{user}'s stats", footer=f"{canvas.id}"
+        )
+        embed.description = f"Showing stats in **{canvas.name}**"
+
+        embed.add_field(name="Pixels placed", value=stats.total_pixels)
+        embed.add_field(
+            name="Total pixels leaderboard", value=f"{stats.ranking_ordinal} place"
+        )
+        embed.add_field(
+            name="Most frequent color placed",
+            value=f"{stats.most_frequent_color.emoji_formatted} {stats.most_frequent_color.name} "
+            f"({stats.color_count} pixels placed)",
+        )
+
+        await interaction.followup.send(embed=embed)
 
     @stats_group.command(name="guild")
     async def stats_guild(self, interaction: Interaction, guild_id: str):
@@ -806,7 +848,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
 
         sql = await self.sql()
-        user, canvas = await self.find_canvas(interaction.user.id)
+
+        try:
+            user, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
 
         if canvas.is_locked:
             await sql.close()

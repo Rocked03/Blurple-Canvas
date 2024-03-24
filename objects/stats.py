@@ -72,6 +72,18 @@ class Ranking(UserStatsBase):
         self.ranking = rank
         self.total_pixels = total_pixels
 
+    @property
+    def ranking_ordinal(self):
+        return f"{self.ranking}{self.ordinal_suffix(self.ranking)}"
+
+    @staticmethod
+    def ordinal_suffix(n: int) -> str:
+        if 10 <= n % 100 <= 20:
+            suffix = "th"
+        else:
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+        return suffix
+
     def __str__(self):
         return f"{self.ranking}. {self.name} - {self.total_pixels} pixels"
 
@@ -96,7 +108,7 @@ class MostFrequentColorStat:
         return f"{self.most_frequent_color} - {self.color_count} pixels"
 
 
-class UserStats(Ranking, MostFrequentColorStat):
+class UserStats(MostFrequentColorStat, Ranking):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
