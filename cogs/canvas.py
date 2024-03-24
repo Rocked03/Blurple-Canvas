@@ -300,9 +300,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     # Commands
 
-    async def autocomplete_color(
-        self, interaction, current, colors: list[Color] = None
-    ):
+    async def autocomplete_color(self, _, current, colors: list[Color] = None):
         return [
             Choice(name=color.name, value=str(color.id))
             for color in (colors if colors else self.palette.sorted())
@@ -390,16 +388,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
-        await interaction.response.defer()
         sql = await self.sql()
-
-        timer = Timer()
 
         try:
             user, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
-            return await interaction.followup.send(str(e), ephemeral=True)
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        await interaction.response.defer()
 
         if user.is_blacklisted:
             await sql.close()
@@ -673,9 +670,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await interaction.followup.send(embed=embed, file=file)
 
     @palette.autocomplete("palette")
-    async def palette_autocomplete_palette(
-        self, interaction: Interaction, current: str
-    ):
+    async def palette_autocomplete_palette(self, _: Interaction, __: str):
         return [
             Choice(name="All", value="all"),
             Choice(name="Global", value="global"),
@@ -762,7 +757,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
     async def stats_guild(self, interaction: Interaction, guild_id: str = None):
         """View guild stats"""
-        if guild_id is None:
+        if not guild_id:
             guild = interaction.guild
             guild_id = guild.id
         else:
@@ -777,6 +772,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         guild_name = guild.name if guild else str(guild_id)
 
         sql = await self.sql()
+
         try:
             _, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
@@ -824,6 +820,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await sql.close()
 
         await interaction.followup.send(embed=embed)
+
+    @stats_guild.autocomplete("guild_id")
+    async def stats_leaderboard_autocomplete_guild_id(
+        self, interaction: Interaction, current: str
+    ):
+        choices = [
+            Choice(name=interaction.guild.name, value=""),
+        ]
+        if current.isdigit():
+            guild = self.bot.get_guild(int(current))
+            if guild:
+                choices.append(Choice(name=guild.name, value=str(guild.id)))
+        return choices
 
     @stats_group.command(name="leaderboard")
     @app_commands.describe(
@@ -998,15 +1007,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self, interaction: Interaction, image: Attachment, x: int, y: int
     ):
         """Paste an image onto the canvas"""
-        await interaction.response.defer()
-
         sql = await self.sql()
 
         try:
-            user, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
-            return await interaction.followup.send(str(e), ephemeral=True)
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        await interaction.response.defer()
 
         if canvas.is_locked:
             await sql.close()
@@ -1250,7 +1259,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         emoji: str = None,
     ):
         """Create a new color"""
-        if hex is not None == all(i is not None for i in [r, g, b]):
+        if (hex is not None) == all(i is not None for i in [r, g, b]):
             return await interaction.response.send_message(
                 "Please provide either a hex code or all of the RGB values."
             )
