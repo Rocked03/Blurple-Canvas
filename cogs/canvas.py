@@ -1423,6 +1423,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #   - public bool (for sharing)
 #       - (must be true if is_guild is true using CHECK (NOT (is_guild AND NOT public)) constraint)
 #   - style id? (nullable) - for applying styles to frames when generating images
+#   - max size??
 # - Auto-join canvas (default)
 # - Setup - modular setup views that set up servers
 #   - Start - set completely new values

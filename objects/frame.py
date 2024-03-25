@@ -10,6 +10,7 @@ from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
 
 if TYPE_CHECKING:
+    from objects.user import User
     from objects.canvas import Canvas
     from objects.guild import Guild
     from objects.pixel import Pixel
@@ -169,18 +170,58 @@ class Frame(DiscordObject):
 
 class CustomFrame(Frame):
     def __init__(
-        self, *, name: str = None, guild_id: int = None, guild: Guild = None, **kwargs
+        self,
+        *,
+        is_guild_owned: bool,
+        _id: str = None,
+        canvas_id: int = None,
+        owner_id: int = None,
+        name: str = None,
+        x_0: int = None,
+        y_0: int = None,
+        x_1: int = None,
+        y_1: int = None,
+        style_id: int = None,
+        bbox: BoundingBox = None,
+        canvas: Canvas = None,
+        owner: User | Guild = None,
+        **kwargs,
     ):
         super().__init__(**kwargs)
+        self.id = _id
         self.name = name
+        self.is_guild_owned = is_guild_owned
+        self.style_id = style_id
 
-        from objects.guild import Guild
-
-        self.guild = (
-            Guild(_id=guild_id, **kwargs)
-            if guild is None and guild_id is not None
-            else guild
+        self.bbox = (
+            BoundingBox.from_coordinates(x_0, y_0, x_1, y_1) if bbox is None else bbox
         )
+
+        from objects.canvas import Canvas
+
+        self.canvas = (
+            Canvas(_id=canvas_id, **kwargs)
+            if canvas is None and canvas_id is not None
+            else canvas
+        )
+
+        if owner is not None:
+            self.owner = owner
+        elif is_guild_owned:
+            from objects.guild import Guild
+
+            self.owner: Guild = Guild(_id=owner_id, **kwargs)
+        else:
+            from objects.user import User
+
+            self.owner: User = User(_id=owner_id, **kwargs)
+
+    @property
+    def owner_id(self):
+        if isinstance(self.owner, User):
+            return self.owner.id
+        elif isinstance(self.owner, Guild):
+            return self.owner.guild_id
 
     def __str__(self):
         return f"Custom Frame {self.name} ({self.id}) ({self.canvas})"

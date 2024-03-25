@@ -12,6 +12,7 @@ from objects.coordinates import BoundingBox
 if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.color import Color, Palette
+    from objects.frame import CustomFrame
     from objects.guild import Participation, Guild
     from objects.historyRecord import HistoryRecord
     from objects.info import Info
@@ -450,6 +451,57 @@ class SQLManager:
             for row in rows
         }
 
+    async def fetch_frame(self, frame_id: str, canvas_id: int) -> CustomFrame:
+        row = await self.conn.fetchrow(
+            "SELECT f.*, g.manager_role, g.invite "
+            "FROM frame f LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+            "WHERE canvas_id = $1 AND f.id = $2",
+            canvas_id,
+            frame_id,
+        )
+
+        from objects.frame import CustomFrame
+
+        return CustomFrame(bot=self.bot, **rename_invalid_keys(row)) if row else None
+
+    async def insert_frame(self, frame: CustomFrame):
+        await self.conn.execute(
+            "INSERT INTO frame (id, canvas_id, owner_id, name, x_0, y_0, x_1, y_1, is_guild_owned, style_id) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            frame.id,
+            frame.canvas.id,
+            frame.owner_id,
+            frame.name,
+            frame.bbox.x_0,
+            frame.bbox.y_0,
+            frame.bbox.x_1,
+            frame.bbox.y_1,
+            frame.is_guild_owned,
+            frame.style_id,
+        )
+
+    async def update_frame(self, frame: CustomFrame):
+        await self.conn.execute(
+            "UPDATE frame "
+            "SET name = $1, x_0 = $2, y_0 = $3, x_1 = $4, y_1 = $5, style_id = $8 "
+            "WHERE id = $6 AND canvas_id = $7",
+            frame.name,
+            frame.bbox.x_0,
+            frame.bbox.y_0,
+            frame.bbox.x_1,
+            frame.bbox.y_1,
+            frame.id,
+            frame.canvas.id,
+            frame.style_id,
+        )
+
+    async def delete_frame(self, frame_id: str, canvas_id: int):
+        await self.conn.execute(
+            "DELETE FROM frame WHERE id = $1 AND canvas_id = $2",
+            frame_id,
+            canvas_id,
+        )
+
     async def insert_color(self, color: Color) -> int:
         return (
             await self.conn.fetch(
@@ -480,7 +532,7 @@ class SQLManager:
 
     async def insert_guild(self, guild: Guild):
         await self.conn.execute(
-            ("INSERT INTO guild (id, manager_role, invite) " "VALUES ($1, $2, $3)"),
+            "INSERT INTO guild (id, manager_role, invite) " "VALUES ($1, $2, $3)",
             guild.id,
             guild.manager_role,
             guild.invite,
