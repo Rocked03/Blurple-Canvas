@@ -3,7 +3,7 @@ import re
 import traceback
 from functools import partial
 from io import BytesIO
-from typing import Optional, Callable
+from typing import Optional, Callable, Literal
 
 import numpy
 from PIL import Image
@@ -610,7 +610,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         color="Specific color to view",
     )
     async def palette(
-        self, interaction: Interaction, palette: str = "all", color: str = None
+        self,
+        interaction: Interaction,
+        palette: Literal["All", "Global", "Partner"] = "All",
+        color: str = None,
     ):
         """View the palette"""
         await interaction.response.defer()
@@ -644,38 +647,30 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await interaction.followup.send(embed=embed, file=file)
 
         else:
-            if palette == "all":
+            if palette == "All":
                 file, file_name, size_bytes = await self.async_image(
                     self.palette.to_image_all,
                     self.info.current_event_id,
                     file_name="palette.png",
                 )
-            elif palette == "global":
+            elif palette == "Global":
                 file, file_name, size_bytes = await self.async_image(
                     self.palette.to_image_global, file_name="palette.png"
                 )
-            elif palette == "guild":
+            elif palette == "Partner":
                 file, file_name, size_bytes = await self.async_image(
                     self.palette.to_image_guild,
                     self.info.current_event_id,
                     file_name="palette.png",
                 )
             else:
-                return await interaction.followup.send("Invalid palette type.")
+                return
 
             embed = self.base_embed(
                 user=interaction.user, title="Blurple Canvas Palette"
             )
             embed.set_image(url=file_name)
             await interaction.followup.send(embed=embed, file=file)
-
-    @palette.autocomplete("palette")
-    async def palette_autocomplete_palette(self, _: Interaction, __: str):
-        return [
-            Choice(name="All", value="all"),
-            Choice(name="Global", value="global"),
-            Choice(name="Partner", value="guild"),
-        ]
 
     @palette.autocomplete("color")
     async def palette_autocomplete_color(self, interaction: Interaction, current: str):
@@ -1436,6 +1431,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Follow channel https://discordpy.readthedocs.io/en/stable/api.html?highlight=textchannel#discord.TextChannel.follow
 # - Schema
 # - Regenerate all emoji???
+# - Logs?
 
 
 async def setup(bot):
