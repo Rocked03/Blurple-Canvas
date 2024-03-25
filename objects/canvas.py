@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Optional
+from discord import User as UserDiscord
 
 from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
@@ -94,7 +95,7 @@ class Canvas(DiscordObject):
         self,
         sql_manager: SQLManager,
         *,
-        user: User,
+        user_id: int,
         guild_id: int = None,
         pixels: list[Pixel],
     ):
@@ -105,7 +106,7 @@ class Canvas(DiscordObject):
                 self.pixels[pixel.xy] = pixel
 
         await sql_manager.update_pixels(
-            pixels=pixels, user_id=user.id, guild_id=guild_id
+            pixels=pixels, user_id=user_id.id, guild_id=guild_id
         )
 
     async def lock(self, sql_manager: SQLManager):

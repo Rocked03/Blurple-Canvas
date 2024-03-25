@@ -997,9 +997,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
         y="top-left y coordinate",
     )
     async def canvas_paste(
-        self, interaction: Interaction, image: Attachment, x: int, y: int
+        self,
+        interaction: Interaction,
+        image: Attachment,
+        x: int,
+        y: int,
+        author: UserDiscord = None,
     ):
         """Paste an image onto the canvas"""
+        if author is None:
+            author = interaction.user
+
         sql = await self.sql()
 
         try:
@@ -1033,7 +1041,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             pixel.xy += xy0
             final_pixels.append(pixel)
 
-        await canvas.place_pixels(sql, user=user, pixels=final_pixels)
+        await canvas.place_pixels(sql, user_id=author.id, pixels=final_pixels)
 
         await sql.close()
 
