@@ -1,8 +1,10 @@
 import asyncio
 import re
 import traceback
+from colorsys import hsv_to_rgb
 from functools import partial
 from io import BytesIO
+from random import randint
 from typing import Optional, Callable, Literal
 
 import numpy
@@ -20,6 +22,7 @@ from discord import (
 )
 from discord.app_commands import Choice
 from discord.ext import commands
+from discord.ui import View
 from discord.utils import utcnow
 
 from config import POSTGRES_CREDENTIALS
@@ -29,6 +32,7 @@ from objects.color import Palette, Color
 from objects.cooldownManager import CooldownManager
 from objects.coordinates import Coordinates
 from objects.event import Event
+from objects.frame import Frame, CustomFrame
 from objects.info import Info
 from objects.guild import Participation
 from objects.pixel import Pixel
@@ -42,6 +46,7 @@ from objects.views import (
     NavigateView,
     PaletteView,
     ConfirmView,
+    FrameEditView,
 )
 
 
@@ -989,10 +994,85 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     frame_group = app_commands.Group(name="frame", description="Frame commands")
 
+    async def frame_editor(
+        self,
+        interaction: Interaction,
+        frame: CustomFrame = None,
+        edit: bool = True,
+        *,
+        max_size_percentage: float = 0.25,
+    ):
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{'Create' if not edit else 'Edit'} Frame",
+        )
+
+        embed_copy = embed.copy()
+        embed_copy.description = "Loading editor..."
+        msg = await interaction.followup.send(embed=embed_copy)
+        view = FrameEditView(
+            frame,
+            embed,
+            user_id=interaction.user.id,
+            message=msg,
+            canvas_cog=self,
+            max_size_percentage=max_size_percentage,
+        )
+
+        await view.update_message()
+
+        timeout = await view.wait()
+
+        new_frame = None
+        if view.confirm == ConfirmEnum.CONFIRM:
+            view.embed.title = (
+                f"Successfully {'created' if not edit else 'edited'} Frame"
+            )
+            new_frame = view.frame
+        elif view.confirm == ConfirmEnum.CANCEL:
+            view.embed.title = f"Cancelled Frame {'creation' if not edit else 'edit'}"
+            new_frame = None
+        elif timeout:
+            view.embed.title = (
+                f"Timed out {'creating' if not edit else 'editing'} Frame"
+            )
+            new_frame = None
+        await view.interaction.response.edit_message(embed=view.embed, view=None)
+
+        return new_frame
+
     @frame_group.command(name="create")
     async def frame_create(self, interaction: Interaction):
-        """Create a custom frame"""
-        pass
+        """Starts frame creation UI"""
+        await interaction.response.defer()
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            return await interaction.followup.send(str(e), ephemeral=True)
+        canvas = await self.check_cache(canvas)
+
+        new_frame = CustomFrame(
+            canvas=canvas, owner_id=interaction.user.id, is_guild_owned=False
+        )
+
+        frame = await self.frame_editor(
+            interaction, frame=new_frame, edit=False, max_size_percentage=0.1
+        )
+
+        if frame:
+            sql = await self.sql()
+
+            while True:
+                try:
+                    frame.id = str(hex(randint(0, 0xFFFFFF))[2:]).zfill(6).upper()
+                    await frame.create(sql)
+                except UniqueViolationError:
+                    continue
+                else:
+                    break
+
+            await sql.close()
 
     @frame_group.command(name="edit")
     async def frame_edit(self, interaction: Interaction):

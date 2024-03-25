@@ -43,8 +43,6 @@ class Frame(DiscordObject):
         self.pixels = pixels
         self.focus = focus
 
-        self.size = self.bbox.size
-
         from objects.canvas import Canvas
 
         self.canvas: Optional[Canvas] = (
@@ -82,6 +80,10 @@ class Frame(DiscordObject):
         return Coordinates(
             (self.bbox.x0 + self.bbox.x1) // 2, (self.bbox.y0 + self.bbox.y1) // 2
         )
+
+    @property
+    def size(self) -> Coordinates:
+        return self.bbox.size
 
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
@@ -222,6 +224,20 @@ class CustomFrame(Frame):
             return self.owner.id
         elif isinstance(self.owner, Guild):
             return self.owner.guild_id
+
+    @property
+    def is_complete(self) -> bool:
+        return self.name is not None and self.bbox is not None
+
+    @property
+    def percent_of_canvas(self) -> float:
+        return self.canvas.bbox_percentage(self.bbox)
+
+    async def create(self, sql_manager: SQLManager):
+        await sql_manager.insert_frame(self)
+
+    async def update(self, sql_manager: SQLManager):
+        await sql_manager.update_frame(self)
 
     async def delete(self, sql_manager: SQLManager):
         await sql_manager.delete_frame(self.id)

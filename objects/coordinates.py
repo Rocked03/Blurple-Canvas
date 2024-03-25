@@ -55,15 +55,25 @@ class BoundingBox:
         self.xy0 = Coordinates(self.x0, self.y0)
         self.xy1 = Coordinates(self.x1, self.y1)
 
-        self.width = self.xy1.x - self.xy0.x + 1
-        self.height = self.xy1.y - self.xy0.y + 1
-
-        self.size = (self.width, self.height)
-        self.area = self.width * self.height
-
     @staticmethod
     def from_coordinates(x_0, y_0, x_1, y_1):
         return BoundingBox(Coordinates(x_0, y_0), Coordinates(x_1, y_1))
+
+    @property
+    def width(self):
+        return self.x1 - self.x0 + 1
+
+    @property
+    def height(self):
+        return self.y1 - self.y0 + 1
+
+    @property
+    def size(self):
+        return self.width, self.height
+
+    @property
+    def area(self):
+        return self.width * self.height
 
     def to_tuple(self):
         return self.x0, self.y0, self.x1, self.y1
@@ -97,4 +107,13 @@ class BoundingBox:
     def __add__(self, other):
         if isinstance(other, BoundingBox):
             return BoundingBox(self.xy0 + other.xy0, self.xy1 + other.xy1)
+        elif isinstance(other, Coordinates):
+            return BoundingBox(self.xy0 + other, self.xy1 + other)
+        raise TypeError(f"Unsupported type: {type(other)}")
+
+    def __sub__(self, other):
+        if isinstance(other, BoundingBox):
+            return BoundingBox(self.xy0 - other.xy0, self.xy1 - other.xy1)
+        elif isinstance(other, Coordinates):
+            return BoundingBox(self.xy0 - other, self.xy1 - other)
         raise TypeError(f"Unsupported type: {type(other)}")

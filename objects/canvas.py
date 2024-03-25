@@ -181,6 +181,12 @@ class Canvas(DiscordObject):
     async def edit(self, sql_manager: SQLManager):
         await sql_manager.update_canvas(self)
 
+    def contains_adjusted_bbox(self, bbox: BoundingBox):
+        return (bbox - self.start_coordinates) in self.bbox
+
+    def bbox_percentage(self, bbox: BoundingBox):
+        return bbox.area / self.bbox.area
+
     def __str__(self):
         return f"Canvas {self.name} ({self.id})"
 
