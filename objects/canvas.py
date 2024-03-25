@@ -194,3 +194,6 @@ class Canvas(DiscordObject):
         if isinstance(item, Pixel):
             return item.xy in self
         return False
+
+    def __eq__(self, other):
+        return self.id == other.id if isinstance(other, Canvas) else False

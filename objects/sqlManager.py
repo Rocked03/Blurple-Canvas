@@ -757,18 +757,33 @@ class SQLManager:
             for row in rows
         }
 
-    async def fetch_frame(self, frame_id: str, canvas_id: int) -> CustomFrame:
+    async def fetch_frame(self, frame_id: str) -> CustomFrame:
         row = await self.conn.fetchrow(
             "SELECT f.*, g.manager_role, g.invite "
             "FROM frame f LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
-            "WHERE canvas_id = $1 AND f.id = $2",
-            canvas_id,
+            "WHERE f.id = $1",
             frame_id,
         )
 
         from objects.frame import CustomFrame
 
         return CustomFrame(bot=self.bot, **rename_invalid_keys(row)) if row else None
+
+    async def fetch_frames(
+        self, user_id: int = -1, guild_id: int = -1, frame_id: str = ""
+    ) -> list[CustomFrame]:
+        rows = await self.conn.fetch(
+            "SELECT f.*, g.manager_role, g.invite "
+            "FROM frame f LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+            "WHERE owner_id = $1 or owner_id = $2 or f.id = $3",
+            user_id,
+            guild_id,
+            frame_id,
+        )
+
+        from objects.frame import CustomFrame
+
+        return [CustomFrame(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
     async def insert_frame(self, frame: CustomFrame):
         await self.conn.execute(
@@ -778,10 +793,10 @@ class SQLManager:
             frame.canvas.id,
             frame.owner_id,
             frame.name,
-            frame.bbox.x_0,
-            frame.bbox.y_0,
-            frame.bbox.x_1,
-            frame.bbox.y_1,
+            frame.bbox.x0,
+            frame.bbox.y0,
+            frame.bbox.x1,
+            frame.bbox.y1,
             frame.is_guild_owned,
             frame.style_id,
         )
@@ -792,10 +807,10 @@ class SQLManager:
             "SET name = $1, x_0 = $2, y_0 = $3, x_1 = $4, y_1 = $5, style_id = $8 "
             "WHERE id = $6 AND canvas_id = $7",
             frame.name,
-            frame.bbox.x_0,
-            frame.bbox.y_0,
-            frame.bbox.x_1,
-            frame.bbox.y_1,
+            frame.bbox.x0,
+            frame.bbox.y0,
+            frame.bbox.x1,
+            frame.bbox.y1,
             frame.id,
             frame.canvas.id,
             frame.style_id,

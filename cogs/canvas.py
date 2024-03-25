@@ -310,6 +310,27 @@ class CanvasCog(commands.Cog, name="Canvas"):
             and color.id == int(current)
         ][:25]
 
+    async def autocomplete_frame_id(self, interaction, current):
+        sql = await self.sql()
+        frames = await sql.fetch_frames(
+            user_id=interaction.user.id,
+            guild_id=interaction.guild.id,
+            frame_id=current.upper(),
+        )
+        await sql.close()
+        frames.sort(key=lambda frame: frame.name)
+        frames.sort(key=lambda frame: frame.is_guild_owned)
+        frames.sort(key=lambda frame: neutralise(frame.id) == neutralise(current))
+        return [
+            Choice(
+                name=f"{frame.name} {frame.centroid}"
+                + (f" (guild frame)" if frame.is_guild_owned else ""),
+                value=frame.id,
+            )
+            for frame in frames
+            if not current or neutralise(current) in neutralise(frame.name)
+        ]
+
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         ignored = (
             commands.CommandNotFound,
@@ -329,9 +350,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         x="x coordinate",
         y="y coordinate",
         zoom="Zoom level (default 25)",
+        frame_id="Frame to view",
     )
     async def view(
-        self, interaction: Interaction, x: int = None, y: int = None, zoom: int = 25
+        self,
+        interaction: Interaction,
+        x: int = None,
+        y: int = None,
+        zoom: int = 25,
+        frame_id: str = None,
     ):
         """View the canvas"""
         if (x is None) != (y is None):
@@ -342,6 +369,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
         sql = await self.sql()
 
+        if frame_id:
+            frame = await sql.fetch_frame(frame_id)
+            if frame is None:
+                await sql.close()
+                return await interaction.followup.send("Frame not found.")
+        else:
+            frame = None
+
         try:
             timer = Timer()
             user, canvas = await self.find_canvas(interaction.user.id)
@@ -349,12 +384,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
             canvas = await self.check_cache(canvas)
 
             # Get frame
-            if not any([x, y]):
-                frame = await canvas.get_frame_full(sql)
+            if frame:
+                if not frame.canvas == canvas:
+                    return await interaction.followup.send(
+                        "This frame does not belong to this canvas."
+                    )
+                await canvas.load_frame_pixels(sql, frame)
             else:
-                frame = await canvas.get_frame_from_coordinate(
-                    sql, canvas.get_true_coordinates(x, y), zoom
-                )
+                if not any([x, y]):
+                    frame = await canvas.get_frame_full(sql)
+                else:
+                    frame = await canvas.get_frame_from_coordinate(
+                        sql, canvas.get_true_coordinates(x, y), zoom
+                    )
             await sql.close()
 
         except ValueError as e:
@@ -372,13 +414,26 @@ class CanvasCog(commands.Cog, name="Canvas"):
         # Embed
         embed = self.base_embed(
             user=interaction.user,
-            title=f"{self.info.title} • {canvas.name} {Coordinates(x, y) if x and y else ''}",
+            title=(
+                f"{self.info.title} • "
+                + (
+                    f"{canvas.name} {Coordinates(x, y) if x and y else ''}"
+                    if not frame.name
+                    else f"{canvas.name} • {frame.name} {frame.centroid}"
+                )
+            ),
+            footer=f"{canvas.id}",
         )
         timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})")
         await interaction.followup.send(
             embed=embed,
             file=file,
         )
+
+    @view.autocomplete("frame_id")
+    async def view_autocomplete_frame_id(self, interaction: Interaction, current: str):
+        await interaction.response.defer()
+        return await self.autocomplete_frame_id(interaction, current)
 
     @app_commands.command(name="place")
     @app_commands.describe(
@@ -931,6 +986,23 @@ class CanvasCog(commands.Cog, name="Canvas"):
             if guild:
                 choices.append(Choice(name=guild.name, value=str(guild.id)))
         return choices
+
+    frame_group = app_commands.Group(name="frame", description="Frame commands")
+
+    @frame_group.command(name="create")
+    async def frame_create(self, interaction: Interaction):
+        """Create a custom frame"""
+        pass
+
+    @frame_group.command(name="edit")
+    async def frame_edit(self, interaction: Interaction):
+        """Edit a custom frame"""
+        pass
+
+    @frame_group.command(name="delete")
+    async def frame_delete(self, interaction: Interaction):
+        """Delete a custom frame"""
+        pass
 
     # Admin Commands
 

@@ -77,6 +77,12 @@ class Frame(DiscordObject):
             focus=xy if focus else None,
         )
 
+    @property
+    def centroid(self) -> Coordinates:
+        return Coordinates(
+            (self.bbox.x0 + self.bbox.x1) // 2, (self.bbox.y0 + self.bbox.y1) // 2
+        )
+
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
 
@@ -177,12 +183,7 @@ class CustomFrame(Frame):
         canvas_id: int = None,
         owner_id: int = None,
         name: str = None,
-        x_0: int = None,
-        y_0: int = None,
-        x_1: int = None,
-        y_1: int = None,
         style_id: int = None,
-        bbox: BoundingBox = None,
         canvas: Canvas = None,
         owner: User | Guild = None,
         **kwargs,
@@ -192,10 +193,6 @@ class CustomFrame(Frame):
         self.name = name
         self.is_guild_owned = is_guild_owned
         self.style_id = style_id
-
-        self.bbox = (
-            BoundingBox.from_coordinates(x_0, y_0, x_1, y_1) if bbox is None else bbox
-        )
 
         from objects.canvas import Canvas
 
