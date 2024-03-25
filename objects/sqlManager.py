@@ -411,7 +411,7 @@ class SQLManager:
                     record.pixel.y,
                     record.pixel.color.id,
                     record.timestamp,
-                    record.guild.id,
+                    record.guild.id if record.guild else None,
                 )
                 for record in records
             ],

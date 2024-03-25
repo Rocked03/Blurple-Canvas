@@ -106,7 +106,7 @@ class Canvas(DiscordObject):
                 self.pixels[pixel.xy] = pixel
 
         await sql_manager.update_pixels(
-            pixels=pixels, user_id=user_id.id, guild_id=guild_id
+            pixels=pixels, user_id=user_id, guild_id=guild_id
         )
 
     async def lock(self, sql_manager: SQLManager):

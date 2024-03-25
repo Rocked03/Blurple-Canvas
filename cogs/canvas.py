@@ -34,7 +34,7 @@ from objects.guild import Participation
 from objects.pixel import Pixel
 from objects.sqlManager import SQLManager
 from objects.stats import Leaderboard
-from objects.timer import Timer
+from objects.timer import Timer, format_delta
 from objects.user import User
 from objects.views import (
     ConfirmEnum,
@@ -734,7 +734,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         embed.description = f"Showing stats in **{canvas.name}**"
 
-        embed.add_field(name="Pixels placed", value=f"{stats.total_pixels:,}")
+        embed.add_field(name="Total pixels placed", value=f"{stats.total_pixels:,}")
         embed.add_field(
             name="Total pixels leaderboard", value=f"{stats.ranking_ordinal} place"
         )
@@ -742,6 +742,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
             name="Most frequent color placed",
             value=stats.most_frequent_color_formatted,
         )
+        if stats.place_frequency:
+            embed.add_field(
+                name="Average pixel placing frequency",
+                value=format_delta(stats.place_frequency),
+            )
+        if stats.most_recent_timestamp:
+            embed.add_field(
+                name="Most recent pixel placed",
+                value=f"<t:{stats.most_recent_timestamp.timestamp():.0f}:R>",
+            )
 
         await interaction.followup.send(embed=embed)
 
@@ -804,6 +814,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
             name="Most frequent color placed",
             value=stats.most_frequent_color_formatted,
         )
+
+        if stats.place_frequency:
+            embed.add_field(
+                name="Average pixel placing frequency",
+                value=format_delta(stats.place_frequency),
+            )
+        if stats.most_recent_timestamp:
+            embed.add_field(
+                name="Most recent pixel placed",
+                value=f"<t:{stats.most_recent_timestamp.timestamp():.0f}:R>",
+            )
 
         if stats.leaderboard:
             await stats.leaderboard.load_colors(sql, canvas.id)
@@ -1008,15 +1029,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if author is None:
             author = interaction.user
 
+        await interaction.response.defer()
+
         sql = await self.sql()
 
         try:
             user, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
-            return await interaction.response.send_message(str(e), ephemeral=True)
-
-        await interaction.response.defer()
+            return await interaction.followup.send(str(e), ephemeral=True)
 
         if canvas.is_locked:
             await sql.close()

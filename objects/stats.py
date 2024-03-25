@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta, datetime
 from typing import Optional
 
 from discord import User as UserDiscord, NotFound
@@ -133,14 +134,6 @@ class MostFrequentColorStat:
         return self.most_frequent_color_formatted
 
 
-class UserStats(MostFrequentColorStat, Ranking):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def __str__(self):
-        return f"User Stats - {self.name}"
-
-
 class Leaderboard:
     def __init__(self, leaderboard: list[Ranking]):
         self.leaderboard: list[Ranking] = leaderboard
@@ -166,10 +159,35 @@ class Leaderboard:
         )
 
 
+class UserStats(MostFrequentColorStat, Ranking):
+    def __init__(
+        self,
+        *,
+        place_frequency: timedelta = None,
+        most_recent_timestamp: datetime = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.place_frequency = place_frequency
+        self.most_recent_timestamp = most_recent_timestamp
+
+    def __str__(self):
+        return f"User Stats - {self.name}"
+
+
 class GuildStats(MostFrequentColorStat, GuildStatsBase):
-    def __init__(self, total_pixels: int, **kwargs):
+    def __init__(
+        self,
+        *,
+        total_pixels: int,
+        place_frequency: timedelta = None,
+        most_recent_timestamp: datetime = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.total_pixels = total_pixels
+        self.place_frequency = place_frequency
+        self.most_recent_timestamp = most_recent_timestamp
 
         self.leaderboard: Optional[Leaderboard] = None
 
