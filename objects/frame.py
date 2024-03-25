@@ -21,7 +21,6 @@ class Frame(DiscordObject):
     def __init__(
         self,
         *,
-        _id: int = None,
         canvas_id: int = None,
         x_0: int = None,
         y_0: int = None,
@@ -34,7 +33,6 @@ class Frame(DiscordObject):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.id = _id
         self.bbox: Optional[BoundingBox] = (
             BoundingBox(Coordinates(x_0, y_0), Coordinates(x_1, y_1))
             if not bbox and (x_0 and y_0 and x_1 and y_1)

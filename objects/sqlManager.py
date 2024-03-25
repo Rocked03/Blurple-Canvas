@@ -759,8 +759,11 @@ class SQLManager:
 
     async def fetch_frame(self, frame_id: str) -> CustomFrame:
         row = await self.conn.fetchrow(
-            "SELECT f.*, g.manager_role, g.invite "
-            "FROM frame f LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+            "SELECT f.*, g.manager_role, g.invite, "
+            "width, height, start_coordinates "
+            "FROM frame f "
+            "LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+            "LEFT JOIN canvas c ON f.canvas_id = c.id "
             "WHERE f.id = $1",
             frame_id,
         )
@@ -773,8 +776,11 @@ class SQLManager:
         self, user_id: int = -1, guild_id: int = -1, frame_id: str = ""
     ) -> list[CustomFrame]:
         rows = await self.conn.fetch(
-            "SELECT f.*, g.manager_role, g.invite "
-            "FROM frame f LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+            "SELECT f.*, g.manager_role, g.invite, "
+            "width, height, start_coordinates "
+            "FROM frame f "
+            "LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+            "LEFT JOIN canvas c ON f.canvas_id = c.id "
             "WHERE owner_id = $1 or owner_id = $2 or f.id = $3",
             user_id,
             guild_id,

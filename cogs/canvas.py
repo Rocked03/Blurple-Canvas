@@ -316,6 +316,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         ][:25]
 
     async def autocomplete_frame_id(self, interaction, current):
+        current = current.strip().upper()
         sql = await self.sql()
         frames = await sql.fetch_frames(
             user_id=interaction.user.id,
@@ -1075,9 +1076,43 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
 
     @frame_group.command(name="edit")
-    async def frame_edit(self, interaction: Interaction):
+    @app_commands.describe(frame_id="Frame to edit")
+    async def frame_edit(self, interaction: Interaction, frame_id: str):
         """Edit a custom frame"""
-        pass
+        frame_id = frame_id.upper()
+
+        await interaction.response.defer()
+
+        sql = await self.sql()
+
+        frame = await sql.fetch_frame(frame_id)
+
+        if frame is None:
+            await sql.close()
+            return await interaction.followup.send("Frame not found.")
+
+        if frame.owner_id != interaction.user.id:
+            await sql.close()
+            return await interaction.followup.send(
+                "You do not own this frame. If this is a guild frame, use `/frame guild-edit`."
+            )
+
+        frame.canvas = await self.check_cache(frame.canvas)
+
+        frame = await self.frame_editor(
+            interaction, frame=frame, max_size_percentage=0.1
+        )
+
+        if frame:
+            sql = await self.sql()
+            await frame.update(sql)
+            await sql.close()
+
+    @frame_edit.autocomplete("frame_id")
+    async def frame_edit_autocomplete_frame_id(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_frame_id(interaction, current)
 
     @frame_group.command(name="guild-edit")
     async def frame_guild_edit(self, interaction: Interaction):
