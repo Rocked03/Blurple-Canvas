@@ -999,10 +999,42 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Edit a custom frame"""
         pass
 
-    @frame_group.command(name="delete")
-    async def frame_delete(self, interaction: Interaction):
-        """Delete a custom frame"""
+    @frame_group.command(name="guild-edit")
+    async def frame_guild_edit(self, interaction: Interaction):
+        """Edit a guild custom frame"""
         pass
+
+    @frame_group.command(name="delete")
+    @app_commands.describe(frame_id="Frame to delete")
+    async def frame_delete(self, interaction: Interaction, frame_id: str):
+        """Delete a custom frame"""
+        sql = await self.sql()
+
+        frame = await sql.fetch_frame(frame_id)
+        if frame is None:
+            await sql.close()
+            return await interaction.response.send_message("Frame not found.")
+
+        if frame.is_guild_owned or frame.owner_id != interaction.user.id:
+            await sql.close()
+            return await interaction.response.send_message(
+                "You do not own this frame.", ephemeral=True
+            )
+
+        await interaction.response.defer()
+
+        await frame.delete(sql)
+        await sql.close()
+
+        await interaction.followup.send(
+            f"Deleted your frame '{frame.name}' ({frame.bbox})."
+        )
+
+    @frame_delete.autocomplete("frame_id")
+    async def frame_delete_autocomplete_frame_id(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_frame_id(interaction, current)
 
     # Admin Commands
 

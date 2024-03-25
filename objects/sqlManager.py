@@ -816,12 +816,8 @@ class SQLManager:
             frame.style_id,
         )
 
-    async def delete_frame(self, frame_id: str, canvas_id: int):
-        await self.conn.execute(
-            "DELETE FROM frame WHERE id = $1 AND canvas_id = $2",
-            frame_id,
-            canvas_id,
-        )
+    async def delete_frame(self, frame_id: str):
+        await self.conn.execute("DELETE FROM frame WHERE id = $1", frame_id)
 
     async def trigger_delete_surpassed_cooldowns(self):
         try:

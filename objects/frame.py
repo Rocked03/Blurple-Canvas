@@ -215,10 +215,16 @@ class CustomFrame(Frame):
 
     @property
     def owner_id(self):
+        from objects.user import User
+        from objects.guild import Guild
+
         if isinstance(self.owner, User):
             return self.owner.id
         elif isinstance(self.owner, Guild):
             return self.owner.guild_id
+
+    async def delete(self, sql_manager: SQLManager):
+        await sql_manager.delete_frame(self.id)
 
     def __str__(self):
         return f"Custom Frame {self.name} ({self.id}) ({self.canvas})"
