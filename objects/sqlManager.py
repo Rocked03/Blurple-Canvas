@@ -29,6 +29,8 @@ class SQLManager:
     async def close(self):
         await self.conn.close()
 
+    # CANVAS
+
     async def fetch_canvas_all(self) -> Generator[Canvas, Any, None]:
         rows = await self.conn.fetch("SELECT * FROM canvas")
 
@@ -84,6 +86,69 @@ class SQLManager:
         from objects.canvas import Canvas
 
         return [Canvas(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+
+    async def insert_canvas(self, canvas: Canvas):
+        if canvas.id:
+            await self.conn.execute(
+                (
+                    "INSERT INTO canvas (id, name, event_id, width, height, cooldown_length) "
+                    "VALUES ($1, $2, $3, $4, $5, $6)"
+                ),
+                canvas.id,
+                canvas.name,
+                canvas.event.id,
+                canvas.width,
+                canvas.height,
+                canvas.cooldown_length,
+            )
+            return canvas.id
+        else:
+            returning = await self.conn.fetch(
+                (
+                    "INSERT INTO canvas (name, event_id, width, height, cooldown_length) "
+                    "VALUES ($1, $2, $3, $4, $5) "
+                    "RETURNING id"
+                ),
+                canvas.name,
+                canvas.event.id,
+                canvas.width,
+                canvas.height,
+                canvas.cooldown_length,
+            )
+            return returning[0]["id"]
+
+    async def create_canvas_partition(self, canvas: Canvas):
+        name = f"public.pixels_{canvas.id}"
+        await self.conn.execute(
+            f"CREATE TABLE {name} "
+            f"PARTITION OF pixels "
+            f"(PRIMARY KEY (canvas_id, x, y))"
+            f"FOR VALUES IN ({canvas.id})",
+        )
+
+    async def update_canvas(self, canvas: Canvas):
+        await self.conn.execute(
+            "UPDATE canvas "
+            "SET name = $1, event_id = $2, cooldown_length = $3 WHERE id = $4",
+            canvas.name,
+            canvas.event.id,
+            canvas.cooldown_length,
+            canvas.id,
+        )
+
+    async def lock_canvas(self, canvas: Canvas):
+        await self.conn.execute(
+            "UPDATE canvas SET locked = TRUE WHERE id = $1",
+            canvas.id,
+        )
+
+    async def unlock_canvas(self, canvas: Canvas):
+        await self.conn.execute(
+            "UPDATE canvas SET locked = FALSE WHERE id = $1",
+            canvas.id,
+        )
+
+    # COLORS
 
     async def fetch_colors(
         self, *, color_ids: list[int] = None, color_codes: list[str] = None
@@ -142,6 +207,25 @@ class SQLManager:
 
         return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
+    # HISTORY RECORDS
+
+    async def insert_color(self, color: Color) -> int:
+        return (
+            await self.conn.fetch(
+                (
+                    "INSERT INTO color (code, emoji_name, emoji_id, global, name, rgba) "
+                    "VALUES ($1, $2, $3, $4, $5, $6) "
+                    "RETURNING id"
+                ),
+                color.code,
+                color.emoji_name,
+                color.emoji_id,
+                color.is_global,
+                color.name,
+                color.rgba,
+            )
+        )[0]["id"]
+
     async def fetch_history_records(
         self, canvas_id: int, *, user_id: int = None
     ) -> Generator[HistoryRecord, Any, None]:
@@ -160,6 +244,22 @@ class SQLManager:
         from objects.historyRecord import HistoryRecord
 
         return (HistoryRecord(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
+
+    # PARTICIPATION
+
+    async def insert_history_record(self, history_record: HistoryRecord):
+        await self.conn.execute(
+            (
+                "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp) "
+                "VALUES ($1, $2, $3, $4, $5, $6)"
+            ),
+            history_record.pixel.canvas.id,
+            history_record.user.id,
+            history_record.pixel.x,
+            history_record.pixel.y,
+            history_record.pixel.color.id,
+            history_record.timestamp,
+        )
 
     async def fetch_participation(self, guild_id: int, event_id: int) -> Participation:
         row = await self.conn.fetchrow(
@@ -193,6 +293,21 @@ class SQLManager:
         from objects.guild import Participation
 
         return [Participation(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+
+    # INFO
+
+    async def insert_participation(self, participation: Participation):
+        await self.conn.execute(
+            (
+                "INSERT INTO participation (guild_id, event_id, color_id) "
+                "VALUES ($1, $2, $3)"
+            ),
+            participation.guild_id,
+            participation.event.id,
+            participation.color.id,
+        )
+
+    # PIXELS
 
     async def fetch_info(self) -> Info:
         row = await self.conn.fetchrow("SELECT * FROM info")
@@ -232,6 +347,78 @@ class SQLManager:
             for pixel in pixels
         ]
 
+    async def create_pixels(self, canvas: Canvas, color: Color):
+        await self.conn.execute(
+            "INSERT INTO pixels (canvas_id, x, y, color_id) "
+            "SELECT $1, x, y, $2 FROM generate_series(0, $3) x, generate_series(0, $4) y",
+            canvas.id,
+            color.id,
+            canvas.width - 1,
+            canvas.height - 1,
+        )
+
+    async def set_pixel(self, pixel: Pixel):
+        await self.set_pixels([pixel])
+
+    async def set_pixels(self, pixels: list[Pixel]):
+        await self.conn.executemany(
+            "UPDATE pixels SET color_id = $1 WHERE canvas_id = $2 AND x = $3 AND y = $4",
+            [(pixel.color.id, pixel.canvas.id, pixel.x, pixel.y) for pixel in pixels],
+        )
+
+    async def update_pixel(
+        self,
+        *,
+        pixel: Pixel,
+        user_id: int,
+        timestamp: datetime = None,
+        guild_id: int = None,
+    ):
+        if timestamp is None:
+            timestamp = datetime.now(tz=timezone.utc)
+        await self.update_pixels(
+            pixels=[pixel], user_id=user_id, timestamp=timestamp, guild_id=guild_id
+        )
+
+    # USER
+
+    async def update_pixels(
+        self,
+        *,
+        pixels: list[Pixel],
+        user_id: int,
+        timestamp: datetime = None,
+        guild_id: int = None,
+    ):
+        if timestamp is None:
+            timestamp = datetime.now(tz=timezone.utc)
+        from objects.historyRecord import HistoryRecord
+
+        records = [
+            HistoryRecord(
+                pixel=pixel, user_id=user_id, guild_id=guild_id, timestamp=timestamp
+            )
+            for pixel in pixels
+        ]
+        await self.conn.executemany(
+            "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp, guild_id) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [
+                (
+                    record.pixel.canvas.id,
+                    record.user.id,
+                    record.pixel.x,
+                    record.pixel.y,
+                    record.pixel.color.id,
+                    record.timestamp,
+                    record.guild.id,
+                )
+                for record in records
+            ],
+        )
+
+        await self.set_pixels(pixels)
+
     async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
         row = await self.conn.fetchrow(
             "SELECT u.*, b.date_added, "
@@ -251,6 +438,32 @@ class SQLManager:
             return insert_on_fail
         else:
             return await self.insert_empty_user(user_id)
+
+    async def insert_user(self, user: User):
+        await self.conn.execute(
+            (
+                "INSERT INTO public.user (id, current_canvas_id, skip_confirm, cooldown_remind) "
+                "VALUES ($1, $2, $3, $4)"
+            ),
+            user.id,
+            user.current_canvas.id if user.current_canvas else None,
+            user.skip_confirm,
+            user.cooldown_remind,
+        )
+
+    # GUILD
+
+    async def insert_empty_user(self, user_id: int) -> User:
+        from objects.user import User
+
+        user = User(
+            _id=user_id,
+            current_canvas_id=None,
+            skip_confirm=False,
+            cooldown_remind=False,
+        )
+        await self.insert_user(user)
+        return user
 
     async def fetch_guild(
         self, guild_id: int, *, insert_on_fail: Guild = None
@@ -278,6 +491,37 @@ class SQLManager:
         else:
             return await self.insert_empty_guild(guild_id)
 
+    async def insert_guild(self, guild: Guild):
+        await self.conn.execute(
+            "INSERT INTO guild (id, manager_role, invite) " "VALUES ($1, $2, $3)",
+            guild.id,
+            guild.manager_role,
+            guild.invite,
+        )
+
+    async def update_guild(
+        self, guild: Guild, invite: str = None, manager_role_id: int = None
+    ):
+        await self.conn.execute(
+            "UPDATE guild SET manager_role = COALESCE($1, manager_role), invite = COALESCE($2, invite) WHERE id = $3",
+            manager_role_id,
+            invite,
+            guild.id,
+        )
+
+    # USER MODIFIERS
+
+    async def insert_empty_guild(self, guild_id: int) -> Guild:
+        from objects.guild import Guild
+
+        guild = Guild(
+            _id=guild_id,
+            manager_role=None,
+            invite=None,
+        )
+        await self.insert_guild(guild)
+        return guild
+
     async def fetch_cooldown(self, user_id: int, canvas_id: int) -> Cooldown:
         row = await self.conn.fetchrow(
             "SELECT * FROM cooldown WHERE user_id = $1 and canvas_id = $2",
@@ -294,6 +538,66 @@ class SQLManager:
 
         rows = await self.conn.fetch("SELECT * FROM blacklist")
         return [Blacklist(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
+
+    async def set_current_canvas(self, user: User):
+        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.conn.execute(
+            "UPDATE public.user SET current_canvas_id = $1 WHERE id = $2",
+            user.current_canvas.id,
+            user.id,
+        )
+
+    async def set_skip_confirm(self, user: User):
+        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.conn.execute(
+            "UPDATE public.user SET skip_confirm = $1 WHERE id = $2",
+            user.skip_confirm,
+            user.id,
+        )
+
+    async def set_cooldown_remind(self, user: User):
+        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.conn.execute(
+            "UPDATE public.user SET cooldown_remind = $1 WHERE id = $2",
+            user.cooldown_remind,
+            user.id,
+        )
+
+    async def add_cooldown(self, cooldown: Cooldown):
+        await self.conn.execute(
+            "INSERT INTO cooldown (user_id, canvas_id, cooldown_time) VALUES ($1, $2, $3)",
+            cooldown.user.id,
+            cooldown.canvas.id,
+            cooldown.cooldown_time,
+        )
+
+    async def set_cooldown(self, cooldown: Cooldown):
+        await self.conn.execute(
+            "UPDATE cooldown SET cooldown_time = $1 WHERE user_id = $2",
+            cooldown.cooldown_time,
+            cooldown.user.id,
+        )
+
+    async def clear_cooldown(self, user_id: int):
+        await self.conn.execute(
+            "DELETE FROM cooldown WHERE user_id = $1",
+            user_id,
+        )
+
+    async def add_blacklist(self, user_id: int):
+        await self.conn.execute(
+            "INSERT INTO blacklist (user_id, date_added) VALUES ($1, $2)",
+            user_id,
+            datetime.now(tz=timezone.utc),
+        )
+
+    # STATS
+
+    async def remove_blacklist(self, user_id: int):
+        await self.conn.execute(
+            "DELETE FROM blacklist WHERE user_id = $1",
+            user_id,
+        )
 
     async def fetch_leaderboard(
         self,
@@ -418,6 +722,8 @@ class SQLManager:
 
         return UserStats(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
+    # FRAMES
+
     async def fetch_guild_stats(self, guild_id: int, canvas_id: int) -> GuildStats:
         row = await self.conn.fetchrow(
             "SELECT g.*, code, emoji_name, emoji_id, global, name, rgba "
@@ -500,290 +806,6 @@ class SQLManager:
             "DELETE FROM frame WHERE id = $1 AND canvas_id = $2",
             frame_id,
             canvas_id,
-        )
-
-    async def insert_color(self, color: Color) -> int:
-        return (
-            await self.conn.fetch(
-                (
-                    "INSERT INTO color (code, emoji_name, emoji_id, global, name, rgba) "
-                    "VALUES ($1, $2, $3, $4, $5, $6) "
-                    "RETURNING id"
-                ),
-                color.code,
-                color.emoji_name,
-                color.emoji_id,
-                color.is_global,
-                color.name,
-                color.rgba,
-            )
-        )[0]["id"]
-
-    async def insert_participation(self, participation: Participation):
-        await self.conn.execute(
-            (
-                "INSERT INTO participation (guild_id, event_id, color_id) "
-                "VALUES ($1, $2, $3)"
-            ),
-            participation.guild_id,
-            participation.event.id,
-            participation.color.id,
-        )
-
-    async def insert_guild(self, guild: Guild):
-        await self.conn.execute(
-            "INSERT INTO guild (id, manager_role, invite) " "VALUES ($1, $2, $3)",
-            guild.id,
-            guild.manager_role,
-            guild.invite,
-        )
-
-    async def insert_empty_guild(self, guild_id: int) -> Guild:
-        from objects.guild import Guild
-
-        guild = Guild(
-            _id=guild_id,
-            manager_role=None,
-            invite=None,
-        )
-        await self.insert_guild(guild)
-        return guild
-
-    async def insert_history_record(self, history_record: HistoryRecord):
-        await self.conn.execute(
-            (
-                "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp) "
-                "VALUES ($1, $2, $3, $4, $5, $6)"
-            ),
-            history_record.pixel.canvas.id,
-            history_record.user.id,
-            history_record.pixel.x,
-            history_record.pixel.y,
-            history_record.pixel.color.id,
-            history_record.timestamp,
-        )
-
-    async def insert_user(self, user: User):
-        await self.conn.execute(
-            (
-                "INSERT INTO public.user (id, current_canvas_id, skip_confirm, cooldown_remind) "
-                "VALUES ($1, $2, $3, $4)"
-            ),
-            user.id,
-            user.current_canvas.id if user.current_canvas else None,
-            user.skip_confirm,
-            user.cooldown_remind,
-        )
-
-    async def insert_empty_user(self, user_id: int) -> User:
-        from objects.user import User
-
-        user = User(
-            _id=user_id,
-            current_canvas_id=None,
-            skip_confirm=False,
-            cooldown_remind=False,
-        )
-        await self.insert_user(user)
-        return user
-
-    async def insert_canvas(self, canvas: Canvas):
-        if canvas.id:
-            await self.conn.execute(
-                (
-                    "INSERT INTO canvas (id, name, event_id, width, height, cooldown_length) "
-                    "VALUES ($1, $2, $3, $4, $5, $6)"
-                ),
-                canvas.id,
-                canvas.name,
-                canvas.event.id,
-                canvas.width,
-                canvas.height,
-                canvas.cooldown_length,
-            )
-            return canvas.id
-        else:
-            returning = await self.conn.fetch(
-                (
-                    "INSERT INTO canvas (name, event_id, width, height, cooldown_length) "
-                    "VALUES ($1, $2, $3, $4, $5) "
-                    "RETURNING id"
-                ),
-                canvas.name,
-                canvas.event.id,
-                canvas.width,
-                canvas.height,
-                canvas.cooldown_length,
-            )
-            return returning[0]["id"]
-
-    async def create_canvas_partition(self, canvas: Canvas):
-        name = f"public.pixels_{canvas.id}"
-        await self.conn.execute(
-            f"CREATE TABLE {name} "
-            f"PARTITION OF pixels "
-            f"(PRIMARY KEY (canvas_id, x, y))"
-            f"FOR VALUES IN ({canvas.id})",
-        )
-
-    async def update_guild(
-        self, guild: Guild, invite: str = None, manager_role_id: int = None
-    ):
-        await self.conn.execute(
-            "UPDATE guild SET manager_role = COALESCE($1, manager_role), invite = COALESCE($2, invite) WHERE id = $3",
-            manager_role_id,
-            invite,
-            guild.id,
-        )
-
-    async def update_canvas(self, canvas: Canvas):
-        await self.conn.execute(
-            "UPDATE canvas "
-            "SET name = $1, event_id = $2, cooldown_length = $3 WHERE id = $4",
-            canvas.name,
-            canvas.event.id,
-            canvas.cooldown_length,
-            canvas.id,
-        )
-
-    async def create_pixels(self, canvas: Canvas, color: Color):
-        await self.conn.execute(
-            "INSERT INTO pixels (canvas_id, x, y, color_id) "
-            "SELECT $1, x, y, $2 FROM generate_series(0, $3) x, generate_series(0, $4) y",
-            canvas.id,
-            color.id,
-            canvas.width - 1,
-            canvas.height - 1,
-        )
-
-    async def set_pixel(self, pixel: Pixel):
-        await self.set_pixels([pixel])
-
-    async def set_pixels(self, pixels: list[Pixel]):
-        await self.conn.executemany(
-            "UPDATE pixels SET color_id = $1 WHERE canvas_id = $2 AND x = $3 AND y = $4",
-            [(pixel.color.id, pixel.canvas.id, pixel.x, pixel.y) for pixel in pixels],
-        )
-
-    async def update_pixel(
-        self,
-        *,
-        pixel: Pixel,
-        user_id: int,
-        timestamp: datetime = None,
-        guild_id: int = None,
-    ):
-        if timestamp is None:
-            timestamp = datetime.now(tz=timezone.utc)
-        await self.update_pixels(
-            pixels=[pixel], user_id=user_id, timestamp=timestamp, guild_id=guild_id
-        )
-
-    async def update_pixels(
-        self,
-        *,
-        pixels: list[Pixel],
-        user_id: int,
-        timestamp: datetime = None,
-        guild_id: int = None,
-    ):
-        if timestamp is None:
-            timestamp = datetime.now(tz=timezone.utc)
-        from objects.historyRecord import HistoryRecord
-
-        records = [
-            HistoryRecord(
-                pixel=pixel, user_id=user_id, guild_id=guild_id, timestamp=timestamp
-            )
-            for pixel in pixels
-        ]
-        await self.conn.executemany(
-            "INSERT INTO history (canvas_id, user_id, x, y, color_id, timestamp, guild_id) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7)",
-            [
-                (
-                    record.pixel.canvas.id,
-                    record.user.id,
-                    record.pixel.x,
-                    record.pixel.y,
-                    record.pixel.color.id,
-                    record.timestamp,
-                    record.guild.id,
-                )
-                for record in records
-            ],
-        )
-
-        await self.set_pixels(pixels)
-
-    async def set_current_canvas(self, user: User):
-        await self.fetch_user(user.id, insert_on_fail=user)
-        await self.conn.execute(
-            "UPDATE public.user SET current_canvas_id = $1 WHERE id = $2",
-            user.current_canvas.id,
-            user.id,
-        )
-
-    async def set_skip_confirm(self, user: User):
-        await self.fetch_user(user.id, insert_on_fail=user)
-        await self.conn.execute(
-            "UPDATE public.user SET skip_confirm = $1 WHERE id = $2",
-            user.skip_confirm,
-            user.id,
-        )
-
-    async def set_cooldown_remind(self, user: User):
-        await self.fetch_user(user.id, insert_on_fail=user)
-        await self.conn.execute(
-            "UPDATE public.user SET cooldown_remind = $1 WHERE id = $2",
-            user.cooldown_remind,
-            user.id,
-        )
-
-    async def add_cooldown(self, cooldown: Cooldown):
-        await self.conn.execute(
-            "INSERT INTO cooldown (user_id, canvas_id, cooldown_time) VALUES ($1, $2, $3)",
-            cooldown.user.id,
-            cooldown.canvas.id,
-            cooldown.cooldown_time,
-        )
-
-    async def set_cooldown(self, cooldown: Cooldown):
-        await self.conn.execute(
-            "UPDATE cooldown SET cooldown_time = $1 WHERE user_id = $2",
-            cooldown.cooldown_time,
-            cooldown.user.id,
-        )
-
-    async def clear_cooldown(self, user_id: int):
-        await self.conn.execute(
-            "DELETE FROM cooldown WHERE user_id = $1",
-            user_id,
-        )
-
-    async def add_blacklist(self, user_id: int):
-        await self.conn.execute(
-            "INSERT INTO blacklist (user_id, date_added) VALUES ($1, $2)",
-            user_id,
-            datetime.now(tz=timezone.utc),
-        )
-
-    async def remove_blacklist(self, user_id: int):
-        await self.conn.execute(
-            "DELETE FROM blacklist WHERE user_id = $1",
-            user_id,
-        )
-
-    async def lock_canvas(self, canvas: Canvas):
-        await self.conn.execute(
-            "UPDATE canvas SET locked = TRUE WHERE id = $1",
-            canvas.id,
-        )
-
-    async def unlock_canvas(self, canvas: Canvas):
-        await self.conn.execute(
-            "UPDATE canvas SET locked = FALSE WHERE id = $1",
-            canvas.id,
         )
 
     async def trigger_delete_surpassed_cooldowns(self):
