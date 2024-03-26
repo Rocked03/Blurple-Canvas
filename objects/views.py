@@ -227,8 +227,8 @@ class FrameEditView(ConfirmView):
 
         self.add_item(self.EditButton(row=0))
 
-        self.add_item(self.cancel_button(row=1))
-        self.add_item(self.confirm_button(row=1, disabled=not self.frame.is_complete))
+        self.add_item(self.cancel_button(row=0))
+        self.add_item(self.confirm_button(row=0, disabled=not self.frame.is_complete))
 
     def update_message_contents(self):
         self.embed = self.to_embed()

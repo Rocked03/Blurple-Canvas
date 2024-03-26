@@ -791,6 +791,15 @@ class SQLManager:
 
         return [CustomFrame(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
+    async def fetch_frame_count(self, owner_id: int, canvas_id: int) -> int:
+        row = await self.conn.fetchrow(
+            "SELECT COUNT(*) AS count FROM frame "
+            "WHERE owner_id = $1 AND canvas_id = $2",
+            owner_id,
+            canvas_id,
+        )
+        return row[0] if row else 0
+
     async def insert_frame(self, frame: CustomFrame):
         await self.conn.execute(
             "INSERT INTO frame (id, canvas_id, owner_id, name, x_0, y_0, x_1, y_1, is_guild_owned, style_id) "

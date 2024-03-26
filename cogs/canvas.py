@@ -19,6 +19,7 @@ from discord import (
     Embed,
     Message,
     Attachment,
+    Role,
 )
 from discord.app_commands import Choice
 from discord.ext import commands
@@ -101,6 +102,17 @@ class StartupEvents:
         await self.palette.wait()
         self.startup.set()
         print("Startup complete")
+
+
+def guild_permission_check(interaction: Interaction, manager_role: Role = None):
+    perms = interaction.user.guild_permissions
+    return any(
+        [
+            perms.administrator,
+            perms.manage_guild,
+            manager_role in interaction.user.roles,
+        ]
+    )
 
 
 class CanvasCog(commands.Cog, name="Canvas"):
@@ -1053,14 +1065,82 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return await interaction.followup.send(str(e), ephemeral=True)
         canvas = await self.check_cache(canvas)
 
+        sql = await self.sql()
+        count = await sql.fetch_frame_count(interaction.user.id, canvas.id)
+        await sql.close()
+
+        max_frames = 5
+        if count >= max_frames:
+            return await interaction.followup.send(
+                f"You have reached the maximum of {max_frames} frames in {canvas.name}."
+            )
+
         new_frame = CustomFrame(
             canvas=canvas, owner_id=interaction.user.id, is_guild_owned=False
         )
 
-        frame = await self.frame_editor(
-            interaction, frame=new_frame, edit=False, max_size_percentage=0.1
+        await self.create_frame(interaction, new_frame, 0.1)
+
+    @frame_group.command(name="guild-create")
+    async def frame_guild_create(self, interaction: Interaction):
+        """Create a guild frame"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        guild = await sql.fetch_guild(interaction.guild.id)
+        await sql.close()
+
+        perms = interaction.user.guild_permissions
+        if guild is None:
+            if perms.administrator or perms.manage_guild:
+                return await interaction.followup.send(
+                    "This guild is not set up. Please use `/setup` to register this guild with the bot."
+                )
+            else:
+                return await interaction.followup.send(
+                    "This guild is not set up. Please ask your server admin to use `/setup` (`Manage Server` required)."
+                )
+
+        if not guild_permission_check(interaction, guild.manager_role):
+            return await interaction.followup.send(
+                "You do not have permission to create a frame for this guild. "
+                "Please ask your server admin to create one."
+            )
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            return await interaction.followup.send(str(e), ephemeral=True)
+        canvas = await self.check_cache(canvas)
+
+        sql = await self.sql()
+        count = await sql.fetch_frame_count(interaction.guild.id, canvas.id)
+        await sql.close()
+
+        max_frames = 5
+        if count >= max_frames:
+            return await interaction.followup.send(
+                f"You have reached the maximum of {max_frames} frames in {canvas.name}."
+            )
+
+        new_frame = CustomFrame(
+            canvas=canvas, owner_id=interaction.guild.id, is_guild_owned=True
         )
 
+        await self.create_frame(interaction, new_frame, 0.25)
+
+    async def create_frame(
+        self,
+        interaction: Interaction,
+        new_frame: CustomFrame,
+        max_size_percentage: float,
+    ):
+        frame = await self.frame_editor(
+            interaction,
+            frame=new_frame,
+            edit=False,
+            max_size_percentage=max_size_percentage,
+        )
         if frame:
             sql = await self.sql()
 
@@ -1091,11 +1171,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
             return await interaction.followup.send("Frame not found.")
 
-        if frame.owner_id != interaction.user.id:
-            await sql.close()
-            return await interaction.followup.send(
-                "You do not own this frame. If this is a guild frame, use `/frame guild-edit`."
-            )
+        if frame.is_guild_owned:
+            guild = await sql.fetch_guild(interaction.guild.id)
+
+            if not guild_permission_check(interaction, guild.manager_role):
+                await sql.close()
+                return await interaction.followup.send(
+                    "You do not have permission to edit this frame."
+                )
+
+        else:
+            if frame.owner_id != interaction.user.id:
+                await sql.close()
+                return await interaction.followup.send("You do not own this frame.")
 
         frame.canvas = await self.check_cache(frame.canvas)
 
@@ -1113,11 +1201,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self, interaction: Interaction, current: str
     ):
         return await self.autocomplete_frame_id(interaction, current)
-
-    @frame_group.command(name="guild-edit")
-    async def frame_guild_edit(self, interaction: Interaction):
-        """Edit a guild custom frame"""
-        pass
 
     @frame_group.command(name="delete")
     @app_commands.describe(frame_id="Frame to delete")
@@ -1619,7 +1702,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await interaction.followup.send(f"Registered guild {guild_id} to participate.")
 
-    @admin_register_group.command(name="edit-guild")
+    @admin_register_group.command(name="guild")
     @admin_check()
     @app_commands.describe(
         guild_id="ID of the guild to register/edit",
@@ -1658,15 +1741,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 
 # Imager stuff
-# - Frames
+# - Styles
 # Other stuff
-# - Frames
-#   - id int - ids will need to be massively randomised since sharing
-#   - owner_id + is_guild bool - is_guild will be used to determine if it's a guild or user frame
-#   - public bool (for sharing)
-#       - (must be true if is_guild is true using CHECK (NOT (is_guild AND NOT public)) constraint)
-#   - style id? (nullable) - for applying styles to frames when generating images
-#   - max size??
 # - Auto-join canvas (default)
 # - Setup - modular setup views that set up servers
 #   - Start - set completely new values
@@ -1680,6 +1756,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Schema
 # - Regenerate all emoji???
 # - Logs?
+# - Award role
 
 
 async def setup(bot):
