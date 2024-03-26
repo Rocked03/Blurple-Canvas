@@ -157,9 +157,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         print("Connected to PostgreSQL database")
 
     async def sql(self) -> SQLManager:
+        timer = Timer()
         await self.startup_events.sql.wait()
         connection = await self.pool.acquire()
         self.bot.loop.create_task(self.timeout_connection(connection))
+        timer.mark("Connected to SQL")
         return SQLManager(connection, self.bot)
 
     async def timeout_connection(self, connection):
@@ -327,27 +329,57 @@ class CanvasCog(commands.Cog, name="Canvas"):
             and color.id == int(current)
         ][:25]
 
-    async def autocomplete_frame_id(self, interaction, current):
-        current = current.strip().upper()
+    async def autocomplete_frame_id(
+        self,
+        interaction: Interaction,
+        current: str,
+        *,
+        current_guild_only: bool = False,
+    ):
+        current = neutralise(current).upper()
+
+        shared_guild_ids: list[int] = (
+            [
+                guild.id
+                for guild in self.bot.guilds
+                if guild.get_member(interaction.user.id)
+                or await guild.query_members(user_ids=[interaction.user.id])
+            ]
+            if not current_guild_only
+            else []
+        )
+
         sql = await self.sql()
         frames = await sql.fetch_frames(
             user_id=interaction.user.id,
             guild_id=interaction.guild.id,
-            frame_id=current.upper(),
+            frame_id=current,
+            guild_ids=shared_guild_ids,
+            basic=True,
         )
         await sql.close()
+
         frames.sort(key=lambda frame: frame.name)
+        frames.sort(key=lambda frame: frame.owner_id != interaction.guild.id)
         frames.sort(key=lambda frame: frame.is_guild_owned)
-        frames.sort(key=lambda frame: neutralise(frame.id) == neutralise(current))
+        frames.sort(key=lambda frame: frame.id == current)
         return [
             Choice(
                 name=f"{frame.name} {frame.centroid}"
-                + (f" (guild frame)" if frame.is_guild_owned else ""),
+                + (
+                    (
+                        f" (guild frame)"
+                        if frame.owner_id != interaction.guild.id
+                        else f" (this guild's frame)"
+                    )
+                    if frame.is_guild_owned
+                    else ""
+                ),
                 value=frame.id,
             )
             for frame in frames
-            if not current or neutralise(current) in neutralise(frame.name)
-        ]
+            if not current or current in neutralise(frame.name).upper()
+        ][:25]
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         ignored = (
@@ -440,7 +472,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     else f"{canvas.name} • {frame.name} {frame.centroid}"
                 )
             ),
-            footer=f"{canvas.id}",
+            footer=f"Frame #{frame.id}" if frame else f"{canvas.id}",
         )
         timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})")
         await interaction.followup.send(
@@ -1200,7 +1232,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def frame_edit_autocomplete_frame_id(
         self, interaction: Interaction, current: str
     ):
-        return await self.autocomplete_frame_id(interaction, current)
+        return await self.autocomplete_frame_id(
+            interaction, current, current_guild_only=True
+        )
 
     @frame_group.command(name="delete")
     @app_commands.describe(frame_id="Frame to delete")

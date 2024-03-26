@@ -4,6 +4,7 @@ import re
 import typing
 
 import discord
+from discord import MemberCacheFlags
 from discord.ext import commands
 
 from config import *
@@ -45,6 +46,7 @@ bot = CanvasBot(
     description=description,
     intents=intents,
     chunk_guilds_at_startup=False,
+    member_cache_flags=MemberCacheFlags.all(),
 )
 
 bot.allowed_users = {204778476102877187, 226595531844091904, 248245568004947969}

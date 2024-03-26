@@ -773,19 +773,38 @@ class SQLManager:
         return CustomFrame(bot=self.bot, **rename_invalid_keys(row)) if row else None
 
     async def fetch_frames(
-        self, user_id: int = -1, guild_id: int = -1, frame_id: str = ""
+        self,
+        user_id: int = -1,
+        guild_id: int = -1,
+        guild_ids: list[int] = None,
+        frame_id: str = "",
+        *,
+        basic: bool = False,
     ) -> list[CustomFrame]:
-        rows = await self.conn.fetch(
-            "SELECT f.*, g.manager_role, g.invite, "
-            "width, height, start_coordinates "
-            "FROM frame f "
-            "LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
-            "LEFT JOIN canvas c ON f.canvas_id = c.id "
-            "WHERE owner_id = $1 or owner_id = $2 or f.id = $3",
-            user_id,
-            guild_id,
-            frame_id,
-        )
+        if guild_ids is None:
+            guild_ids = []
+        if not basic:
+            rows = await self.conn.fetch(
+                "SELECT f.*, g.manager_role, g.invite, "
+                "width, height, start_coordinates "
+                "FROM frame f "
+                "LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
+                "LEFT JOIN canvas c ON f.canvas_id = c.id "
+                "WHERE owner_id = $1 or owner_id = $2 or f.id = $3 or owner_id = ANY($4)",
+                user_id,
+                guild_id,
+                frame_id,
+                guild_ids,
+            )
+        else:
+            rows = await self.conn.fetch(
+                "SELECT id, name, owner_id, is_guild_owned FROM frame "
+                "WHERE owner_id = $1 or owner_id = $2 or id = $3 or owner_id = ANY($4)",
+                user_id,
+                guild_id,
+                frame_id,
+                guild_ids,
+            )
 
         from objects.frame import CustomFrame
 
