@@ -157,11 +157,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         print("Connected to PostgreSQL database")
 
     async def sql(self) -> SQLManager:
-        timer = Timer()
         await self.startup_events.sql.wait()
         connection = await self.pool.acquire()
         self.bot.loop.create_task(self.timeout_connection(connection))
-        timer.mark("Connected to SQL")
         return SQLManager(connection, self.bot)
 
     async def timeout_connection(self, connection):

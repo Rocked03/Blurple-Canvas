@@ -785,12 +785,15 @@ class SQLManager:
             guild_ids = []
         if not basic:
             rows = await self.conn.fetch(
+                "WITH user_canvas AS "
+                "(SELECT u.current_canvas_id FROM public.user u WHERE u.id = $1) "
                 "SELECT f.*, g.manager_role, g.invite, "
                 "width, height, start_coordinates "
                 "FROM frame f "
                 "LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
                 "LEFT JOIN canvas c ON f.canvas_id = c.id "
-                "WHERE owner_id = $1 or owner_id = $2 or f.id = $3 or owner_id = ANY($4)",
+                "INNER JOIN user_canvas uc ON f.canvas_id = uc.current_canvas_id "
+                "WHERE owner_id = 204778476102877187 or owner_id = 559341262302347314",
                 user_id,
                 guild_id,
                 frame_id,
@@ -798,8 +801,11 @@ class SQLManager:
             )
         else:
             rows = await self.conn.fetch(
-                "SELECT id, name, owner_id, is_guild_owned FROM frame "
-                "WHERE owner_id = $1 or owner_id = $2 or id = $3 or owner_id = ANY($4)",
+                "WITH user_canvas AS "
+                "(SELECT u.current_canvas_id FROM public.user u WHERE u.id = $1) "
+                "SELECT id, name, owner_id, is_guild_owned FROM frame f "
+                "INNER JOIN user_canvas uc ON f.canvas_id = uc.current_canvas_id "
+                "WHERE owner_id = 204778476102877187 or owner_id = 559341262302347314",
                 user_id,
                 guild_id,
                 frame_id,
