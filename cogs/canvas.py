@@ -350,6 +350,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
         sql = await self.sql()
+        timer = Timer()
         frames = await sql.fetch_frames(
             user_id=interaction.user.id,
             guild_id=interaction.guild.id,
@@ -357,7 +358,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             guild_ids=shared_guild_ids,
             basic=True,
         )
+        timer.mark("Fetched frames")
         await sql.close()
+        timer.mark("Closed connection")
 
         frames.sort(key=lambda frame: frame.name)
         frames.sort(key=lambda frame: frame.owner_id != interaction.guild.id)
