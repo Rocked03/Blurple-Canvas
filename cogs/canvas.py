@@ -161,7 +161,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.startup_events.sql.wait()
         connection = await self.pool.acquire()
         self.bot.loop.create_task(self.timeout_connection(connection))
-        timer.mark_msg("Acquired connection")
+        timer.mark("Acquired connection")
         return SQLManager(connection, self.bot)
 
     async def timeout_connection(self, connection):
