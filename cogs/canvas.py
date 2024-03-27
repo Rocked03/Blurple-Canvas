@@ -384,6 +384,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             for frame in frames
             if not current or current in neutralise(frame.name).upper()
         ][:25]
+        timer.mark("Generated choices")
         return choices
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
@@ -486,8 +487,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @view.autocomplete("frame_id")
     async def view_autocomplete_frame_id(self, interaction: Interaction, current: str):
-        await interaction.response.defer()
-        return await self.autocomplete_frame_id(interaction, current)
+        timer = Timer()
+        choices = await self.autocomplete_frame_id(interaction, current)
+        timer.mark("Autocompleted frames")
+        return choices
 
     @app_commands.command(name="place")
     @app_commands.describe(
