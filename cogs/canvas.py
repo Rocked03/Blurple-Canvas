@@ -20,6 +20,7 @@ from discord import (
     Message,
     Attachment,
     Role,
+    NotFound,
 )
 from discord.app_commands import Choice
 from discord.ext import commands
@@ -491,15 +492,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
+        await interaction.response.defer()
+
         sql = await self.sql()
 
         try:
             user, canvas = await self.find_canvas(interaction.user.id)
         except ValueError as e:
             await sql.close()
-            return await interaction.response.send_message(str(e), ephemeral=True)
-
-        await interaction.response.defer()
+            return await interaction.followup.send(str(e), ephemeral=True)
 
         if user.is_blacklisted:
             await sql.close()
@@ -650,6 +651,29 @@ class CanvasCog(commands.Cog, name="Canvas"):
         frame = await canvas.regenerate_frame(sql, frame)
         embed.title = f"Placed pixel • {suffix}"
         embed.description = frame.to_emoji()
+
+        if (
+            self.info.event_role
+            and self.info.host_server
+            and self.info.host_server.me.guild_permissions.manage_roles
+        ):
+            try:
+                member = await self.info.host_server.fetch_member(interaction.user.id)
+                if member and self.info.event_role not in member.roles:
+                    await member.add_roles(self.info.event_role)
+                    embed.description += (
+                        f"\n\nThank you for contributing to the Canvas - "
+                        f"you have received the **{self.info.event_role.name}** role"
+                        + (
+                            f" in **{self.info.host_server.name}**"
+                            if interaction.guild != self.info.host_server
+                            else ""
+                        )
+                        + "!"
+                    )
+            except NotFound:
+                pass
+
         if view is not None:
             await send_msg(msg, embed=embed, view=None)
         else:
@@ -1777,7 +1801,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # Imager stuff
 # - Styles
 # Other stuff
-# - Auto-join canvas (default)
 # - Setup - modular setup views that set up servers
 #   - Start - set completely new values
 #   - Edit - edit existing values
@@ -1786,11 +1809,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #       - Manager role - (+ admin and manage server always have access)
 #       - Color - select previous color or create new one (participation-only)
 #       - Invite url - (participation-only)
-# - Follow channel https://discordpy.readthedocs.io/en/stable/api.html?highlight=textchannel#discord.TextChannel.follow
+# - Follow channel?
 # - Schema
 # - Regenerate all emoji???
 # - Logs?
-# - Award role
 
 
 async def setup(bot):

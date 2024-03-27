@@ -57,6 +57,7 @@ class Info(DiscordObject):
             if host_server_id and self.bot
             else host_server
         )
+        self.host_server_id = host_server_id
 
         self.event_role: Optional[Role] = (
             self.host_server.get_role(event_role_id)
