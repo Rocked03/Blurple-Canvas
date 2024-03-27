@@ -1,7 +1,6 @@
 import asyncio
 import re
 import traceback
-from colorsys import hsv_to_rgb
 from functools import partial
 from io import BytesIO
 from random import randint
@@ -24,10 +23,9 @@ from discord import (
 )
 from discord.app_commands import Choice
 from discord.ext import commands
-from discord.ui import View
 from discord.utils import utcnow
 
-from config import POSTGRES_CREDENTIALS
+from config import POSTGRES_CREDENTIALS, ADMIN_GUILD_IDS
 from objects.cache import Cache
 from objects.canvas import Canvas
 from objects.color import Palette, Color
@@ -419,7 +417,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
         sql = await self.sql()
 
-        frame: Frame = None
+        frame: Optional[Frame] = None
         if frame_id:
             frame = await sql.fetch_frame(frame_id)
             if frame is None:
@@ -1293,7 +1291,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     # Admin Commands
 
-    admin_group = app_commands.Group(name="admin", description="Admin commands")
+    admin_group = app_commands.Group(
+        name="admin", description="Admin commands", guild_ids=ADMIN_GUILD_IDS or None
+    )
 
     admin_canvas_group = app_commands.Group(
         name="canvas", description="Canvas commands", parent=admin_group
@@ -1466,9 +1466,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
         width="Pixel width",
         height="Pixel height",
         event="Event ID",
-        id="Canvas ID (leave blank to auto-generate)",
+        _id="Canvas ID (leave blank to auto-generate)",
         cooldown_length="Cooldown length in seconds (default 30s)",
     )
+    @app_commands.rename(_id="id")
     async def canvas_create(
         self,
         interaction: Interaction,
@@ -1476,14 +1477,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
         width: int,
         height: int,
         event: int = None,
-        id: int = None,
+        _id: int = None,
         cooldown_length: int = 30,
     ):
         """Create a new canvas"""
         await interaction.response.defer()
 
         canvas = Canvas(
-            _id=id,
+            _id=_id,
             name=name,
             width=width,
             height=height,
@@ -1623,25 +1624,26 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.describe(
         name="Name of the color",
         code="Abbreviated code",
-        hex="Hex code",
+        _hex="Hex code",
         r="Red value",
         g="Green value",
         b="Blue value",
         emoji="Emoji to use. Leave blank to generate new emoji.",
     )
+    @app_commands.rename(_hex="hex")
     async def colors_create(
         self,
         interaction: Interaction,
         name: str,
         code: str,
-        hex: str = None,
+        _hex: str = None,
         r: int = None,
         g: int = None,
         b: int = None,
         emoji: str = None,
     ):
         """Create a new color"""
-        if (hex is not None) == all(i is not None for i in [r, g, b]):
+        if (_hex is not None) == all(i is not None for i in [r, g, b]):
             return await interaction.response.send_message(
                 "Please provide either a hex code or all of the RGB values."
             )
@@ -1651,13 +1653,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 return await interaction.response.send_message(
                     "Invalid RGB values. Please provide values between 0 and 255."
                 )
-        elif hex:
-            if len(hex) != 6:
+        elif _hex:
+            if len(_hex) != 6:
                 return await interaction.response.send_message(
                     "Invalid hex code. Please provide a 6-character hex code."
                 )
             else:
-                r, g, b = tuple(int(hex[i : i + 2], 16) for i in (0, 2, 4))
+                r, g, b = tuple(int(_hex[i : i + 2], 16) for i in (0, 2, 4))
 
         await interaction.response.defer()
 

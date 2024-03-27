@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from discord import Guild, Interaction, Role
+from discord import Guild, Interaction, Role, NotFound
 
 from objects.discordObject import DiscordObject
 
@@ -82,10 +82,13 @@ class Info(DiscordObject):
         return self.current_event.id if self.current_event else None
 
     async def check_perms(self, interaction: Interaction):
-        member = await self.admin_server.fetch_member(interaction.user.id)
-        if member is None:
+        try:
+            member = await self.admin_server.fetch_member(interaction.user.id)
+            if member is None:
+                return False
+            return any(role in member.roles for role in self.canvas_admin_roles)
+        except NotFound:
             return False
-        return any(role in member.roles for role in self.canvas_admin_roles)
 
     def __str__(self):
         return f"Info {self.current_event_id}"
