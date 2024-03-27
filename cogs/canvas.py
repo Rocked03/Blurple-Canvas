@@ -350,7 +350,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
         sql = await self.sql()
-        timer = Timer()
         frames: list[CustomFrame] = await sql.fetch_frames(
             user_id=interaction.user.id,
             guild_id=interaction.guild.id,
@@ -358,15 +357,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
             guild_ids=shared_guild_ids,
             basic=True,
         )
-        timer.mark("Fetched frames")
         await sql.close()
-        timer.mark("Closed connection")
 
         frames.sort(key=lambda frame: frame.name)
         frames.sort(key=lambda frame: frame.owner_id != interaction.guild.id)
         frames.sort(key=lambda frame: frame.is_guild_owned)
         frames.sort(key=lambda frame: frame.id == current)
-        timer.mark("Sorted frames")
         choices = [
             Choice(
                 name=f"{frame.name} {frame.centroid}"
@@ -384,7 +380,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
             for frame in frames
             if not current or current in neutralise(frame.name).upper()
         ][:25]
-        timer.mark("Generated choices")
         return choices
 
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):

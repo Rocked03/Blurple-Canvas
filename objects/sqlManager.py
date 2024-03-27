@@ -804,7 +804,8 @@ class SQLManager:
             rows = await self.conn.fetch(
                 "WITH user_canvas AS "
                 "(SELECT u.current_canvas_id FROM public.user u WHERE u.id = $1) "
-                "SELECT id, name, owner_id, is_guild_owned FROM frame f "
+                "SELECT id, name, owner_id, is_guild_owned, x_0, y_0, x_1, y_1 "
+                "FROM frame f "
                 "INNER JOIN user_canvas uc ON f.canvas_id = uc.current_canvas_id "
                 "WHERE owner_id = $1 or owner_id = $2 or "
                 "f.id = $3 or owner_id = ANY($4)",
