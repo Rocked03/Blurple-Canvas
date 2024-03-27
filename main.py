@@ -103,7 +103,9 @@ async def on_ready():
     print("Logged in as")
     print(bot.user.name)
     print(bot.user.id)
-    print(datetime.datetime.now().strftime("%d/%m/%Y %I:%M:%S%p UTC"))
+    print(
+        datetime.datetime.now(datetime.timezone.utc).strftime("%d/%m/%Y %I:%M:%S%p UTC")
+    )
     print("------")
     await bot.change_presence(
         status=discord.Status.online,

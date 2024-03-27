@@ -22,9 +22,10 @@ if TYPE_CHECKING:
 
 
 class SQLManager:
-    def __init__(self, conn: Connection, bot: Client = None):
+    def __init__(self, conn: Connection, bot: Client = None, *, info: Info = None):
         self.conn = conn
         self.bot = bot
+        self.info = info
 
     async def close(self):
         await self.conn.close()
@@ -453,12 +454,18 @@ class SQLManager:
 
     # GUILD
 
-    async def insert_empty_user(self, user_id: int) -> User:
+    async def insert_empty_user(
+        self, user_id: int, *, current_canvas_id: int = None
+    ) -> User:
+        if current_canvas_id is None:
+            if self.info:
+                current_canvas_id = self.info.default_canvas_id
+
         from objects.user import User
 
         user = User(
             _id=user_id,
-            current_canvas_id=None,
+            current_canvas_id=current_canvas_id,
             skip_confirm=False,
             cooldown_remind=False,
         )

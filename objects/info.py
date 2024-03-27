@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from discord import Guild, Interaction
+from discord import Guild, Interaction, Role
 
 from objects.discordObject import DiscordObject
 
@@ -24,6 +24,11 @@ class Info(DiscordObject):
         admin_server: Guild = None,
         current_emoji_server_id: int = None,
         current_emoji_server: Guild = None,
+        host_server_id: int = None,
+        host_server: Guild = None,
+        event_role_id: int = None,
+        event_role: Role = None,
+        default_canvas_id: int = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -31,6 +36,7 @@ class Info(DiscordObject):
         self.canvas_admin_ids = canvas_admin
         self.cached_canvas_ids = cached_canvas_ids
         self.highlight_color = highlight_color
+        self.default_canvas_id = default_canvas_id
 
         from objects.event import Event
 
@@ -44,6 +50,18 @@ class Info(DiscordObject):
             self.bot.get_guild(admin_server_id)
             if admin_server_id and self.bot
             else admin_server
+        )
+
+        self.host_server: Optional[Guild] = (
+            self.bot.get_guild(host_server_id)
+            if host_server_id and self.bot
+            else host_server
+        )
+
+        self.event_role: Optional[Role] = (
+            self.host_server.get_role(event_role_id)
+            if event_role_id and self.host_server
+            else event_role
         )
 
         self.current_emoji_server: Optional[Guild] = (
