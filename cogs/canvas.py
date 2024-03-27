@@ -472,7 +472,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     else f"{canvas.name} • {frame.name} {frame.centroid}"
                 )
             ),
-            footer=f"Frame #{frame.id}" if frame else f"{canvas.id}",
+            footer=f"Frame #{frame.id}" if frame.id is not None else f"{canvas.id}",
         )
         timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})")
         await interaction.followup.send(
@@ -482,9 +482,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @view.autocomplete("frame_id")
     async def view_autocomplete_frame_id(self, interaction: Interaction, current: str):
-        timer = Timer()
         choices = await self.autocomplete_frame_id(interaction, current)
-        timer.mark("Autocompleted frames")
         return choices
 
     @app_commands.command(name="place")
