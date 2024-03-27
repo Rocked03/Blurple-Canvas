@@ -793,7 +793,8 @@ class SQLManager:
                 "LEFT JOIN guild g ON owner_id = g.id AND is_guild_owned "
                 "LEFT JOIN canvas c ON f.canvas_id = c.id "
                 "INNER JOIN user_canvas uc ON f.canvas_id = uc.current_canvas_id "
-                "WHERE owner_id = 204778476102877187 or owner_id = 559341262302347314",
+                "WHERE owner_id = $1 or owner_id = $2 or "
+                "f.id = $3 or owner_id = ANY($4)",
                 user_id,
                 guild_id,
                 frame_id,
@@ -805,7 +806,8 @@ class SQLManager:
                 "(SELECT u.current_canvas_id FROM public.user u WHERE u.id = $1) "
                 "SELECT id, name, owner_id, is_guild_owned FROM frame f "
                 "INNER JOIN user_canvas uc ON f.canvas_id = uc.current_canvas_id "
-                "WHERE owner_id = 204778476102877187 or owner_id = 559341262302347314",
+                "WHERE owner_id = $1 or owner_id = $2 or "
+                "f.id = $3 or owner_id = ANY($4)",
                 user_id,
                 guild_id,
                 frame_id,
