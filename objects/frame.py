@@ -42,6 +42,7 @@ class Frame(DiscordObject):
         self.focus = focus
 
         self.name = None
+        self.id = None
 
         from objects.canvas import Canvas
 

@@ -419,13 +419,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
         sql = await self.sql()
 
+        frame: Frame = None
         if frame_id:
             frame = await sql.fetch_frame(frame_id)
             if frame is None:
                 await sql.close()
                 return await interaction.followup.send("Frame not found.")
-        else:
-            frame = None
 
         try:
             timer = Timer()
