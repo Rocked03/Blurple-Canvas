@@ -41,6 +41,8 @@ class Frame(DiscordObject):
         self.pixels = pixels
         self.focus = focus
 
+        self.name = None
+
         from objects.canvas import Canvas
 
         self.canvas: Optional[Canvas] = (
