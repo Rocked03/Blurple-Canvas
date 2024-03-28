@@ -309,6 +309,7 @@ class Imager:
         *,
         aspect_ratio: Tuple[int, int] = (9, 16),
         resize_dims: Optional[Tuple[int, int]] = None,
+        color_quantize_size: int = 64,
     ) -> Tuple[BytesIO, int]:
         # Resize the image if resize dimensions are provided
         if resize_dims:
@@ -320,7 +321,7 @@ class Imager:
         img = bg
 
         # Quantize the image to reduce the number of colors
-        img = img.quantize(colors=64)
+        img = img.quantize(colors=color_quantize_size)
 
         # Calculate new dimensions based on the aspect ratio
         img_width, img_height = img.size
