@@ -1,2 +1,13 @@
 TOKEN = 'tokenhere'
 BOT_PREFIX = 'p/'
+
+POSTGRES_CREDENTIALS = {
+    "user": "username",
+    "password": "password",
+    "database": "database",
+    "host": "ip.address",
+}
+
+# List of guild IDs that are allowed to use the admin commands.
+# Leave blank for global.
+ADMIN_GUILD_IDS = []

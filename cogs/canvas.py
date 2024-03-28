@@ -1,2064 +1,1823 @@
-import aiohttp, asyncio, colorsys, copy, datetime, discord, io, json, math, motor.motor_asyncio, numpy, PIL, pymongo, \
-    random, sys, textwrap, time, traceback, typing
+import asyncio
+import re
+import traceback
+from functools import partial
+from io import BytesIO
+from random import randint
+from typing import Optional, Callable, Literal
+
+import numpy
+from PIL import Image
+from asyncpg import create_pool, Pool, UniqueViolationError
+from discord import (
+    app_commands,
+    Interaction,
+    User as UserDiscord,
+    Client,
+    File,
+    Embed,
+    Message,
+    Attachment,
+    Role,
+    NotFound,
+)
+from discord.app_commands import Choice
 from discord.ext import commands
-from discord.ext.commands.cooldowns import BucketType
-from discord import app_commands
-from bson import json_util
-from PIL import Image, ImageDraw, ImageFont
-from pymongo import UpdateOne, InsertOne
-from pymongo.collection import Collection
-from pymongo.database import Database
-# pillow, motor, pymongo, discord.py, numpy
+from discord.utils import utcnow
 
-from skippersist import SkipPersist
-from boardpersist import BoardPersist
-from reminderpersist import ReminderPersist
-
-
-def dev():
-    async def pred(ctx):
-        return ctx.author.id in ctx.bot.allowedusers
-
-    return commands.check(pred)
-
-
-def inteam():
-    async def pred(ctx):
-        # return True
-        return ctx.author.id in [i.id for i in ctx.bot.blurpleguild.members]
-
-        # a = any(elem in [v for k, v in ctx.bot.teams.items()] for elem in [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]) 
-        # if not a: ctx.bot.cd.add(ctx.author.id)
-        # return a
-
-    return commands.check(pred)
+from config import POSTGRES_CREDENTIALS, ADMIN_GUILD_IDS
+from objects.cache import Cache
+from objects.canvas import Canvas
+from objects.color import Palette, Color
+from objects.cooldownManager import CooldownManager
+from objects.coordinates import Coordinates
+from objects.event import Event
+from objects.frame import Frame, CustomFrame
+from objects.info import Info
+from objects.guild import Participation
+from objects.pixel import Pixel
+from objects.sqlManager import SQLManager
+from objects.stats import Leaderboard
+from objects.timer import Timer, format_delta
+from objects.user import User
+from objects.views import (
+    ConfirmEnum,
+    NavigationEnum,
+    NavigateView,
+    PaletteView,
+    ConfirmView,
+    FrameEditView,
+)
 
 
-def mod():
-    async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items()] for elem in
-                                    [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
+def admin_check():
+    async def check(interaction: Interaction):
+        return await interaction.client.info.check_perms(interaction)
 
-    return commands.check(pred)
-
-
-def executive():
-    async def pred(ctx): return any(
-        i in [ctx.bot.modroles['Admin'], ctx.bot.modroles['Executive'], ctx.bot.modroles['Exec Assist']] for i in
-        [i.id for i in (await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles])
-
-    return commands.check(pred)
+    return app_commands.check(check)
 
 
-def admin():
-    # async def pred(ctx): return any(elem in [v for k, v in ctx.bot.modroles.items() if k == "Admin"] for elem in [i.id for i in ctx.bot.blurpleguild.fetch_member(ctx.author.id).roles])
-    async def pred(ctx): return ctx.bot.modroles['Admin'] in [i.id for i in (
-        await ctx.bot.blurpleguild.fetch_member(ctx.author.id)).roles]
-
-    return commands.check(pred)
+def image_to_bytes_io(image: Image.Image) -> BytesIO:
+    bytes_io, _ = image_to_bytes_io_with_size(image)
+    return bytes_io
 
 
-# todo
-# reload bot without breaking stuff
-# individual colour info graphic things
-# slash commands
-# in-built leaderboard?
-# local server id in history?
+def image_to_bytes_io_with_size(image: Image.Image) -> tuple[BytesIO, int]:
+    buffer = BytesIO()
+    image.save(buffer, "png")
+    size = buffer.tell()
+    buffer.seek(0)
+    return buffer, size
 
 
-class dbs():
-    def __init__(self, mongo_instance: motor.motor_asyncio.AsyncIOMotorClient):
-        self.users = mongo_instance.users  # type: Database
-        self.boards = mongo_instance.boards  # type: Database
-        self.history = mongo_instance.history  # type: Database
+def format_bytes(size: int) -> str:
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]:
+        if size < 1024:
+            if unit == "B":
+                return f"{size} B"
+            return f"{size:.2f} {unit}"
+        size /= 1024
+    return f"{size:.2f} YB"
+
+
+def neutralise(txt: str) -> str:
+    return "".join([c for c in txt.lower() if re.match(r"\w", c)])
+
+
+class StartupEvents:
+    def __init__(self):
+        self.startup = asyncio.Event()
+        self.sql = asyncio.Event()
+        self.info = asyncio.Event()
+        self.canvases = asyncio.Event()
+        self.palette = asyncio.Event()
+
+        asyncio.create_task(self.wait())
+
+    async def wait(self):
+        await self.sql.wait()
+        await self.info.wait()
+        await self.canvases.wait()
+        await self.palette.wait()
+        self.startup.set()
+        print("Startup complete")
+
+
+def guild_permission_check(interaction: Interaction, manager_role: Role = None):
+    perms = interaction.user.guild_permissions
+    return any(
+        [
+            perms.administrator,
+            perms.manage_guild,
+            manager_role in interaction.user.roles,
+        ]
+    )
 
 
 class CanvasCog(commands.Cog, name="Canvas"):
     """Canvas Module"""
 
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: Client = bot
 
-        self.bot.initfinished = False
+        # Startup
+        self.startup_events = StartupEvents()
 
-        self.bot.modroles = {
-            "Admin": 443013283977494539,
-            "Executive": 413213839866462220,
-            "Exec Assist": 470272155876065280,
-            "Moderator": 569015549225598976,
-            "Helper": 442785212502507551,
-        }
+        # SQL
+        self.pool: Optional[Pool] = None
+        self.bot.loop.create_task(self.startup_connect_sql())
 
-        self.bot.cd = set()
+        # Info
+        self.info: Optional[Info] = None
+        self.bot.loop.create_task(self.load_info())
 
-        # self.blurplehex = 0x7289da
-        self.blurplehex = 0x5865F2
-        # self.blurplergb = (114, 137, 218)
-        self.blurplergb = (88, 101, 242)
-        # self.dblurplergb = (78, 93, 148)
-        self.dblurplergb = (69, 79, 191)
+        # Cache
+        self.bot.loop.create_task(self.load_cache())
 
-        # self.bot.teams = {
-        #     "light": 573011450231259157,
-        #     "dark": 573011441683005440,
-        # }
-        self.bot.teams = {"blurple user": 1082567913103425626}
+        # Canvases
+        self.canvases: list[Canvas] = []
+        self.bot.loop.create_task(self.load_canvases())
 
-        self.bot.artistrole = 1082567922779688980
+        # Colors
+        self.palette: Optional[Palette] = None
+        self.bot.loop.create_task(self.load_colors())
 
-        self.skippersist = SkipPersist()
-        self.bot.loop.create_task(self.skippersist.c('setup'))
-        self.bot.loop.create_task(self.getskips())
+        # Cooldown Manager
+        self.bot.cooldown_manager = CooldownManager()
+        self.bot.loop.create_task(self.tidy_cooldown_scheduler())
 
-        self.reminderpersist = ReminderPersist()
-        self.bot.loop.create_task(self.reminderpersist.c('setup'))
-        self.bot.loop.create_task(self.getreminders())
+    # Startup methods
+    async def wait_for_startup(self):
+        await self.startup_events.startup.wait()
 
-        self.bot.boards = dict()
+    async def startup_connect_sql(self):
+        self.pool = await create_pool(**POSTGRES_CREDENTIALS)
+        self.startup_events.sql.set()
+        print("Connected to PostgreSQL database")
 
-        self.bot.partnercolourlock = True
+    async def sql(self) -> SQLManager:
+        await self.startup_events.sql.wait()
+        connection = await self.pool.acquire()
+        self.bot.loop.create_task(self.timeout_connection(connection))
+        return SQLManager(connection, self.bot, info=self.info)
 
-        self.bot.defaultcanvas = "Canvas"
-        self.bot.ignoredcanvases = ['main2019', 'main2020', 'staff', 'example', 'big', 'canvasold', 'canvas2022',
-                                    'mini']
+    async def timeout_connection(self, connection):
+        await asyncio.sleep(600)
+        await self.pool.release(connection)
 
-        self.bot.dblock = asyncio.Lock()
+    async def load_info(self):
+        sql = await self.sql()
+        self.info = await sql.fetch_info()
+        self.bot.info = self.info
+        await sql.close()
+        self.startup_events.info.set()
 
-        self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient(
-            "mongodb://localhost:27017/?retryWrites=true&w=majority")
-        self.bot.pymongoog = pymongo.MongoClient("mongodb://localhost:27017/?retryWrites=true&w=majority")
+    async def load_cache(self):
+        sql = await self.sql()
+        info = await sql.fetch_info()
+        cache = await sql.fetch_canvas_by_event(
+            info.current_event_id, info.cached_canvas_ids
+        )
+        await sql.close()
 
-        self.bot.loop.create_task(self.getboards())
+        for canvas in cache:
+            if canvas.id not in self.bot.cache:
+                self.bot.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
 
-        self.boardpersist = BoardPersist()
-        self.bot.loop.create_task(self.boardpersist.c('setup'))
-        self.bot.loop.create_task(self.getuboards())
+    async def load_canvases(self):
+        sql = await self.sql()
+        self.canvases = list(await sql.fetch_canvas_all())
+        await sql.close()
+        self.startup_events.canvases.set()
 
-        # self.bot.loop.create_task(reloadpymongo(self))
+    async def load_colors(self):
+        sql = await self.sql()
+        await self.startup_events.info.wait()
+        self.palette = await sql.fetch_colors_by_participation(
+            self.info.current_event_id
+        )
+        await sql.close()
+        self.startup_events.palette.set()
 
-        self.bot.loop.create_task(self.loadcolourimg())
-
-        self.bot.loop.create_task(self.fetchserver())
-
-        self.bot.initfinished = True
-
-    def loadboards(self):
-        colls = self.bot.pymongoog.boards.list_collection_names()
-        for name in colls:
-            if name in self.bot.ignoredcanvases: continue
-            print(f"Loading '{name}'...")
-            board = self.bot.pymongoog.boards[name]
-            # info = (board.find_one({'type': 'info'}))['info']
-            # history = (board.find_one({'type': 'history'}))['history']
-            # print(f"Loading data...")
-            # data = list(board.find({'type': 'data'}))
-            boarddata = list(board.find({'type': {'$ne': 'history'}}))
-            info = next(x for x in boarddata if x['type'] == 'info')['info']
-            print(info)
-            data = [x for x in boarddata if x['type'] == 'data']
-            print(f"Saving data...")
-            d = {k: v for d in data for k, v in d.items()}
-            self.bot.boards[info['name'].lower()] = self.board(name=info['name'], width=info['width'],
-                                                               height=info['height'], locked=info['locked'], data=d,
-                                                               last_updated=info[
-                                                                   'last_updated'] if 'last_updated' in info else datetime.datetime.utcnow())
-
-            print(f"Loaded '{name}'")
-
-        print('All boards loaded')
-
-    async def getboards(self):
-        print('Loading boards off DB')
-
-        self.bot.dbs = dbs(self.bot.pymongo)
-
-        some_stuff = await self.bot.loop.run_in_executor(None, self.loadboards)
-
-        for b in self.bot.boards.keys():
-            self.bot.loop.create_task(self.backup(b))
-
-    async def reloadpymongo(self):
+    async def tidy_cooldown_scheduler(self):
+        await self.wait_for_startup()
         while True:
-            await asyncio.sleep(300)  # 5 minutes
-            self.bot.pymongo = motor.motor_asyncio.AsyncIOMotorClient(
-                "mongodb://localhost:27017/?retryWrites=true&w=majority")
-            self.bot.pymongoog = pymongo.MongoClient(
-                "mongodb://localhost:27017/?retryWrites=true&w=majority&ssl_cert_reqs=CERT_NONE")
+            sql = await self.sql()
+            await sql.trigger_delete_surpassed_cooldowns()
+            await sql.close()
+            await asyncio.sleep(3600)
 
-    async def loadcolourimg(self):
-        self.bot.colourimg = {
-            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in
-            ['all', 'main', 'partner']
+    # Fetch methods
+    async def find_canvas(self, user_id) -> tuple[User, Canvas]:
+        sql = await self.sql()
+        await self.wait_for_startup()
+        user = await sql.fetch_user(user_id)
+        if user.current_canvas is None:
+            await sql.close()
+            raise ValueError(
+                "You have not joined a canvas! Please use `/join` to join a canvas."
+            )
+        await sql.close()
+        canvas = user.current_canvas
+        if canvas is None:
+            raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
+        return user, canvas
+
+    async def fetch_canvas_by_name(self, sql: SQLManager, name: str) -> Canvas:
+        canvas = await sql.fetch_canvas_by_name(name)
+        if canvas is None:
+            raise ValueError(f"Canvas '{canvas}' does not exist.")
+
+        canvas = await self.check_cache(canvas)
+        return canvas
+
+    async def check_cache(self, canvas: Canvas):
+        if canvas.id in self.bot.cache:
+            canvas = await self.bot.cache[canvas.id].get_canvas()
+        return canvas
+
+    async def get_available_colors(self, guild_id: int = None) -> Palette:
+        await self.wait_for_startup()
+        return self.palette.get_available_colors_as_palette(
+            guild_id, self.info.current_event_id
+        )
+
+    async def sort_canvases(self) -> list[Canvas]:
+        await self.wait_for_startup()
+        canvases = sorted(
+            sorted(
+                sorted(self.canvases, key=lambda canvas: canvas.name),
+                key=lambda canvas: canvas.event is None
+                or not canvas.event.id == self.info.current_event_id,
+            ),
+            key=lambda canvas: canvas.locked,
+        )
+        return canvases
+
+    # Helper methods
+
+    async def async_image_bytes(
+        self, function: Callable, *args, **kwargs
+    ) -> tuple[BytesIO, int]:
+        image = await self.bot.loop.run_in_executor(
+            None, partial(function, *args, **kwargs)
+        )
+        return image_to_bytes_io_with_size(image)
+
+    async def async_image(
+        self, function: Callable, *args, file_name: str, **kwargs
+    ) -> tuple[File, str, int]:
+        bytes_io, size_bytes = await self.async_image_bytes(function, *args, **kwargs)
+        file = File(bytes_io, filename=file_name)
+        return file, f"attachment://{file_name}", size_bytes
+
+    def base_embed(
+        self,
+        *,
+        user: UserDiscord = None,
+        title: str = None,
+        color: int = None,
+        footer: str = None,
+    ):
+        embed = Embed(
+            title=title, timestamp=utcnow(), color=color or self.info.highlight_color
+        )
+        footer_text = f"{f'{user} • ' if user else ''}" f"{self.bot.user.name}"
+        embed.set_footer(
+            text=(footer + " • " if footer else "") + footer_text,
+            icon_url=self.bot.user.avatar,
+        )
+        return embed
+
+    # Autocomplete methods
+
+    async def autocomplete_canvas(self, _, current: str):
+        canvases = await self.sort_canvases()
+
+        options_dict = {
+            canvas.name + (" (read-only)" if canvas.locked else ""): canvas
+            for canvas in canvases
         }
 
-    async def fetchserver(self):
-        await asyncio.sleep(60)
-        self.bot.blurpleguild = self.bot.get_guild(412754940885467146)
+        if current:
+            filtered = {
+                name: value
+                for name, value in options_dict.items()
+                if neutralise(current) in neutralise(name)
+                or current.isdigit()
+                and value.id == int(current)
+            }
+        else:
+            filtered = options_dict
 
-    async def getskips(self):
-        self.bot.skipconfirm = await self.skippersist.c('get_all')
+        return [
+            Choice(name=name, value=str(canvas.id)) for name, canvas in filtered.items()
+        ]
 
-    async def getreminders(self):
-        self.bot.cooldownreminder = await self.reminderpersist.c('get_all')
+    # Commands
 
-    async def getuboards(self):
-        self.bot.uboards = await self.boardpersist.c('get_all_dict')
+    async def autocomplete_color(self, _, current, colors: list[Color] = None):
+        return [
+            Choice(name=color.name, value=str(color.id))
+            for color in (colors if colors else self.palette.sorted())
+            if neutralise(current) in neutralise(color.name)
+            or neutralise(current) in neutralise(color.code)
+            or current.isdigit()
+            and color.id == int(current)
+        ][:25]
 
-    class board():
-        def __init__(self, *, name, width, height, locked, data=dict(), last_updated=datetime.datetime.utcnow()):
-            self.data = data
-            self.name = name
-            self.width = width
-            self.height = height
-            self.locked = locked
-            self.last_updated = last_updated
+    async def autocomplete_frame_id(
+        self,
+        interaction: Interaction,
+        current: str,
+        *,
+        current_guild_only: bool = False,
+    ):
+        current = neutralise(current).upper()
 
-    class image():
-        # font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
-        font = lambda x: ImageFont.truetype("GintoNord-Black.otf", x)
-        fontxy = font(60)
-        # fonttitle = font(18)
-        fonttitle = font(16)
-        # fontcoordinates = font(21)
-        fontcoordinates = font(19)
-        fontcolourtitle = font(120)
+        shared_guild_ids: list[int] = (
+            [
+                guild.id
+                for guild in self.bot.guilds
+                if guild.get_member(interaction.user.id)
+                or await guild.query_members(user_ids=[interaction.user.id])
+            ]
+            if not current_guild_only
+            else []
+        )
 
-        def imager(self, aboard, x, y, zoom, highlight=True):
-            height = zoom
-            width = zoom
+        sql = await self.sql()
+        frames: list[CustomFrame] = await sql.fetch_frames(
+            user_id=interaction.user.id,
+            guild_id=interaction.guild.id,
+            frame_id=current,
+            guild_ids=shared_guild_ids,
+            basic=True,
+        )
+        await sql.close()
 
-            if zoom < 150:
-                pixelwidth = 2
-                imagemax = 1500
-            elif zoom < 250:
-                pixelwidth = 1
-                imagemax = 2000
-            else:
-                pixelwidth = 1
-                imagemax = 3000
-            borderwidth = 100
-
-            size = (int(imagemax - (
-                    (imagemax - borderwidth - pixelwidth * (width + 1)) % width)),
-                    int(imagemax - ((imagemax - borderwidth - pixelwidth *
-                                     (height + 1)) % height)))
-            pixelsizex = (list(size)[0] - borderwidth - pixelwidth *
-                          (width + 1)) / width
-            pixelsizey = (list(size)[1] - borderwidth - pixelwidth *
-                          (height + 1)) / height
-
-            sizex, sizey = size
-
-            colours = {}
-            for k, v in self.bot.partners.items():
-                colours[v['tag']] = v['rgb']
-            for k, v in self.bot.coloursrgb.items():
-                colours[k] = v
-
-            board = Image.new('RGBA', size, (*(self.blurplergb), 255))
-            draw = ImageDraw.Draw(board)
-            draw.rectangle([(borderwidth + 1, borderwidth + 1), size],
-                           fill=(*(self.dblurplergb), 255))
-
-            loc, emoji, raw, zoom = self.screen(aboard, x, y, zoom)
-            locx, locy = loc
-
-            for yc, yn in zip(raw, range(zoom)):
-                for xc, xn in zip(yc, range(zoom)):
-                    draw.rectangle([(int(borderwidth + pixelwidth *
-                                         (xn + 1) + pixelsizex * (xn)),
-                                     int(borderwidth + pixelwidth *
-                                         (yn + 1)) + pixelsizey * (yn)),
-                                    (int(borderwidth + pixelwidth *
-                                         (xn + 1) + pixelsizex * (xn + 1)),
-                                     int(borderwidth + pixelwidth *
-                                         (yn + 1) + pixelsizey * (yn + 1)))],
-                                   fill=colours[xc])  # Pixels
-
-            if highlight:
-                draw.rectangle([
-                    (int(borderwidth + pixelwidth * (locx) + pixelsizex *
-                         (locx - 1)), int(borderwidth + pixelwidth *
-                                          (locy)) + pixelsizey * (locy - 1)),
-                    (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
-                     int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
-                ],
-                    fill=None,
-                    outline=(255, 255, 255, 255))  # Location highlight
-
-                draw.rectangle(
-                    [(int(borderwidth + pixelwidth * (locx) + pixelsizex *
-                          (locx - 1)), int(
-                        round(borderwidth - (pixelsizex / 3), 0))),
-                     (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
-                      borderwidth)],
-                    fill=colours[raw[0][locx - 1]])
-                draw.line(
-                    ((int(borderwidth + pixelwidth * (locx) + pixelsizex *
-                          (locx - 1)),
-                      int(round(borderwidth - (pixelsizex / 3), 0) - 1)),
-                     (int(borderwidth + pixelwidth * (locx) + pixelsizex * (locx)),
-                      int(round(borderwidth - (pixelsizex / 3), 0) - 1))),
-                    fill=(*(self.dblurplergb), 255),
-                    width=1)  # Highlight x
-
-                draw.rectangle([
-                    (int(round(borderwidth - (pixelsizey / 3), 0)),
-                     int(borderwidth + pixelwidth * (locy) + pixelsizey *
-                         (locy - 1))),
-                    (borderwidth,
-                     int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy)))
-                ],
-                    fill=colours[raw[locy - 1][0]])
-                draw.line(
-                    ((int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
-                     int(borderwidth + pixelwidth * (locy) + pixelsizey *
-                         (locy - 1)),
-                     (int(round(borderwidth - (pixelsizey / 3), 0) - 1)),
-                     int(borderwidth + pixelwidth * (locy) + pixelsizey * (locy))),
-                    fill=(*(self.dblurplergb), 255),
-                    width=1)  # Highlight y
-
-                tsx, tsy = self.image.fontxy.getsize(f"{x}  =  x")
-                draw.text((sizex - tsx - ((borderwidth - tsy) / 2),
-                           (borderwidth - tsy) / 2),
-                          f"{x}  =  x",
-                          font=self.image.fontxy,
-                          fill=(185, 196, 237, 255))
-
-                tsx, tsy = self.image.fontxy.getsize(f"y  =  {y}")
-                txt = Image.new('RGBA', (tsx, tsy))
-                ImageDraw.Draw(txt).text((0, 0),
-                                         f"y  =  {y}",
-                                         font=self.image.fontxy,
-                                         fill=(185, 196, 237, 255))
-                ftxt = txt.rotate(90, expand=1)
-                board.paste(
-                    ftxt,
-                    box=(int((borderwidth - tsy) / 2),
-                         int(sizey - tsx - ((borderwidth - tsy) / 2))),
-                    mask=ftxt)
-
-            spacing = 30
-            tsx, tsy = draw.textsize("Project", font=self.image.fonttitle)
-            draw.text((int(round(((borderwidth - tsx) / 2), 0)),
-                       int((borderwidth / 2) - tsy - (spacing / 2))),
-                      "Project",
-                      font=self.image.fonttitle,
-                      fill=(185, 196, 237, 255))
-            tsx, tsy = draw.textsize("Blurple", font=self.image.fonttitle)
-            draw.text((int(round(((borderwidth - tsx) / 2), 0)),
-                       int((borderwidth / 2) + (spacing / 2))),
-                      "Blurple",
-                      font=self.image.fonttitle,
-                      fill=(185, 196, 237, 255))
-
-            if highlight:
-                tsx, tsy = draw.textsize(
-                    f"({x}, {y})", font=self.image.fontcoordinates)
-                draw.text((int(round(((borderwidth - tsx) / 2), 0)),
-                           int(round(((borderwidth - tsy) / 2), 0))),
-                          f"({x}, {y})",
-                          font=self.image.fontcoordinates,
-                          fill=(255, 255, 255, 255))
-            else:
-                tsx, tsy = draw.textsize(
-                    f"{aboard.name}", font=self.image.fontcoordinates)
-                draw.text((int(round(((borderwidth - tsx) / 2), 0)),
-                           int(round(((borderwidth - tsy) / 2), 0))),
-                          f"{aboard.name}",
-                          font=self.image.fontcoordinates,
-                          fill=(255, 255, 255, 255))
-
-            image_file_object = io.BytesIO()
-            board.save(image_file_object, format='png')
-            image_file_object.seek(0)
-
-            return image_file_object
-
-        def colours(self, palettes='all'):
-            squaresize = 300
-            borderwidth = 100
-            textspacing = 200
-            squaren = {
-                'all': 8,
-                'main': 6,
-                'partner': 6
-            }[palettes]
-
-            # namefont = self.image.font(int(round(squaresize / 6.5, 0)))
-            # codefont = self.image.font(int(round(squaresize / 9, 0)))
-            namefont = self.image.font(int(round(squaresize / 8.5, 0)))
-            codefont = self.image.font(int(round(squaresize / 10.5, 0)))
-
-            basecorners = 50
-            squarecorners = 50
-
-            namewidth = 10
-
-            def hsl(x):
-                if len(x) > 3: x = x[:3]
-                to_float = lambda x: x / 255.0
-                (r, g, b) = map(to_float, x)
-                h, s, l = colorsys.rgb_to_hsv(r, g, b)
-                h = h if 0 < h else 1  # 0 -> 1
-                return h, s, l
-
-            rainbow = lambda x: {k: v for k, v in sorted(x.items(), key=lambda kv: hsl(kv[1]['rgb']))}
-
-            shuffle = lambda x: {k: v for k, v in sorted(x.items(), key=lambda kv: random.randint(1, 99999999))}
-
-            allcolours = {}
-
-            if palettes in ['all', 'main']:
-                allcolours['Main Colours'] = rainbow(
-                    {k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']})
-            if palettes in ['all', 'partner']:
-                allcolours['Partner Colours'] = rainbow(self.bot.partners)
-
-            height = 2 * borderwidth
-            for i in allcolours.values():
-                height += textspacing
-                height += squaresize * math.ceil(len(i) / squaren)
-            height += borderwidth * (len(allcolours) - 1)
-
-            width = 2 * borderwidth + squaren * squaresize
-
-            # img = Image.new('RGBA', (width, height), (*(self.blurplergb), 127))
-            img = self.image.round_rectangle(self, (width, height), basecorners, (*(self.blurplergb), 75),
-                                             allcorners=True)
-            draw = ImageDraw.Draw(img)
-
-            space = 0
-            for name, cs in allcolours.items():
-                bg = self.image.round_rectangle(self,
-                                                (squaren * squaresize,
-                                                 textspacing + squaresize * math.ceil(len(cs) / squaren)),
-                                                squarecorners, (*(self.dblurplergb), 255), allcorners=True
-                                                )
-                img.paste(bg, (borderwidth, borderwidth + space), bg)
-
-                tsx, tsy = draw.textsize(name, font=self.image.fontcolourtitle)
-
-                draw.text((int(round(((width - tsx) / 2), 0)),
-                           int(round(((textspacing - tsy) / 2 + space + borderwidth), 0))),
-                          name,
-                          font=self.image.fontcolourtitle,
-                          fill=(255, 255, 255, 255))
-
-                # rows = [[] for i in range(math.ceil(len(i) / squaren))]
-                rows = [[] for i in range(math.ceil(len(cs) / squaren))]
-                for n, (k, c) in enumerate(cs.items()):
-                    rows[math.floor(n / squaren)].append(c)
-                if not rows[-1]: rows.pop(len(rows) - 1)
-
-                def roundrect(img, colour, coords, corners):
-                    a = self.image.round_rectangle(
-                        self, (squaresize, squaresize), squarecorners, colour,
-                        topleft=corners['tl'], topright=corners['tr'], bottomleft=corners['bl'],
-                        bottomright=corners['br']
+        frames.sort(key=lambda frame: frame.name)
+        frames.sort(key=lambda frame: frame.owner_id != interaction.guild.id)
+        frames.sort(key=lambda frame: frame.is_guild_owned)
+        frames.sort(key=lambda frame: frame.id == current)
+        choices = [
+            Choice(
+                name=f"{frame.name} {frame.centroid}"
+                + (
+                    (
+                        f" (guild frame)"
+                        if frame.owner_id != interaction.guild.id
+                        else f" (this guild's frame)"
                     )
-                    img.paste(a, coords, a)
-                    return img
+                    if frame.is_guild_owned
+                    else ""
+                ),
+                value=frame.id,
+            )
+            for frame in frames
+            if not current or current in neutralise(frame.name).upper()
+        ][:25]
+        return choices
 
-                for rown, row in enumerate(rows):
-                    for pos, cdict in enumerate(row):
-                        xpos = borderwidth + pos * squaresize  # + (squaren - len(row)) * squaresize / 2
-                        ypos = space + borderwidth + textspacing + rown * squaresize
-
-                        roundcorners = {
-                            'tl': rown == 0 and pos == 0,
-                            'tr': rown == 0 and pos == squaren - 1,
-                            'bl': rown == len(rows) - 1 and pos == 0,
-                            'br': rown == len(rows) - 1 and pos == squaren - 1
-                        }
-
-                        if any(list(roundcorners.values())):
-                            img = roundrect(img, cdict['rgb'], (xpos, ypos), roundcorners)
-                        else:
-                            draw.rectangle([
-                                (xpos, ypos),
-                                (xpos + squaresize - 1, ypos + squaresize - 1)
-                            ],
-                                fill=cdict['rgb']
-                            )
-
-                        tcolour = (0, 0, 0, 255) if hsl(cdict['rgb'])[2] == 1 else (255, 255, 255, 255)
-
-                        cname = '\n'.join(textwrap.wrap(cdict['name'], width=namewidth))
-                        tsnx, tsny = draw.textsize(cname, font=namefont)
-                        draw.multiline_text(
-                            (
-                                int(round(xpos + (squaresize - tsnx) / 2, 0)),
-                                int(round(ypos + (squaresize - tsny) / 2, 0))
-                            ),
-                            cname,
-                            font=namefont,
-                            fill=tcolour,
-                            align='center',
-                            spacing=int(round(squaresize / 30))
-
-                        )
-
-                        rgbtxt = ', '.join([str(i) for i in cdict['rgb'][:3]])
-                        tsnx, tsny = draw.textsize(rgbtxt, font=codefont)
-                        draw.text(
-                            (
-                                int(round(xpos + (squaresize - tsnx) / 2, 0)),
-                                int(round(ypos + squaresize / 10, 0))
-                            ),
-                            rgbtxt,
-                            font=codefont,
-                            fill=tcolour,
-                        )
-
-                        tsnx, tsny = draw.textsize(cdict['tag'], font=codefont)
-                        draw.text(
-                            (
-                                int(round(xpos + (squaresize - tsnx) / 2, 0)),
-                                int(round(ypos + (squaresize - tsny) - squaresize / 10, 0))
-                            ),
-                            cdict['tag'],
-                            font=codefont,
-                            fill=tcolour,
-                        )
-
-                space += textspacing + squaresize * math.ceil(len(cs) / squaren) + borderwidth
-
-            image_file_object = io.BytesIO()
-            img.save(image_file_object, format='png')
-            image_file_object.seek(0)
-
-            return image_file_object
-
-        def round_corner(self, radius, fill):
-            """Draw a round corner"""
-            corner = Image.new('RGBA', (radius, radius), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(corner)
-            draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
-            return corner
-
-        def round_rectangle(self, size, radius, fill, topleft=False, topright=False, bottomleft=False,
-                            bottomright=False, allcorners=False):
-            """Draw a rounded rectangle"""
-            if allcorners: topleft = topright = bottomleft = bottomright = True
-
-            width, height = size
-            rectangle = Image.new('RGBA', size, fill)
-            corner = self.image.round_corner(self, radius, fill)
-            if topleft: rectangle.paste(corner, (0, 0))
-            if bottomleft: rectangle.paste(corner.rotate(90), (0, height - radius))  # Rotate the corner and paste it
-            if bottomright: rectangle.paste(corner.rotate(180), (width - radius, height - radius))
-            if topright: rectangle.paste(corner.rotate(270), (width - radius, 0))
-            return rectangle
-
-    class coordinates(commands.Converter):
-        def __init__(self, colour: bool = False):
-            self.colour = colour
-
-        async def convert(self, ctx, argument):
-            try:
-                arg = argument.split()
-
-                if len(arg) < 3:
-                    zoom = None
-                else:
-                    if self.colour and len(arg) == 3:
-                        zoom = None
-                    else:
-                        zoom = int(arg[2])
-
-                if self.colour: colour = arg[-1]
-
-                x = int(arg[0].replace('(', '').replace(',', ''))
-                y = int(arg[1].replace(')', ''))
-            except Exception as e:
-                x, y, zoom, colour = (0, 0, None, None)
-
-            if self.colour:
-                return (x, y, zoom, colour)
-            else:
-                return (x, y, zoom)
-
-    async def cog_check(self, ctx):
-        return ctx.guild.id in [self.bot.blurpleguild.id] + [int(i['guild']) for i in self.bot.partners.values()]
-
-    @commands.Cog.listener()  # Error Handler
-    async def on_command_error(self, ctx, error):
+    async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         ignored = (
-            commands.CommandNotFound, commands.UserInputError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
-        if isinstance(error, ignored): return
-
-        if isinstance(error, commands.CheckFailure):
-            # print(error)
-            # await ctx.reply(f"It doesn't look like you are allowed to run this command. Make sure you've got the Blurple User role in the main server, otherwise these commands will not work!")
-            await ctx.reply(
-                f"It doesn't look like you are allowed to run this command. Make sure you're in the host Project Blurple server, otherwise these commands will not work!")
+            commands.CommandNotFound,
+            commands.CheckFailure,
+            commands.CommandInvokeError,
+        )
+        if isinstance(error, ignored):
             return
-
-        if isinstance(error, commands.CommandOnCooldown):
-            if any(i in [706475186274172989, 803595727175155723] for i in [role.id for role in ctx.author.roles]):
-                if ctx.author.id in self.bot.cd:
-                    self.bot.cd.remove(ctx.author.id)
-                await ctx.reinvoke()
-                return
-
-            seconds = error.retry_after
-            seconds = round(seconds, 2)
-            hours, remainder = divmod(int(seconds), 3600)
-            minutes, seconds = divmod(remainder, 60)
-
-            if ctx.command.name == "place":
-                if ctx.author.id in self.bot.cd:
-                    self.bot.cd.remove(ctx.author.id)
-                    await ctx.reinvoke()
-                    return
-
-            if minutes:
-                await ctx.reply(
-                    f"This command is on cooldown ({minutes}m, {seconds}s)"
-                )
-            else:
-                await ctx.reply(
-                    f"This command is on cooldown ({seconds}s)"
-                )
-            return
-
-        if isinstance(error, discord.Forbidden):
-            await ctx.reply(
-                f"I don't seem to have the right permissions to do that. Please check with the mods of this server that I have Embed Links // Send Images // Manage Message (for clearing reactions) perms!"
-            )
-
-        traceback.print_exception(
-            type(error), error, error.__traceback__, file=sys.stderr)
-
-    def screen(self, board, x: int, y: int, zoom: int = 7):
-        tl = math.ceil(zoom / 2) - 1
-        # tly = (y / 2) - 1 if y % 2 == 0 else (y / 2) - 0.5
-        tlx = x - tl
-        tly = y - tl
-
-        locx = (zoom / 2) if zoom % 2 == 0 else (zoom / 2) + 0.5
-        locy = locx
-
-        if x < zoom / 2:
-            tlx = 1
-            locx = x
-        elif x > board.width - zoom / 2:
-            tlx = board.width - zoom + 1
-            locx = zoom - (board.width - x)
-
-        if y < zoom / 2:
-            tly = 1
-            locy = y
-        elif y > board.height - zoom / 2:
-            tly = board.height - zoom + 1
-            locy = zoom - (board.height - y)
-
-        loc = (int(locx), int(locy))
-
-        demoji = [[] for i in range(zoom)]
-        draw = [[] for i in range(zoom)]
-        pt = {}
-        for k, v in self.bot.partners.items():
-            pt[v['tag']] = v['emoji']
-        for k, v in self.bot.colours.items():
-            pt[k] = v
-
-        for yn, xs in board.data.items():
-            if not yn.isdigit(): continue
-            if tly <= int(yn) < tly + zoom:
-                de = []
-                dr = []
-                for xn, pixel in xs.items():
-                    if tlx <= int(xn) < tlx + zoom:
-                        # de.append("<:" + pt[pixel["c"]] + ">")
-                        # dr.append(pixel["c"])
-                        de.append("<:" + pt[pixel] + ">")
-                        dr.append(pixel)
-                if dr:
-                    demoji[int(yn) - tly] = de
-                    draw[int(yn) - tly] = dr
-
-        return loc, demoji, draw, zoom
-
-    class boardspec(commands.Converter):
-        async def convert(self, ctx, seed):
-            options = ['random']
-            if seed.lower() in [i.lower() for i in options]:
-                return seed.lower()
-            else:
-                raise Exception
-
-    async def update_history(self, board, colour, author, coords):
-        time = datetime.datetime.utcnow()
-        board_history = self.bot.dbs.history[board.name.lower()]  # type: Collection
-        board_history.insert_one({'colour': colour, 'author': author, 'coords': coords, 'created': time})
-        board.last_updated = time
-
-    async def backup(self, boardname):
-        n = 1
-        nbackups = 4
-        period = 300  # seconds // 5 minutes
-        while True:
-            await asyncio.sleep(period)
-            await self.dobackup(boardname, n)
-            n = n + 1 if n < nbackups else 1
-
-    async def dobackup(self, boardname, n):
-        try:
-            print(f"Starting backup of {boardname}_{n}")
-            async with aiohttp.ClientSession() as session:
-                with open(f'backups/backup_{boardname}_{n}.json', 'wt') as f:
-                    data = {i: getattr(self.bot.boards[boardname], i) for i in
-                            ['data', 'name', 'width', 'height', 'locked', 'last_updated']}
-                    try:
-                        data['data'].pop('_id')
-                    except KeyError:
-                        pass
-                    json.dump(data, f, default=json_util.default)
-
-            print(f"Saved backup {boardname}_{n}   {datetime.datetime.utcnow()}")
-        except Exception as e:
-            print(e)
-
-    @commands.command()
-    @admin()
-    async def loadbackup(self, ctx, n: int, boardname):
-        async with aiohttp.ClientSession() as session:
-            with open(f'backups/backup_{boardname}_{n}.json', 'rt') as f:
-                data = json.load(f, object_hook=json_util.object_hook)
-            board = self.board(**data)
-
-        async with aiohttp.ClientSession() as session:
-            async with ctx.typing():
-                start = time.time()
-                x, y, zoom = (1, 1, board.width)
-                image = await self.bot.loop.run_in_executor(
-                    None, self.image.imager, self, board, x, y, zoom, False)
-                end = time.time()
-                image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
-
-                embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
-                embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
-                embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar)
-                embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                await ctx.reply(embed=embed, file=image)
-
-        await ctx.reply("Is this what you're looking for?")
-
-        def check(message):
-            return ctx.author == message.author and message.content.lower() in ['yes', 'no', 'y',
-                                                                                'n'] and message.channel == ctx.message.channel
-
-        msg = await self.bot.wait_for('message', check=check)
-
-        if msg.content in ['no', 'n']:
-            return await msg.reply("Ok, cancelled")
-
-        await msg.reply("Ok, pushing to db - please make sure the board exists so I can update it")
-
-        t1 = time.time()
-
-        newboard = board
-
-        self.bot.boards[boardname] = newboard
-
-        await ctx.send('Writing to db')
-        print('Writing to db')
-
-        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())  # type: Collection
-        dboard.bulk_write([
-            UpdateOne({'type': 'info'}, {'$set': {
-                'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False,
-                         'last_updated': newboard.last_updated}}}),
-        ])
-
-        print('Info done')
-        await ctx.send('Info done')
-
-        board_history = self.bot.dbs.history[newboard.name.lower()]  # type: Collection
-        board_history.delete_many({'created': {'$gt': newboard.last_updated}})
-
-        print('History done')
-        await ctx.send('History done')
-
-        await self.bot.dbs.boards[board.name.lower()].bulk_write(
-            [UpdateOne({'row': y + 1}, {'$set': {str(y + 1): newboard.data[str(y + 1)]}}) for y in
-             range(newboard.height)])
-
-        t2 = time.time()
-
-        print('Board saved')
-        await msg.reply(f"Board saved ({round((t2 - t1), 4)}s)")
-
-    @commands.command()
-    @admin()
-    async def forcebackup(self, ctx, boardname):
-        await self.dobackup(boardname, 0)
-        await ctx.reply("Done")
-
-    @commands.command(aliases=['unlockboard'])
-    @admin()
-    async def lockboard(self, ctx, boardname: str):
-        if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.reply(
-                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
-            )
-        board = self.bot.boards[boardname.lower()]
-
-        current = board.locked
-
-        await self.bot.dbs.board[board.name.lower()].update_one({'type': 'info'},
-                                                                {'$set': {'info.locked': not current}})
-
-        board.locked = not current
-
-        await ctx.reply(f"Set **{board.name}** locked state to `{not current}`")
-
-    @commands.command(aliases=['showpixelhistory', 'sph'])
-    @mod()
-    async def show_pixel_history(self, ctx: commands.Context, boardname: str, x: int, y: int):
-
-        if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.reply(
-                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
-            )
-        board = self.bot.boards[boardname.lower()]
-        if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.reply(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
-            )
-
-        history = self.bot.dbs.history[boardname.lower()]  # type: Collection
-        resp = history.find({'coords': (x, y)})
-        resp.sort('created', pymongo.DESCENDING)
-        message = f"History for Pixel ({x}, {y}) on {boardname}:"
-        counter = 1
-        async for r in resp:
-            try:
-                user = self.bot.get_user(r['author']) or await self.bot.fetch_user(r['author'])
-                user_str = f"{user.mention} (`{r['author']}`)"
-            except Exception:
-                user_str = r['author']
-            message += f"\n{counter}. {user_str} placed {r['colour']} at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
-            counter += 1
-            if counter >= 10:
-                break
-
-        await ctx.reply(message)
-
-    @commands.command(aliases=['showuserhistory', 'suh'])
-    @mod()
-    async def show_user_history(self, ctx: commands.Context, boardname: str, user):
-
-        if boardname.lower() not in self.bot.boards.keys():
-            return await ctx.reply(
-                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
-            )
-        try:
-            user = self.bot.get_user(user) or await self.bot.fetch_user(user)
-        except Exception:
-            return await ctx.reply(f'User is not found.')
-
-        board = self.bot.boards[boardname.lower()]
-
-        history = self.bot.dbs.history[boardname.lower()]  # type: Collection
-        resp = history.find({'author': user.id})
-        resp.sort('created', pymongo.DESCENDING)
-        message = f"History for User {user.mention} (`{user.id}`) on {boardname}:"
-        counter = 1
-        async for r in resp:
-            message += f"\n{counter}. Placed {r['colour']} on ({r['coords'][0]}, {r['coords'][1]}) at {r['created'].strftime('%m/%d/%Y, %H:%M:%S')} UTC"
-            counter += 1
-            if counter >= 10:
-                break
-
-        await ctx.reply(message)
-
-    @commands.command(name="createboard", aliases=["cb"])
-    @admin()
-    async def createboard(self, ctx, x: int, y: int, seed: typing.Optional[boardspec] = None, *, name: str):
-        """Creates a board. Optional seed parameter. Must specify width (x), height (y), and name."""
-        if not self.bot.initfinished: return await ctx.reply(
-            'Please wait for the bot to finish retrieving boards from database.')
-
-        if any(i < 5 for i in [x, y]):
-            return await ctx.reply("Please have a minimum of 5.")
-
-        await ctx.reply("Creating board...")
-
-        fill = "blank"
-
-        try:
-            self.bot.boards[name.lower()]
-        except Exception:
-            pass
+        elif isinstance(error, commands.CommandError):
+            await interaction.response.send_message(str(error), ephemeral=True)
         else:
-            return await ctx.reply("There's already a board with that name!")
+            traceback.print_exc()
+            raise error
 
-        t1 = time.time()
+    @app_commands.command(name="view")
+    @app_commands.describe(
+        x="x coordinate",
+        y="y coordinate",
+        zoom="Zoom level (default 25)",
+        frame_id="Frame to view",
+    )
+    async def view(
+        self,
+        interaction: Interaction,
+        x: int = None,
+        y: int = None,
+        zoom: int = 25,
+        frame_id: str = None,
+    ):
+        """View the canvas"""
+        if (x is None) != (y is None):
+            return await interaction.response.send_message(
+                "Please provide both x and y coordinates."
+            )
 
-        self.bot.boards[name.lower()] = self.board(
-            name=name, width=x, height=y, locked=False)
-        newboard = self.bot.boards[name.lower()]
+        await interaction.response.defer()
+        sql = await self.sql()
 
-        for yn in range(1, y + 1):
-            newboard.data[str(yn)] = {}
-            for xn in range(1, x + 1):
-                if seed == "random":
-                    colour = random.choice([
-                        name for name in self.bot.colours.keys()
-                        if name not in ['edit', 'blank']
-                    ])
-                    # newboard.data[str(yn)][str(xn)] = {
-                    #     "c": colour,
-                    #     # "info": [{
-                    #     #     "user": "Automatic",
-                    #     #     "time": datetime.datetime.utcnow()
-                    #     # }]
-                    # }
-                    newboard.data[str(yn)][str(xn)] = colour
+        frame: Optional[Frame] = None
+        if frame_id:
+            frame = await sql.fetch_frame(frame_id)
+            if frame is None:
+                await sql.close()
+                return await interaction.followup.send("Frame not found.")
 
+        try:
+            timer = Timer()
+            user, canvas = await self.find_canvas(interaction.user.id)
+
+            canvas = await self.check_cache(canvas)
+
+            # Get frame
+            if frame:
+                if not frame.canvas == canvas:
+                    return await interaction.followup.send(
+                        "This frame does not belong to this canvas."
+                    )
+                await canvas.load_frame_pixels(sql, frame)
+            else:
+                if not any([x, y]):
+                    frame = await canvas.get_frame_full(sql)
                 else:
-                    # newboard.data[str(yn)][str(xn)] = {
-                    #     "c": "blank",
-                    #     # "info": [{
-                    #     #     "user": "Automatic",
-                    #     #     "time": datetime.datetime.utcnow()
-                    #     # }]
-                    # }
-                    colour = "blank"
-                    newboard.data[str(yn)][str(xn)] = colour
+                    frame = await canvas.get_frame_from_coordinate(
+                        sql, canvas.get_true_coordinates(x, y), zoom
+                    )
+            await sql.close()
 
-                # newboard.history[datetime.datetime.utcnow().timestamp()] = [colour, "Automatic"]
-                async with self.bot.dblock:
-                    await self.update_history(newboard, colour, "Automatic", (xn, yn))
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
 
-        await ctx.reply("Created board, saving to database")
+        # Generate image
+        max_size = Coordinates(3000, 3000)
+        file, file_name, size_bytes = await self.async_image(
+            frame.generate_image,
+            max_size=max_size,
+            file_name=f"canvas_{canvas.name_safe}_{x}-{y}.png",
+        )
 
-        await self.bot.dbs.boards.create_collection(newboard.name.lower())
-        dboard = self.bot.dbs.boards.get_collection(newboard.name.lower())
-        await dboard.insert_many([
-            {'type': 'info',
-             'info': {'name': newboard.name, 'width': newboard.width, 'height': newboard.height, 'locked': False,
-                      'last_updated': newboard.last_updated}},
-        ])
+        # Embed
+        embed = self.base_embed(
+            user=interaction.user,
+            title=(
+                f"{self.info.title} • "
+                + (
+                    f"{canvas.name} {Coordinates(x, y) if x and y else ''}"
+                    if not frame.name
+                    else f"{canvas.name} • {frame.name} {frame.centroid}"
+                )
+            ),
+            footer=f"Frame #{frame.id}" if frame.id is not None else f"{canvas.id}",
+        )
+        timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})")
+        await interaction.followup.send(
+            embed=embed,
+            file=file,
+        )
 
-        self.bot.dbs.history[newboard.name.lower()]  # type: Collection
+    @view.autocomplete("frame_id")
+    async def view_autocomplete_frame_id(self, interaction: Interaction, current: str):
+        choices = await self.autocomplete_frame_id(interaction, current)
+        return choices
 
-        limit = 200000
-        n = newboard.width * newboard.height
-        cdata = newboard.data
-        datalist = []
-        cline = 1
-        while n > limit:
-            ndata = []
-            lines = math.floor(limit / newboard.width)
-            # print(lines)
-            for i in range(lines):
-                try:
-                    ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
-                except KeyError:
-                    pass
-                cline += 1
-            datalist.append(ndata)
+    @app_commands.command(name="place")
+    @app_commands.describe(
+        x="x coordinate",
+        y="y coordinate",
+        color="Color to place. Leave blank to select from dropdown.",
+    )
+    async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
+        """Place a pixel on the canvas"""
+        await interaction.response.defer()
 
-            n -= lines * newboard.width
+        sql = await self.sql()
 
-        # print(n / newboard.width)
-        ndata = []
-        for i in range(n):
-            try:
-                ndata.append({str(cline): newboard.data[str(cline)], 'type': 'data', 'row': cline})
-            except KeyError:
-                pass
-            cline += 1
-        datalist.append(ndata)
-
-        for x, item in enumerate(datalist):
-            await dboard.insert_many(item)
-            await ctx.send(f'Saved chunk {x + 1} of {len(datalist)}')
-
-        t2 = time.time()
-
-        await ctx.reply(f"Board created ({round((t2 - t1), 4)}s)")
-
-    @commands.command()
-    @inteam()
-    async def boards(self, ctx):
-        """Lists all available canvas boards"""
-        await ctx.reply(f'Boards ({len(self.bot.boards)}) - ' + ' | '.join(self.bot.boards.keys()))
-
-    @commands.command()
-    @inteam()
-    async def join(self, ctx, *, name: str = None):
-        """Joins a board. You need to have joined a board to start interacting with the canvas."""
-        if not name: return await ctx.reply(
-            f'Please specify a board to join. To see all valid boards, type `{ctx.prefix}boards`.')
-
-        if name.lower() not in self.bot.boards.keys():
-            return await ctx.reply(
-                f'That is not a valid board. To see all valid boards, type `{ctx.prefix}boards`.'
-            )
-
-        self.bot.uboards[ctx.author.id] = name.lower()
-        await self.boardpersist.c('update', ctx.author.id, name.lower())
-
-        bname = self.bot.boards[name.lower()].name
-        await ctx.reply(f"Joined '{bname}' board")
-
-    @commands.command()
-    @inteam()
-    async def leave(self, ctx):
-        """Leaves the board you've currently joined."""
-        if ctx.author.id not in self.bot.uboards.keys():
-            return await ctx.reply("You can't leave a board when you haven't joined one!")
-
-        bname = self.bot.uboards[ctx.author.id]
-        self.bot.uboards.pop(ctx.author.id)
-        await self.boardpersist.c('update', ctx.author.id, False)
-
-        await ctx.reply(f"Left '{bname}' board")
-
-    async def findboard(self, ctx) -> board:
         try:
-            self.bot.boards[self.bot.uboards[ctx.author.id]]
-        except KeyError:
-            if self.bot.defaultcanvas.lower() in [i.lower() for i in self.bot.boards.keys()]:
-                self.bot.uboards[ctx.author.id] = self.bot.defaultcanvas.lower()
-                await self.boardpersist.c('update', ctx.author.id, self.bot.defaultcanvas.lower())
-                await ctx.reply(
-                    f"You weren't added to a board, so I've automatically added you to the default '{self.bot.defaultcanvas}' board. To see all available boards, type `{ctx.prefix}boards`")
-            else:
-                if ctx.author.id in self.bot.uboards.keys(): self.bot.uboards.pop(ctx.author.id)
-                await self.boardpersist.c('update', ctx.author.id, False)
-                await ctx.reply(
-                    f"You haven't joined a board! Type `{ctx.prefix}join <board>` to join a board! To see all boards, type `{ctx.prefix}boards`"
-                )
-                return False
+            user, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
 
-        return self.bot.boards[self.bot.uboards[ctx.author.id]]  # type: CanvasCog.board
+        if user.is_blacklisted:
+            await sql.close()
+            return await interaction.followup.send(
+                "You are blacklisted.", ephemeral=True
+            )
 
-    @commands.command(name="toggleskip", aliases=["ts"])
-    @inteam()
-    async def toggleskip(self, ctx):
-        """Toggles p/place coordinate confirmation"""
-        await self.skippersist.c('toggle', ctx.author.id)
-        if ctx.author.id in self.bot.skipconfirm:
-            self.bot.skipconfirm.remove(ctx.author.id)
-            await ctx.reply(f"Re-enabled confirmation message for {ctx.author.mention}")
-        else:
-            self.bot.skipconfirm.append(ctx.author.id)
-            await ctx.reply(f"Disabled confirmation message for {ctx.author.mention}")
+        if canvas.locked:
+            await sql.close()
+            return await interaction.followup.send(f"**{canvas.name}** is read-only.")
 
-    @commands.command(name="toggleremind", aliases=["tr"])
-    @inteam()
-    async def toggleremind(self, ctx):
-        """Toggles p/place cooldown reminder"""
-        await self.reminderpersist.c('toggle', ctx.author.id)
-        if ctx.author.id in self.bot.cooldownreminder:
-            self.bot.cooldownreminder.remove(ctx.author.id)
-            await ctx.reply(f"Disabled cooldown reminder for {ctx.author.mention}")
-        else:
-            self.bot.cooldownreminder.append(ctx.author.id)
-            await ctx.reply(f"Enabled cooldown reminder for {ctx.author.mention}")
+        coordinates = canvas.get_true_coordinates(x, y)
+        if coordinates not in canvas:
+            await sql.close()
+            return await interaction.followup.send(
+                f"Coordinates {canvas.get_f_coordinates(coordinates)} are out of bounds."
+            )
 
-    @app_commands.command(name="toggleskip")
-    async def slash_toggleskip(self, interaction: discord.Interaction) -> None:
-        """Toggles p/place coordinate confirmation"""
-        await self.skippersist.c('toggle', interaction.user.id)
-        if interaction.user.id in self.bot.skipconfirm:
-            self.bot.skipconfirm.remove(interaction.user.id)
-            await interaction.response.send_message(f"Re-enabled confirmation message.", ephemeral=True)
-        else:
-            self.bot.skipconfirm.append(interaction.user.id)
-            await interaction.response.send_message(f"Disabled confirmation message.", ephemeral=True)
-
-    @app_commands.command(name="togglereminder")
-    async def slash_togglereminder(self, interaction: discord.Interaction) -> None:
-        """Toggles p/place cooldown reminder"""
-        await self.reminderpersist.c('toggle', interaction.user.id)
-        if interaction.user.id in self.bot.cooldownreminder:
-            self.bot.cooldownreminder.remove(interaction.user.id)
-            await interaction.response.send_message(f"Disabled cooldown reminder.", ephemeral=True)
-        else:
-            self.bot.cooldownreminder.append(interaction.user.id)
-            await interaction.response.send_message(f"Enabled cooldown reminder.", ephemeral=True)
-
-    @commands.command(name="view", aliases=["see"])
-    @commands.cooldown(1, 10, BucketType.user)
-    @inteam()
-    async def view(self, ctx, *, xyz: coordinates = None):
-        """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional."""
-        board = await self.findboard(ctx)
-        if not board: return
-
-        # if not xyz: return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
-
-        if xyz:
-            x, y, zoom = xyz
-
-            if board.data == None:
-                return await ctx.reply('There is currently no board created')
-
-            if x < 1 or x > board.width or y < 1 or y > board.height:
-                return await ctx.reply(
-                    f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
+        cooldown = None
+        if canvas.cooldown_length is not None:
+            success, cooldown = await user.hit_cooldown_with_message(
+                sql, canvas, interaction.channel
+            )
+            if not success:
+                await sql.close()
+                return await interaction.followup.send(
+                    f"You are on cooldown. You can place another pixel {cooldown.time_left_markdown}.",
+                    ephemeral=True,
                 )
 
-            defaultzoom = 25
+        color = (await self.get_available_colors())[color]
+        if color is not None:
+            if not color.is_valid(interaction.guild_id, self.info.current_event_id):
+                await sql.close()
+                return await interaction.followup.send(
+                    f"{color.name} is not available in this guild."
+                )
 
-            if zoom == None or zoom > board.width or zoom > board.height:
-                zoom = defaultzoom
-            if zoom > board.width or zoom > board.height:
-                if board.width > board.height:
-                    zoom = board.width
-                else:
-                    zoom = board.height
-            if zoom < 5:
-                return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
-        else:
-            x, y, zoom = (1, 1, board.width)
+        canvas = await self.check_cache(canvas)
 
-        async with aiohttp.ClientSession() as session:
-            async with ctx.typing():
-                start = time.time()
-                image = await self.bot.loop.run_in_executor(
-                    None, self.image.imager, self, board, x, y, zoom, bool(xyz))
-                end = time.time()
-                image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
+        # 11 is max emoji limit
+        zoom = 11
+        frame = await canvas.get_frame_from_coordinate(
+            sql, coordinates, zoom, focus=True
+        )
 
-                embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
-                embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
-                embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar)
-                embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                await ctx.reply(embed=embed, file=image)
+        msg: Optional[Message] = None
 
-    @commands.command(name="viewnav", aliases=["seenav"])
-    @commands.cooldown(1, 30, BucketType.user)
-    @inteam()
-    async def viewnav(self, ctx, *, xyz: coordinates = None):
-        """Views a section of the boards as an inline image created with emojis. Can be navigatable via interactive input. Must have xy coordinates."""
-        board = await self.findboard(ctx)
-        if not board: return
-
-        if not xyz: return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
-
-        x, y, zoom = xyz
-
-        if board.data == None:
-            return await ctx.reply('There is currently no board created')
-
-        if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.reply(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
-            )
-
-        loc, emoji, raw, zoom = self.screen(board, x, y, 7)
-        locx, locy = loc
-        # emoji[locx - 1][locy - 1] = "<:" + self.bot.colours["edit"] + ">"
-
-        display = f"**Blurple Canvas - ({x}, {y})**\n"
-
-        if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-        emoji[locy - 1].append(f" **{y}** (y)")
-        if locy < zoom: emoji[locy].append(" ⬇")
-
-        display += "\n".join(["".join(i) for i in emoji]) + "\n"
-
-        if locx - 2 < 0:
-            display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
-        elif locx > zoom - 1:
-            display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
-        else:
-            display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
-
-        embed = discord.Embed(
-            colour=self.blurplehex, timestamp=discord.utils.utcnow())
-        # embed.add_field(name = "Board", value = display)
-        embed.set_footer(
-            text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=self.bot.user.avatar)
-        embed.set_author(name=board.name)
-        msg = await ctx.reply(display, embed=embed)
-
-        # arrows = ["⬅", "⬆", "⬇", "➡"]
-        # for emote in arrows:
-        #     await msg.add_reaction(emote)
-
-        # def check(payload):
-        #     return payload.user_id == ctx.author.id and payload.message_id == msg.id and str(
-        #         payload.emoji) in arrows
-
-        while True:
-            # done, pending = await asyncio.wait(
-            #     [
-            #         self.bot.wait_for(
-            #             'raw_reaction_add', timeout=30.0, check=check),
-            #         self.bot.wait_for(
-            #             'raw_reaction_remove', timeout=30.0, check=check)
-            #     ],
-            #     return_when=asyncio.FIRST_COMPLETED)
-
-            # try:
-            #     stuff = done.pop().result()
-            # except asyncio.TimeoutError:
-            #     await msg.clear_reactions()
-            #     for future in done:
-            #         future.exception()
-            #     for future in pending:
-            #         future.cancel()
-            #     return
-            # for future in done:
-            #     future.exception()
-            # for future in pending:
-            #     future.cancel()
-
-            # payload = stuff
-
-            # emojiname = str(payload.emoji)
-            # if emojiname == "⬅" and x > 1: x -= 1
-            # elif emojiname == "➡" and x < board.width: x += 1
-            # elif emojiname == "⬇" and y < board.height: y += 1
-            # elif emojiname == "⬆" and y > 1: y -= 1
-
-            view = NavigateView(ctx.author.id)
-            [i for i in view.children if i.custom_id == "cancel"][0].disabled = True
-            await msg.edit(view=view)
-
-            timeout = await view.wait()
-
-            if timeout:
-                await msg.edit(view=None)
-                return
-
-            if view.confirm == True:
-                break
-
-            if view.value == "L" and x > 1:
-                x -= 1
-            elif view.value == "R" and x < board.width:
-                x += 1
-            elif view.value == "D" and y < board.height:
-                y += 1
-            elif view.value == "U" and y > 1:
-                y -= 1
-
-            loc, emoji, raw, zoom = self.screen(board, x, y, 7)
-
-            locx, locy = loc
-
-            display = f"**Blurple Canvas - ({x}, {y})**\n"
-
-            if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-            emoji[locy - 1].append(f" **{y}** (y)")
-            if locy < zoom: emoji[locy].append(" ⬇")
-
-            display += "\n".join(["".join(i) for i in emoji]) + "\n"
-
-            if locx - 2 < 0:
-                display += (self.bot.empty * (locx - 2)) + f" **{x}** (x) ➡"
-            elif locx > zoom - 1:
-                display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x)"
+        async def send_msg(msg_: Message, *args, **kwargs):
+            if msg_ is None:
+                return await interaction.followup.send(*args, **kwargs)
             else:
-                display += (self.bot.empty * (locx - 2)) + f"⬅ **{x}** (x) ➡"
+                kwargs.pop("ephemeral", None)
+                await msg_.edit(*args, **kwargs)
+                return msg_
 
-            # display = "\n".join(["".join(i) for i in emoji])
-            # print(display)
-            # embed.set_field_at(0, name = "Board", value = display)
-            # await msg.edit(embed=embed)
-            await msg.edit(content=display)
+        embed = self.base_embed(user=interaction.user)
+        view: Optional[ConfirmView] = None
+        suffix = f"{canvas.name} {canvas.get_f_coordinates(coordinates)}"
 
-        await msg.edit(view=None)
+        if not user.skip_confirm or not color:
+            old_view: Optional[ConfirmView] = None
+            if not user.skip_confirm:
+                # Navigating pixels
+                while True:
+                    embed.title = f"Place pixel • {suffix}"
+                    embed.description = frame.to_emoji(
+                        focus=self.palette.edit_color, new_color=color
+                    )
 
-    @commands.command(hidden=True)
-    @dev()
-    async def viewnavexp(self, ctx, *, xyz: coordinates = None):
-        board = await self.findboard(ctx)
-        if not board: return
+                    view: NavigateView = NavigateView(
+                        interaction.user.id,
+                        disabled_directions=[
+                            direction
+                            for direction in NavigationEnum
+                            if not (coordinates + direction.value) in canvas.bbox
+                        ],
+                    )
+                    msg = await send_msg(msg, embed=embed, view=view)
+                    if old_view:
+                        await old_view.defer()
 
-        if not xyz: return await ctx.reply('Please specify coordinates (e.g. `234 837` or `12 53`)')
+                    timeout = await view.wait()
 
-        x, y, zoom = xyz
+                    if timeout or view.confirm == ConfirmEnum.CANCEL:
+                        if timeout:
+                            embed.title = f"Timed out • {suffix}"
+                        elif view.confirm == ConfirmEnum.CANCEL:
+                            embed.title = f"Cancelled • {suffix}"
+                        await send_msg(msg, embed=embed, view=None)
+                        await view.defer()
+                        if cooldown is not None:
+                            await user.clear_cooldown(sql, cooldown)
+                        await sql.close()
+                        return
 
-        if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.reply(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
-            )
+                    elif view.confirm == ConfirmEnum.CONFIRM:
+                        old_view = view
+                        break
 
-        if zoom == None:
-            if board.width > board.height:
-                zoom = board.width
-            else:
-                zoom = board.height
-        if zoom > board.width or zoom > board.height:
-            if board.width > board.height:
-                zoom = board.width
-            else:
-                zoom = board.height
-        if zoom < 5:
-            return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
+                    else:
+                        coordinates += view.direction.value
+                        frame = await canvas.get_frame_from_coordinate(
+                            sql, coordinates, zoom, focus=True
+                        )
+                        old_view = view
 
-        async with aiohttp.ClientSession() as session:
-            async with ctx.typing():
-                start = time.time()
-                image = await self.bot.loop.run_in_executor(
-                    None, self.image.imager, self, board, x, y, zoom)
-                end = time.time()
-                image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
+                    suffix = f"{canvas.name} {canvas.get_f_coordinates(coordinates)}"
 
-                embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
-                embed.set_author(name=f"Image took {end - start:.2f}s to load")
-                embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar)
-                embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                msg = await ctx.reply(embed=embed, file=image)
+            if not color:
+                # Selecting color
+                embed.title = f"Select color • {suffix}"
+                embed.description = frame.to_emoji(focus=self.palette.edit_color)
 
-        arrows = ["⬅", "⬆", "⬇", "➡"]
-        for emote in arrows:
-            await msg.add_reaction(emote)
-
-        def check(payload):
-            return payload.user_id == ctx.author.id and payload.message_id == msg.id and str(
-                payload.emoji) in arrows
-
-        while True:
-            done, pending = await asyncio.wait(
-                [
-                    self.bot.wait_for(
-                        'raw_reaction_add', timeout=30.0, check=check),
-                    self.bot.wait_for(
-                        'raw_reaction_remove', timeout=30.0, check=check)
-                ],
-                return_when=asyncio.FIRST_COMPLETED)
-
-            try:
-                stuff = done.pop().result()
-            except asyncio.TimeoutError:
-                await msg.clear_reactions()
-                return
-            for future in done:
-                future.exception()
-            for future in pending:
-                future.cancel()
-
-            payload = stuff
-
-            emojiname = str(payload.emoji)
-            if emojiname == "⬅" and x > 1:
-                x -= 1
-            elif emojiname == "➡" and x < board.width:
-                x += 1
-            elif emojiname == "⬇" and y < board.height:
-                y += 1
-            elif emojiname == "⬆" and y > 1:
-                y -= 1
-
-            async with aiohttp.ClientSession() as session:
-                async with ctx.typing():
-                    start = time.time()
-                    image = await self.bot.loop.run_in_executor(
-                        None, self.image.imager, self, board, x, y, zoom)
-                    end = time.time()
-                    image = discord.File(
-                        fp=image, filename=f'board_{x}-{y}.png')
-
-                    embed.set_author(
-                        name=f"Image took {end - start:.2f}s to load")
-                    embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                    await msg.edit(embed=embed, file=image)
-
-    @commands.command(name="place", aliases=["p"])
-    @inteam()
-    @commands.cooldown(1, 30, BucketType.user)  # 1 msg per 30s
-    async def place(self, ctx, *, xyz: coordinates(True) = None):
-        """Places a tile at specified location. Must have xy coordinates. Same inline output as viewnav. Choice to reposition edited tile before selecting colour. Cooldown of 30 seconds per tile placed."""
-        cdexpiry = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
-
-        board = await self.findboard(ctx)
-        if not board:
-            return self.bot.cd.add(ctx.author.id)
-
-        if board.locked == True:
-            return await ctx.reply(f'This board is locked (view only)')
-
-        if ctx.author in self.bot.cd: self.bot.cd.remove(ctx.author.id)
-
-        if not board:
-            self.bot.cd.add(ctx.author.id)
-            return
-
-        if not xyz:
-            self.bot.cd.add(ctx.author.id)
-            return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
-
-        x, y, zoom, colour = xyz
-
-        if board.data == None:
-            await ctx.reply('There is currently no board created')
-            self.bot.cd.add(ctx.author.id)
-            return
-
-        if x < 1 or x > board.width or y < 1 or y > board.height:
-            self.bot.cd.add(ctx.author.id)
-            await ctx.reply(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
-            )
-            return
-
-        success = False
-
-        if colour.lower() == 'blnk': colour = 'blank'
-        if colour.lower() in [i for i in self.bot.colours.keys() if i not in ['edit']] + [i['tag'] for i in
-                                                                                          self.bot.partners.values()] + [
-            'empty']:
-            colour = colour.lower()
-        else:
-            colour = None
-
-        cllist = {}
-        for k, v in self.bot.partners.items():
-            cllist[v['tag']] = v['emoji']
-        for k, v in self.bot.colours.items():
-            cllist[k] = v
-        cllist['empty'] = self.bot.empty.replace('<:', '').replace('>', '')
-
-        header, display = self.screen_to_text(board, x, y, colour=colour, cllist=cllist)
-
-        embed = discord.Embed(
-            title=header, colour=self.blurplehex, timestamp=discord.utils.utcnow())
-
-        embed.description = display
-
-        embed.set_author(name=f"{board.name} | Use the arrows to choose the location and to confirm or cancel.")
-        # embed.add_field(name = "Board", value = display)
-        embed.set_footer(
-            text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-            icon_url=self.bot.user.avatar)
-        # msg = await ctx.reply(display, embed=embed)
-        msg = await ctx.reply(embed=embed)
-
-        if ctx.author.id not in self.bot.skipconfirm:
-            # arrows = ["⬅", "⬆", "⬇", "➡", "blorpletick:436007034471710721", "blorplecross:436007034832551938"]
-            # arrows2 = ["<:blorpletick:436007034471710721>", "<:blorplecross:436007034832551938>"]
-            # for emote in arrows:
-            #     await msg.add_reaction(emote)
-
-            # def check(payload):
-            #     return payload.user_id == ctx.author.id and payload.message_id == msg.id and (str(
-            #         payload.emoji) in arrows or str(payload.emoji) in arrows2)
-
-            while True:
-                if False:  # just so i can collapse old commented-out code lol
-                    pass
-                    # done, pending = await asyncio.wait(
-                    #     [
-                    #         self.bot.wait_for(
-                    #             'raw_reaction_add', timeout=30.0, check=check),
-                    #         self.bot.wait_for(
-                    #             'raw_reaction_remove', timeout=30.0, check=check)
-                    #     ],
-                    #     return_when=asyncio.FIRST_COMPLETED)
-
-                    # try:
-                    #     stuff = done.pop().result()
-                    # except asyncio.TimeoutError:
-                    #     embed.set_author(name="User timed out.")
-                    #     await msg.edit(embed=embed)
-                    #     try: await msg.clear_reactions()
-                    #     except discord.Forbidden: pass
-                    #     self.bot.cd.add(ctx.author.id)
-                    #     try:
-                    #         for future in done:
-                    #             future.exception()
-                    #         for future in pending:
-                    #             future.cancel()
-                    #     except asyncio.TimeoutError:
-                    #         pass
-                    #     return
-                    # for future in done:
-                    #     future.exception()
-                    # for future in pending:
-                    #     future.cancel()
-
-                    # payload = stuff
-
-                    # emojiname = str(payload.emoji)
-
-                    # if emojiname == "<:blorplecross:436007034832551938>":
-                    #     embed.set_author(name="Edit cancelled.")
-                    #     await msg.edit(embed=embed)
-                    #     await msg.clear_reactions()
-                    #     self.bot.cd.add(ctx.author.id)
-                    #     return
-                    # elif emojiname == "<:blorpletick:436007034471710721>":
-                    #     break
-
-                    # if emojiname == "⬅" and x > 1: x -= 1
-                    # elif emojiname == "➡" and x < board.width: x += 1
-                    # elif emojiname == "⬇" and y < board.height: y += 1
-                    # elif emojiname == "⬆" and y > 1: y -= 1
-
-                view = NavigateView(ctx.author.id)
-                await msg.edit(view=view)
+                view: PaletteView = PaletteView(
+                    await self.get_available_colors(interaction.guild_id),
+                    interaction.user.id,
+                )
+                msg = await send_msg(msg, embed=embed, view=view)
+                await old_view.defer() if old_view else None
 
                 timeout = await view.wait()
 
-                if timeout:
-                    embed.set_author(name="User timed out.")
-                    await msg.edit(embed=embed, view=None)
-                    self.bot.cd.add(ctx.author.id)
+                if (
+                    timeout
+                    or view.confirm == ConfirmEnum.CANCEL
+                    or not view.dropdown.values
+                ):
+                    if timeout:
+                        embed.title = f"Timed out • {suffix}"
+                    elif view.confirm == ConfirmEnum.CANCEL:
+                        embed.title = f"Cancelled • {suffix}"
+                    elif not view.dropdown.values:
+                        embed.title = f"No color selected • {suffix}"
+                    await send_msg(msg, embed=embed, view=None)
+                    await view.defer()
+                    if cooldown is not None:
+                        await user.clear_cooldown(sql, cooldown)
+                    await sql.close()
                     return
 
-                if view.confirm == True:
-                    break
-                elif view.confirm == False:
-                    embed.set_author(name="Edit cancelled.")
-                    await msg.edit(embed=embed, view=None)
-                    self.bot.cd.add(ctx.author.id)
-                    return
+                color = self.palette[view.dropdown.values[0]]
 
-                if view.value == "L" and x > 1:
-                    x -= 1
-                elif view.value == "R" and x < board.width:
-                    x += 1
-                elif view.value == "D" and y < board.height:
-                    y += 1
-                elif view.value == "U" and y > 1:
-                    y -= 1
+        # Place pixel
+        await canvas.place_pixel(
+            sql, user=user, xy=coordinates, color=color, guild_id=interaction.guild_id
+        )
+        frame = await canvas.regenerate_frame(sql, frame)
+        embed.title = f"Placed pixel • {suffix}"
+        embed.description = frame.to_emoji()
 
-                header, display = self.screen_to_text(board, x, y, colour=colour, cllist=cllist)
+        if (
+            self.info.event_role
+            and self.info.host_server
+            and self.info.host_server.me.guild_permissions.manage_roles
+        ):
+            try:
+                member = await self.info.host_server.fetch_member(interaction.user.id)
+                if member and self.info.event_role not in member.roles:
+                    await member.add_roles(self.info.event_role)
+                    embed.description += (
+                        f"\n\nThank you for contributing to the Canvas - "
+                        f"you have received the **{self.info.event_role.name}** role"
+                        + (
+                            f" in **{self.info.host_server.name}**"
+                            if interaction.guild != self.info.host_server
+                            else ""
+                        )
+                        + "!"
+                    )
+            except NotFound:
+                pass
 
-                embed.title = header
-                embed.description = display
-                # await msg.edit(content=display)
-                await msg.edit(embed=embed)
-
-            # await msg.clear_reactions()
-            await msg.edit(view=None)
-
-        if not colour:
-            # embed.set_author(name="Use the reactions to choose a colour.")
-            embed.set_author(name="Use the dropdown to choose a colour.")
-            await msg.edit(embed=embed)
-
-            colours = []
-            # for i in self.bot.partners.values():
-            #     if ctx.guild.id == int(i['guild']):
-            #         colours.append(i['emoji'])
-            for i in self.bot.partners.values():
-                if ctx.guild.id == int(i['guild']):
-                    colours.append(i)
-            dcolours = [
-                name for name, emoji in self.bot.colours.items()
-                if name not in ['edit', 'blank']
-            ]
-            l = ['dred', 'brll', 'hpsq', 'yllw', 'gren', 'bhnt', 'blnc', 'ptnr', 'devl', 'blpl', 'dbpl', 'lpbl', 'ldbp',
-                 'brvy', 'bstp', 'fchs', 'whte', 'ntgr', 'grpl', 'ntbl', 'dgry', 'nqbl']  # Order
-            d = {n: i for n, i in zip(l, range(len(l)))}
-
-            def sorter(i):
-                # print(i, d[i])
-                if i in d.keys():
-                    return d[i]
-                else:
-                    return random.randint(100, 200)
-
-            dcolours.sort(key=sorter)
-            # ecolours = [self.bot.colours[i] for i in dcolours]
-            ecolours = [[j for j in self.bot.coloursdict.values() if i == j['tag']][0] for i in dcolours]
-            # print(ecolours)
-            colours += ecolours
-            # colours.append("blorplecross:436007034832551938")
-            # for emoji in colours:
-            #     # print(emoji)
-            #     await msg.add_reaction(emoji)
-
-            # def check(reaction, user):
-            #     return user == ctx.author and reaction.message.id == msg.id and str(
-            #         reaction.emoji).replace("<:", "").replace(">", "") in colours
-
-            # try:
-            #     reaction, user = await self.bot.wait_for(
-            #         'reaction_add', timeout=30.0, check=check)
-            # except asyncio.TimeoutError:
-            #     embed.set_author(name="User timed out.")
-            #     self.bot.cd.add(ctx.author.id)
-            # else:
-            #     if str(reaction.emoji) == "<:blorplecross:436007034832551938>":
-            #         embed.set_author(name="Edit cancelled.")
-            #         self.bot.cd.add(ctx.author.id)
-            #     else:
-            #         colour = reaction.emoji.name.replace("pl_", "")
-
-            view = ColourView(ctx.author.id, colours)
-            await msg.edit(view=view)
-
-            timeout = await view.wait()
-
-            if timeout:
-                embed.set_author(name="User timed out.")
-                await msg.edit(embed=embed, view=None)
-                self.bot.cd.add(ctx.author.id)
-                return
-
-            if not view.confirm:
-                embed.set_author(name="Edit cancelled.")
-                await msg.edit(embed=embed, view=None)
-                self.bot.cd.add(ctx.author.id)
-                return
-
-            colour = view.value
-
-            if not colour:
-                embed.set_author(name="No colour selected! - Edit cancelled.")
-                await msg.edit(embed=embed, view=None)
-                self.bot.cd.add(ctx.author.id)
-                return
-
-            await msg.edit(view=None)
-
-        if colour:
-            colours = []
-            for i in self.bot.partners.values():
-                if ctx.guild.id == int(i['guild']):
-                    colours.append(i['tag'])
-            colours += [
-                name for name, emoji in self.bot.colours.items()
-                if name not in ['edit']
-            ]
-
-            if colour not in colours and self.bot.partnercolourlock:
-                return await ctx.reply(
-                    f"That colour is not available within this server! To find out where you can use this colour, use `{ctx.prefix}colour {colour}`")
-
-            olddata = copy.copy(board.data[str(y)][str(x)])
-
-            # board.data[str(y)][str(x)] = {
-            #     "c": colour,
-            #     # "info": olddata['info'] + [{
-            #     #     "user": ctx.author.id,
-            #     #     "time": datetime.datetime.utcnow()
-            #     # }]
-            # }
-            board.data[str(y)][str(x)] = colour
-            async with self.bot.dblock:
-                await self.update_history(board, colour, ctx.author.id, (x, y))
-            embed.set_author(name="Pixel successfully set.")
-            success = True
-
-        header, display = self.screen_to_text(board, x, y, edit=False)
-
-        # await msg.edit(content=display, embed=embed)
-        embed.title = header
-        embed.description = display
-        await msg.edit(embed=embed)
-        await msg.clear_reactions()
-
-        if success:
-            member = await ctx.bot.blurpleguild.fetch_member(ctx.author.id)
-            if member and self.bot.artistrole not in [i.id for i in member.roles]:
-                await member.add_roles(ctx.bot.blurpleguild.get_role(self.bot.artistrole))
-                # t = ""
-                # if ctx.author.guild.id != ctx.bot.blurpleguild.id: t = " in the Project Blurple server"
-                # await ctx.reply(f"That was your first pixel placed! For that, you have received the **Artist** role{t}!")
-                await ctx.reply(
-                    f"That was your first pixel placed! For that, you have received the **Artist** role{' in the Project Blurple server' if ctx.author.guild.id != ctx.bot.blurpleguild.id else ''}!")
-
-        async with self.bot.dblock:
-            await self.bot.dbs.boards[board.name.lower()].bulk_write([
-                UpdateOne({'row': y}, {'$set': {str(y): board.data[str(y)]}}),
-                UpdateOne({'type': 'info'}, {'$set': {'info.last_updated': board.last_updated}})
-            ])
-
-        if success and ctx.author.id in self.bot.cooldownreminder:
-            timeleft = cdexpiry - datetime.datetime.utcnow()
-            if timeleft.days < 0:
-                return await ctx.reply("Your cooldown has already expired! You can now place another pixel.")
-            else:
-                await asyncio.sleep(timeleft.seconds)
-            await ctx.reply("Your cooldown has expired! You can now place another pixel.")
-
-    def screen_to_text(self, board, x, y, *, zoom=11, edit=True, colour=None, cllist=None):
-        loc, emoji, raw, zoom = self.screen(board, x, y, zoom)
-
-        locx, locy = loc
-
-        remoji = emoji[locy - 1][locx - 1]
-        if edit:
-            emoji[locy - 1][locx - 1] = "<:" + self.bot.colours["edit"] + ">"
-
-        header = f"Blurple Canvas - ({x}, {y})"
-
-        if locy - 2 >= 0: emoji[locy - 2].append(" ⬆")
-        emoji[locy - 1].append(f" **{y}**")
-        if locy < zoom: emoji[locy].append(" ⬇")
-
-        emoji[0].append(f" {remoji}")
-        emoji[1].append(f" <:now:1105112355219714168>")
-        if colour:
-            emoji[-2].append(f" <:new:1105112350371086346>")
-            emoji[-1].append(f" <:{cllist[colour]}>")
-
-        display = "\n".join(["".join(i) for i in emoji]) + "\n"
-
-        if locx - 2 < 0:
-            display += (str(self.bot.empty) * (locx - 2)) + f" **{x}** ➡"
-        elif locx > zoom - 1:
-            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}**"
+        if view is not None:
+            await send_msg(msg, embed=embed, view=None)
         else:
-            display += (str(self.bot.empty) * (locx - 2)) + f"⬅ **{x}** ➡"
+            await send_msg(msg, embed=embed)
 
-        return header, display
+    @place.autocomplete("color")
+    async def place_autocomplete_color(self, interaction: Interaction, current: str):
+        return await self.autocomplete_color(
+            interaction,
+            current,
+            (await self.get_available_colors(interaction.guild_id)).sorted(),
+        )
 
-    @commands.command()
-    @executive()
-    async def paste(self, ctx, x: int, y: int, source=None):
-        board = await self.findboard(ctx)
-        if not board: return
+    @app_commands.command(name="join")
+    @app_commands.describe(canvas="Canvas to join")
+    async def join(self, interaction: Interaction, canvas: str):
+        """Join the canvas"""
+        await interaction.response.defer()
 
-        if board.locked == True:
-            return await ctx.reply(f'This board is locked (view only)')
+        sql = await self.sql()
+        user = await sql.fetch_user(interaction.user.id)
+        canvas = await sql.fetch_canvas_by_name(canvas)
 
-        empty = '----'
+        if canvas is None:
+            await sql.close()
+            return await interaction.followup.send(f"Canvas '{canvas}' does not exist.")
 
-        if ctx.message.attachments:
-            arraywh = await self.bot.loop.run_in_executor(None, self.pastefrombytes,
-                                                          io.BytesIO(await ctx.message.attachments[0].read()))
-            if isinstance(arraywh, str):
-                return await ctx.reply(f"{arraywh}")
-            else:
-                array, width, height = arraywh
+        await user.set_current_canvas(sql, canvas)
+        await sql.close()
 
-        elif source:
-            async with aiohttp.ClientSession() as cs:
-                async with cs.get(source) as r:
-                    raw = await r.text()
+        await interaction.followup.send(f"Joined canvas '{canvas.name}'")
 
-            rows = raw.split('\n')
-            array = [i.split() for i in rows]
+    @join.autocomplete("canvas")
+    async def join_autocomplete_canvas(self, interaction: Interaction, current: str):
+        return await self.autocomplete_canvas(interaction, current)
 
-            width = len(sorted(array, key=len, reverse=True)[0])
-            height = len(array)
+    @app_commands.command(name="canvases")
+    async def canvases(self, interaction: Interaction):
+        """View all canvases"""
+        canvases = await self.sort_canvases()
 
-            colours = [v['tag'] for v in self.bot.partners.values()] + [name for name, emoji in self.bot.colours.items()
-                                                                        if name not in ['edit']] + [empty]
+        canvas_names = [
+            f"- **{canvas.name}**{' (read-only)' if canvas.locked else ''}"
+            for canvas in canvases
+        ]
 
-            if any([any([not v in colours for v in r]) for r in array]):
-                return await ctx.reply(f"The source paste that you linked does not appear to be valid.")
+        embed = self.base_embed(
+            user=interaction.user,
+            title="Canvas List",
+        )
 
-        if board.width - x + 1 < width or board.height - y + 1 < height:
-            return await ctx.reply(
-                f"The paste does not appear to fit. Please make sure you are selecting the pixel position of the top-left corner of the paste.")
+        embed.description = "\n".join(canvas_names)
+        if not canvas_names:
+            embed.description = "No canvases available."
 
-        for row, i in enumerate(array):
-            for n, pixel in enumerate(i):
-                if pixel == empty: continue
-                board.data[str(y + row)][str(x + n)] = pixel
-                async with self.bot.dblock:
-                    await self.update_history(board, pixel, ctx.author.id, (x + n, y + row))
-
-        await ctx.reply(f"Pasted!")
-
-        async with self.bot.dblock:
-            for row, i in enumerate(array):
-                await self.bot.dbs.boards[board.name.lower()].update_one({'row': y + row}, {
-                    '$set': {str(y + row): board.data[str(y + row)]}})
-
-    def pastefrombytes(self, imgbytes):
-        image = Image.open(imgbytes, 'r')
-        # image = Image.open("canvaspastetest.png", "r")
-        width, height = image.size
-        pixel_values = list(image.getdata())
-
-        channels = 4
-
-        pixel_values = numpy.array(pixel_values).reshape((width, height, channels))
-
-        colours = {**{v['rgb'][:3]: v['tag'] for v in self.bot.partners.values()},
-                   **{v['rgb'][:3]: v['tag'] for v in self.bot.coloursdict.values() if
-                      v['tag'] not in ['edit', 'blank']}}
-
-        empty = '----'
-        blank = 'blank'
-        blankcode = (1, 1, 1)
-
-        array = []
-        for row, i in enumerate(pixel_values):
-            array.append([])
-            for n, pixel in enumerate(i):
-                if len(pixel) == 4:
-                    if pixel[3] == 0:
-                        array[row].append(empty)
-                        continue
-
-                p = tuple(pixel[:3])
-
-                if p == blankcode:
-                    array[row].append(blank)
-                    continue
-
-                if p not in colours.keys(): return f"invalid pixel at ({n + 1}, {row + 1})"
-
-                array[row].append(colours[p])
-
-        return array, width, height
-
-    @commands.command(aliases=['colors', 'colour', 'color', 'palette'])
-    async def colours(self, ctx, palettes='all'):
-        """Shows the full colour palette available. Type 'main' or 'partner' after the command to see a specific group of colours."""
-        palettes = palettes.lower()
-        if palettes in ['main', 'default']:
-            palettes = 'main'
-        elif palettes in ['partner', 'partners']:
-            palettes = 'partner'
-        else:
-            cd = {k: v for k, v in self.bot.coloursdict.items() if k not in ['Edit tile', 'Blank tile']}
-            cp = self.bot.partners
-            colours = {v['tag']: v for k, v in {**cd, **cp}.items()}
-
-            if palettes not in colours.keys():
-                palettes = 'all'
-
-        if palettes in ['main', 'partner', 'all']:
-            image = discord.File(fp=copy.copy(self.bot.colourimg[palettes]),
-                                 filename="Blurple_Canvas_Colour_Palette.png")
-
-            embed = discord.Embed(
-                title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=discord.utils.utcnow())
-            embed.set_footer(
-                text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                icon_url=self.bot.user.avatar)
-            embed.set_image(url="attachment://Blurple_Canvas_Colour_Palette.png")
-            await ctx.reply(embed=embed, file=image)
-
-        else:
-            c = colours[palettes]
-            hexcode = '%02x%02x%02x' % c['rgb'][:-1]
-            hexint = int(hexcode, 16)
-
-            embed = discord.Embed(title=c['name'], colour=hexint)
-            embed.set_footer(
-                text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                icon_url=self.bot.user.avatar)
-            embed.add_field(name=f"RGB{c['rgb'][:-1]}", value=f"<:{c['emoji']}> - #{hexcode.upper()}", inline=False)
-            if c['guild']:
-                if self.bot.partnercolourlock:
-                    g = self.bot.get_guild(int(c['guild']))
-                    if g:
-                        server = f"This colour is only available in the **{g.name}** ({g.id}) server!"
-                    else:
-                        server = f"This colour is only available in {c['guild']}... that I can't seem to see? Please let Rocked03#3304 know!!"
-                else:
-                    server = f"This is a partnered server colour, however it's been set to be able to be used anywhere!"
-            else:
-                server = f"This is a default colour, it's available to use everywhere!"
-            embed.add_field(name=f"Usability", value=server)
-            await ctx.reply(embed=embed)
-
-    # @app_commands.guilds(559341262302347314)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="palette")
-    async def slash_palette(self, interaction: discord.Interaction,
-                            palette: typing.Literal['default', 'partner', 'all'] = "all") -> None:
-        """Shows the available colour palette"""
-        palette = palette.lower()
-        if palette == "default": palette = "main"
+    @app_commands.describe(
+        palette="Palette selection",
+        color="Specific color to view",
+    )
+    async def palette(
+        self,
+        interaction: Interaction,
+        palette: Literal["All", "Global", "Partner"] = "All",
+        color: str = None,
+    ):
+        """View the palette"""
+        await interaction.response.defer()
 
-        image = discord.File(fp=copy.copy(self.bot.colourimg[palette]), filename="Blurple_Canvas_Colour_Palette.png")
-
-        embed = discord.Embed(
-            title="Blurple Canvas Colour Palette", colour=self.blurplehex, timestamp=discord.utils.utcnow())
-        embed.set_footer(text=f"{palette.capitalize()} colours", icon_url=self.bot.user.avatar)
-        embed.set_image(url="attachment://Blurple_Canvas_Colour_Palette.png")
-        await interaction.response.send_message(embed=embed, file=image)
-
-    # @slash_palette.autocomplete('palette')
-    # async def slash_palette_autocomplete(self, interaction: discord.Interaction, current: str) -> typing.List[app_commands.Choice[str]]:
-    #     palettes = ["default", "partner", "all"]
-    #     return [app_commands.Choice(name=i, value=i) for i in palettes if current.lower() in i.lower()]
-
-    @commands.command(aliases=['reloadcolors'])
-    @admin()
-    async def reloadcolours(self, ctx):
-        self.bot.colourimg = {
-            x: await self.bot.loop.run_in_executor(None, self.image.colours, self, x) for x in
-            ['main', 'partner', 'all']
-        }
-        await ctx.reply("Done")
-
-    @commands.command(aliases=['tpcel'])
-    @executive()
-    async def togglepartnercolourexclusivitylock(self, ctx):
-        self.bot.partnercolourlock = not self.bot.partnercolourlock
-        await ctx.reply(f"Set the partner colour exclusivity lock to {self.bot.partnercolourlock}")
-
-    @commands.command()
-    @dev()
-    async def debugraw(self, ctx):
-        board = await self.findboard(ctx)
-        if not board: return
-
-        print(board.data)
-        # print([[xv["c"] for xv in xk.values()]
-        #        for xk in board.data.values()])
-        print([list(xk.values()) for xk in board.data.values()])
-        await ctx.message.add_reaction("👍")
-
-    @commands.command(hidden=True)
-    async def test(self, ctx):
-        print([guild.name for guild in self.bot.guilds])
-
-    @commands.command(name="viewnh", aliases=["seenh"])
-    @commands.cooldown(1, 30, BucketType.user)
-    @inteam()
-    async def viewnh(self, ctx, *, xyz: coordinates = None):
-        """Views a section of the board as an image. Must have xy coordinates, zoom (no. of tiles wide) optional."""
-        board = await self.findboard(ctx)
-        if not board: return
-
-        if not xyz: return await ctx.reply(f'Please specify coordinates (e.g. `234 837` or `12 53`)')
-
-        x, y, zoom = xyz
-
-        if board.data == None:
-            return await ctx.reply('There is currently no board created')
-
-        if x < 1 or x > board.width or y < 1 or y > board.height:
-            return await ctx.reply(
-                f'Please send coordinates between (1, 1) and ({board.width}, {board.height})'
+        if color:
+            color = self.palette[color]
+            if not color:
+                return await interaction.followup.send("Invalid color.")
+            file, file_name, size_bytes = await self.async_image(
+                color.to_image,
+                file_name=f"{neutralise(color.name.replace(' ', '_'))}.png",
+            )
+            embed = self.base_embed(
+                user=interaction.user,
+                title=f"{color.name} • {color.code}",
+                color=color.hex,
+            )
+            embed.description = (
+                "This is a global color! It is available to use everywhere."
+                if color.is_global
+                else "This is an exclusive color! It is only available in "
+                + color.guild.invite_url_masked_markdown(
+                    f"__**{color.guild.guild.name}**__"
+                    if color.guild.guild
+                    else "__its' own partner server__"
+                )
+                + "."
             )
 
-        defaultzoom = 25
+            embed.set_image(url=file_name)
+            await interaction.followup.send(embed=embed, file=file)
 
-        if zoom == None or zoom > board.width or zoom > board.height:
-            zoom = defaultzoom
-        if zoom > board.width or zoom > board.height:
-            if board.width > board.height:
-                zoom = board.width
+        else:
+            if palette == "All":
+                file, file_name, size_bytes = await self.async_image(
+                    self.palette.to_image_all,
+                    self.info.current_event_id,
+                    file_name="palette.png",
+                )
+            elif palette == "Global":
+                file, file_name, size_bytes = await self.async_image(
+                    self.palette.to_image_global, file_name="palette.png"
+                )
+            elif palette == "Partner":
+                file, file_name, size_bytes = await self.async_image(
+                    self.palette.to_image_guild,
+                    self.info.current_event_id,
+                    file_name="palette.png",
+                )
             else:
-                zoom = board.height
-        if zoom < 5:
-            return await ctx.reply(f'Please have a minumum zoom of 5 tiles')
+                return
 
-        async with aiohttp.ClientSession() as session:
-            async with ctx.typing():
-                start = time.time()
-                image = await self.bot.loop.run_in_executor(
-                    None, self.image.imager, self, board, x, y, zoom, False)
-                end = time.time()
-                image = discord.File(fp=image, filename=f'board_{x}-{y}.png')
+            embed = self.base_embed(
+                user=interaction.user, title="Blurple Canvas Palette"
+            )
+            embed.set_image(url=file_name)
+            await interaction.followup.send(embed=embed, file=file)
 
-                embed = discord.Embed(
-                    colour=self.blurplehex, timestamp=discord.utils.utcnow())
-                embed.set_author(name=f"{board.name} | Image took {end - start:.2f}s to load")
-                embed.set_footer(
-                    text=f"{str(ctx.author)} | {self.bot.user.name} | {ctx.prefix}{ctx.command.name}",
-                    icon_url=self.bot.user.avatar)
-                embed.set_image(url=f"attachment://board_{x}-{y}.png")
-                await ctx.reply(embed=embed, file=image)
+    @palette.autocomplete("color")
+    async def palette_autocomplete_color(self, interaction: Interaction, current: str):
+        return await self.autocomplete_color(interaction, current)
 
+    @app_commands.command(name="toggle-skip")
+    async def toggle_skip(self, interaction: Interaction):
+        """Toggle skipping placing confirmation"""
+        await interaction.response.defer(ephemeral=True)
+        sql = await self.sql()
+        user = await sql.fetch_user(interaction.user.id)
+        await user.toggle_skip_confirm(sql)
+        await sql.close()
+        await interaction.followup.send(
+            f"{'Enabled' if not user.skip_confirm else 'Disabled'} "
+            f"placing confirmation.",
+        )
 
-class NavigateView(discord.ui.View):
-    def __init__(self, userid: int):
-        super().__init__(timeout=30.0)
-        self.value = None
-        self.confirm = None
-        self.userid = userid
-
-    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=0,
-                       custom_id="confirm")
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.confirm = True
+    @app_commands.command(name="toggle-remind")
+    async def toggle_remind(self, interaction: Interaction):
+        """Toggle cooldown reminders"""
         await interaction.response.defer()
-        self.stop()
+        sql = await self.sql()
+        user = await sql.fetch_user(interaction.user.id)
+        await user.toggle_cooldown_remind(sql)
+        await sql.close()
+        await interaction.followup.send(
+            f"{'Enabled' if user.cooldown_remind else 'Disabled'} cooldown reminder.",
+            ephemeral=True,
+        )
 
-    @discord.ui.button(emoji="⬆️", style=discord.ButtonStyle.grey, row=0)
-    async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.value = "U"
-        await interaction.response.defer()
-        self.stop()
+    stats_group = app_commands.Group(name="stats", description="Stats commands")
 
-    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=0,
-                       custom_id="cancel")
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.confirm = False
-        await interaction.response.defer()
-        self.stop()
+    @stats_group.command(name="me")
+    @app_commands.describe(user="User to view stats for. Leave blank to view your own.")
+    async def stats_me(self, interaction: Interaction, user: UserDiscord = None):
+        """View your own stats. If you mention a user, view their stats instead."""
+        if user is None:
+            user = interaction.user
 
-    @discord.ui.button(emoji="⬅️", style=discord.ButtonStyle.grey, row=1)
-    async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.value = "L"
-        await interaction.response.defer()
-        self.stop()
+        sql = await self.sql()
 
-    @discord.ui.button(emoji="⬇️", style=discord.ButtonStyle.grey, row=1)
-    async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.value = "D"
-        await interaction.response.defer()
-        self.stop()
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.response.send_message(str(e), ephemeral=True)
 
-    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.grey, row=1)
-    async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.value = "R"
-        await interaction.response.defer()
-        self.stop()
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.userid
-
-
-class ColourSelect(discord.ui.Select):
-    def __init__(self, colours: list):
-        options = []
-
-        for i in colours:
-            options.append(discord.SelectOption(label=i['name'], value=i['tag'], emoji=i['emoji']))
-
-        super().__init__(placeholder="Select which colour to place...", min_values=1, max_values=1, options=options)
-
-        self.selected = None
-        self.row = 0
-
-    async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
+        stats = await sql.fetch_user_stats(user.id, canvas.id)
+        await sql.close()
 
-class ColourView(discord.ui.View):
-    def __init__(self, userid: int, colours: list):
-        super().__init__(timeout=30.0)
+        if stats is None:
+            return await interaction.followup.send(
+                f"I couldn't find any stats for you in {canvas.name}!"
+            )
 
-        self.dropdown = ColourSelect(colours)
-        self.add_item(self.dropdown)
+        embed = self.base_embed(
+            user=user, title=f"{user}'s stats", footer=f"{canvas.id}"
+        )
+        embed.description = f"Showing stats in **{canvas.name}**"
 
-        self.confirm = False
-        self.value = None
-        self.userid = userid
+        embed.add_field(name="Total pixels placed", value=f"{stats.total_pixels:,}")
+        embed.add_field(
+            name="Total pixels leaderboard", value=f"{stats.ranking_ordinal} place"
+        )
+        embed.add_field(
+            name="Most frequent color placed",
+            value=stats.most_frequent_color_formatted,
+        )
+        if stats.place_frequency:
+            embed.add_field(
+                name="Average pixel placing frequency",
+                value=format_delta(stats.place_frequency),
+            )
+        if stats.most_recent_timestamp:
+            embed.add_field(
+                name="Most recent pixel placed",
+                value=f"<t:{stats.most_recent_timestamp.timestamp():.0f}:R>",
+            )
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.userid
+        await interaction.followup.send(embed=embed)
 
-    @discord.ui.button(emoji="<:blorpletick:436007034471710721>", style=discord.ButtonStyle.green, row=1,
-                       custom_id="confirm")
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.confirm = True
-        if self.dropdown.values: self.value = self.dropdown.values[0]
+    @stats_group.command(name="guild")
+    @app_commands.describe(
+        guild_id="ID of guild to view stats for. Leave blank to view this current server."
+    )
+    async def stats_guild(self, interaction: Interaction, guild_id: str = None):
+        """View guild stats"""
+        if not guild_id:
+            guild = interaction.guild
+            guild_id = guild.id
+        else:
+            if not guild_id.isdigit():
+                return await interaction.response.send_message(
+                    "Invalid guild ID.", ephemeral=True
+                )
+            else:
+                guild_id = int(guild_id)
+
+            guild = self.bot.get_guild(guild_id)
+        guild_name = guild.name if guild else str(guild_id)
+
+        sql = await self.sql()
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
         await interaction.response.defer()
-        self.stop()
 
-    @discord.ui.button(emoji="<:blorplecross:436007034832551938>", style=discord.ButtonStyle.red, row=1,
-                       custom_id="cancel")
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if canvas.event is None:
+            await sql.close()
+            return await interaction.followup.send(
+                "Cannot show guild stats for canvases without events."
+            )
+
+        stats = await sql.fetch_guild_stats(guild_id, canvas.id)
+
+        if stats is None:
+            return await interaction.followup.send(
+                f"I couldn't find any stats for this guild ({guild_name}) in {canvas.name}!"
+            )
+
+        await stats.load_leaderboard(sql, max_rank=5, limit=5)
+
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{guild_name}'s stats",
+            footer=f"{canvas.id}",
+        )
+
+        embed.description = f"Showing stats in **{canvas.name}**"
+
+        embed.add_field(name="Total pixels placed", value=f"{stats.total_pixels:,}")
+
+        embed.add_field(
+            name="Most frequent color placed",
+            value=stats.most_frequent_color_formatted,
+        )
+
+        if stats.place_frequency:
+            embed.add_field(
+                name="Average pixel placing frequency",
+                value=format_delta(stats.place_frequency),
+            )
+        if stats.most_recent_timestamp:
+            embed.add_field(
+                name="Most recent pixel placed",
+                value=f"<t:{stats.most_recent_timestamp.timestamp():.0f}:R>",
+            )
+
+        if stats.leaderboard:
+            await stats.leaderboard.load_colors(sql, canvas.id)
+            embed.add_field(
+                name="Leaderboard", value=stats.leaderboard.formatted(), inline=False
+            )
+        await sql.close()
+
+        await interaction.followup.send(embed=embed)
+
+    @stats_guild.autocomplete("guild_id")
+    async def stats_leaderboard_autocomplete_guild_id(
+        self, interaction: Interaction, current: str
+    ):
+        choices = [
+            Choice(name=interaction.guild.name, value=""),
+        ]
+        if current.isdigit():
+            guild = self.bot.get_guild(int(current))
+            if guild:
+                choices.append(Choice(name=guild.name, value=str(guild.id)))
+        return choices
+
+    @stats_group.command(name="leaderboard")
+    @app_commands.describe(
+        guild_id="ID of the guild to view the leaderboard for. Leave blank to view the global leaderboard.",
+        include_yourself="Include yourself in the leaderboard? Default is True.",
+    )
+    async def stats_leaderboard(
+        self,
+        interaction: Interaction,
+        guild_id: str = None,
+        include_yourself: bool = True,
+    ):
+        """View the leaderboard"""
+        user_id = interaction.user.id if include_yourself else None
+
+        if not guild_id:
+            guild = guild_id = guild_name = None
+        else:
+            if not guild_id.isdigit():
+                return await interaction.response.send_message(
+                    "Invalid guild ID.", ephemeral=True
+                )
+            else:
+                guild_id = int(guild_id)
+                guild = self.bot.get_guild(guild_id)
+                guild_name = guild.name if guild else str(guild_id)
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
         await interaction.response.defer()
-        self.stop()
+
+        sql = await self.sql()
+        if guild_id:
+            leaderboard = Leaderboard(
+                await sql.fetch_leaderboard_guild(canvas.id, guild_id, user_id=user_id)
+            )
+        else:
+            leaderboard = Leaderboard(
+                await sql.fetch_leaderboard(canvas.id, user_id=user_id)
+            )
+
+        if not leaderboard:
+            if guild_id:
+                return await interaction.followup.send(
+                    f"No leaderboard found for guild {guild_name} in *{canvas.name}*. "
+                    + (
+                        "I'm not in that guild, perhaps you entered the incorrect ID?"
+                        if not guild
+                        else "Better start placing some pixels!"
+                    )
+                )
+            else:
+                return await interaction.followup.send(
+                    f"No global leaderboard found for *{canvas.name}*."
+                )
+
+        await leaderboard.load_colors(sql, canvas.id)
+        await sql.close()
+
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{canvas.name} Leaderboard"
+            + (f" • {guild_name}" if guild_id else ""),
+        )
+        embed.description = leaderboard.formatted(highlighted_user_id=user_id)
+
+        await interaction.followup.send(embed=embed)
+
+    @stats_leaderboard.autocomplete("guild_id")
+    async def stats_leaderboard_autocomplete_guild_id(
+        self, interaction: Interaction, current: str
+    ):
+        choices = [
+            Choice(name="Global", value=""),
+            Choice(name=interaction.guild.name, value=str(interaction.guild_id)),
+        ]
+        if current.isdigit():
+            guild = self.bot.get_guild(int(current))
+            if guild:
+                choices.append(Choice(name=guild.name, value=str(guild.id)))
+        return choices
+
+    frame_group = app_commands.Group(name="frame", description="Frame commands")
+
+    async def frame_editor(
+        self,
+        interaction: Interaction,
+        frame: CustomFrame = None,
+        edit: bool = True,
+        *,
+        max_size_percentage: float = 0.25,
+    ):
+        embed = self.base_embed(
+            user=interaction.user,
+            title=f"{'Create' if not edit else 'Edit'} Frame",
+        )
+
+        embed_copy = embed.copy()
+        embed_copy.description = "Loading editor..."
+        msg = await interaction.followup.send(embed=embed_copy)
+        view = FrameEditView(
+            frame,
+            embed,
+            user_id=interaction.user.id,
+            message=msg,
+            canvas_cog=self,
+            max_size_percentage=max_size_percentage,
+        )
+
+        await view.update_message()
+
+        timeout = await view.wait()
+
+        new_frame = None
+        if view.confirm == ConfirmEnum.CONFIRM:
+            view.embed.title = (
+                f"Successfully {'created' if not edit else 'edited'} Frame"
+            )
+            new_frame = view.frame
+        elif view.confirm == ConfirmEnum.CANCEL:
+            view.embed.title = f"Cancelled Frame {'creation' if not edit else 'edit'}"
+            new_frame = None
+        elif timeout:
+            view.embed.title = (
+                f"Timed out {'creating' if not edit else 'editing'} Frame"
+            )
+            new_frame = None
+        await view.interaction.response.edit_message(embed=view.embed, view=None)
+
+        return new_frame
+
+    @frame_group.command(name="create")
+    async def frame_create(self, interaction: Interaction):
+        """Starts frame creation UI"""
+        await interaction.response.defer()
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            return await interaction.followup.send(str(e), ephemeral=True)
+        canvas = await self.check_cache(canvas)
+
+        sql = await self.sql()
+        count = await sql.fetch_frame_count(interaction.user.id, canvas.id)
+        await sql.close()
+
+        max_frames = 5
+        if count >= max_frames:
+            return await interaction.followup.send(
+                f"You have reached the maximum of {max_frames} frames in {canvas.name}."
+            )
+
+        new_frame = CustomFrame(
+            canvas=canvas, owner_id=interaction.user.id, is_guild_owned=False
+        )
+
+        await self.create_frame(interaction, new_frame, 0.1)
+
+    @frame_group.command(name="guild-create")
+    async def frame_guild_create(self, interaction: Interaction):
+        """Create a guild frame"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        guild = await sql.fetch_guild(interaction.guild.id)
+        await sql.close()
+
+        perms = interaction.user.guild_permissions
+        if guild is None:
+            await sql.close()
+            if perms.administrator or perms.manage_guild:
+                return await interaction.followup.send(
+                    "This guild is not set up. Please use `/setup` to register this guild with the bot."
+                )
+            else:
+                return await interaction.followup.send(
+                    "This guild is not set up. Please ask your server admin to use `/setup` (`Manage Server` required)."
+                )
+
+        if not guild_permission_check(interaction, guild.manager_role):
+            await sql.close()
+            return await interaction.followup.send(
+                "You do not have permission to create a frame for this guild. "
+                "Please ask your server admin to create one."
+            )
+
+        try:
+            _, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            return await interaction.followup.send(str(e), ephemeral=True)
+        canvas = await self.check_cache(canvas)
+
+        count = await sql.fetch_frame_count(interaction.guild.id, canvas.id)
+        await sql.close()
+
+        max_frames = 5
+        if count >= max_frames:
+            return await interaction.followup.send(
+                f"You have reached the maximum of {max_frames} frames in {canvas.name}."
+            )
+
+        new_frame = CustomFrame(
+            canvas=canvas, owner_id=interaction.guild.id, is_guild_owned=True
+        )
+
+        await self.create_frame(interaction, new_frame, 0.25)
+
+    async def create_frame(
+        self,
+        interaction: Interaction,
+        new_frame: CustomFrame,
+        max_size_percentage: float,
+    ):
+        frame = await self.frame_editor(
+            interaction,
+            frame=new_frame,
+            edit=False,
+            max_size_percentage=max_size_percentage,
+        )
+        if frame:
+            sql = await self.sql()
+
+            while True:
+                try:
+                    frame.id = str(hex(randint(0, 0xFFFFFF))[2:]).zfill(6).upper()
+                    await frame.create(sql)
+                except UniqueViolationError:
+                    continue
+                else:
+                    break
+
+            await sql.close()
+
+    @frame_group.command(name="edit")
+    @app_commands.describe(frame_id="Frame to edit")
+    async def frame_edit(self, interaction: Interaction, frame_id: str):
+        """Edit a custom frame"""
+        frame_id = frame_id.upper()
+
+        await interaction.response.defer()
+
+        sql = await self.sql()
+
+        frame = await sql.fetch_frame(frame_id)
+
+        if frame is None:
+            await sql.close()
+            return await interaction.followup.send("Frame not found.")
+
+        if frame.is_guild_owned:
+            guild = await sql.fetch_guild(interaction.guild.id)
+
+            if not guild_permission_check(interaction, guild.manager_role):
+                await sql.close()
+                return await interaction.followup.send(
+                    "You do not have permission to edit this frame."
+                )
+
+        else:
+            if frame.owner_id != interaction.user.id:
+                await sql.close()
+                return await interaction.followup.send("You do not own this frame.")
+
+        frame.canvas = await self.check_cache(frame.canvas)
+
+        frame = await self.frame_editor(
+            interaction, frame=frame, max_size_percentage=0.1
+        )
+
+        if frame:
+            sql = await self.sql()
+            await frame.update(sql)
+            await sql.close()
+
+    @frame_edit.autocomplete("frame_id")
+    async def frame_edit_autocomplete_frame_id(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_frame_id(
+            interaction, current, current_guild_only=True
+        )
+
+    @frame_group.command(name="delete")
+    @app_commands.describe(frame_id="Frame to delete")
+    async def frame_delete(self, interaction: Interaction, frame_id: str):
+        """Delete a custom frame"""
+        sql = await self.sql()
+
+        frame = await sql.fetch_frame(frame_id)
+        if frame is None:
+            await sql.close()
+            return await interaction.response.send_message("Frame not found.")
+
+        if frame.is_guild_owned or frame.owner_id != interaction.user.id:
+            await sql.close()
+            return await interaction.response.send_message(
+                "You do not own this frame.", ephemeral=True
+            )
+
+        await interaction.response.defer()
+
+        await frame.delete(sql)
+        await sql.close()
+
+        await interaction.followup.send(
+            f"Deleted your frame '{frame.name}' ({frame.bbox})."
+        )
+
+    @frame_delete.autocomplete("frame_id")
+    async def frame_delete_autocomplete_frame_id(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_frame_id(interaction, current)
+
+    # Admin Commands
+
+    admin_group = app_commands.Group(
+        name="admin", description="Admin commands", guild_ids=ADMIN_GUILD_IDS or None
+    )
+
+    admin_canvas_group = app_commands.Group(
+        name="canvas", description="Canvas commands", parent=admin_group
+    )
+
+    @admin_canvas_group.command(name="lock")
+    @admin_check()
+    @app_commands.describe(canvas="Canvas to lock")
+    async def canvas_lock(self, interaction: Interaction, canvas: str):
+        """Lock the canvas"""
+        sql = await self.sql()
+        try:
+            canvas = await self.fetch_canvas_by_name(sql, canvas)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.response.send_message(str(e))
+
+        await canvas.lock(sql)
+        await sql.close()
+
+        await interaction.response.send_message(f"Locked canvas '{canvas.name}'")
+
+    @canvas_lock.autocomplete("canvas")
+    async def canvas_lock_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
+    @admin_canvas_group.command(name="unlock")
+    @admin_check()
+    @app_commands.describe(canvas="Canvas to unlock")
+    async def canvas_unlock(self, interaction: Interaction, canvas: str):
+        """Unlock the canvas"""
+        sql = await self.sql()
+        try:
+            canvas = await self.fetch_canvas_by_name(sql, canvas)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.response.send_message(str(e))
+
+        await canvas.unlock(sql)
+        await sql.close()
+
+        await interaction.response.send_message(f"Unlocked canvas '{canvas.name}'")
+
+    @canvas_unlock.autocomplete("canvas")
+    async def canvas_unlock_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
+    @admin_canvas_group.command(name="refresh")
+    @admin_check()
+    @app_commands.describe(canvas="Canvas to refresh")
+    async def canvas_refresh(self, interaction: Interaction, canvas: str):
+        """Force refresh the cache"""
+        await interaction.response.defer()
+        sql = await self.sql()
+
+        canvas: Canvas = await self.fetch_canvas_by_name(sql, canvas)
+        if canvas.id not in self.bot.cache:
+            return await interaction.followup.send(
+                f"Canvas '{canvas}' is not in the cache."
+            )
+
+        msg = await interaction.followup.send(f"Refreshing cache for {canvas}...")
+        await self.bot.cache[canvas.id].force_refresh(sql)
+        await sql.close()
+        await msg.edit(content=f"Refreshed cache for {canvas}.")
+
+    @canvas_refresh.autocomplete("canvas")
+    async def canvas_refresh_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
+    @admin_canvas_group.command(name="paste")
+    @admin_check()
+    @app_commands.describe(
+        image="Image to paste",
+        x="top-left x coordinate",
+        y="top-left y coordinate",
+    )
+    async def canvas_paste(
+        self,
+        interaction: Interaction,
+        image: Attachment,
+        x: int,
+        y: int,
+        author: UserDiscord = None,
+    ):
+        """Paste an image onto the canvas"""
+        if author is None:
+            author = interaction.user
+
+        await interaction.response.defer()
+
+        sql = await self.sql()
+
+        try:
+            user, canvas = await self.find_canvas(interaction.user.id)
+        except ValueError as e:
+            await sql.close()
+            return await interaction.followup.send(str(e), ephemeral=True)
+
+        if canvas.is_locked:
+            await sql.close()
+            return await interaction.followup.send(f"**{canvas.name}** is read-only.")
+
+        canvas = await self.check_cache(canvas)
+
+        pixels, size = await self.bot.loop.run_in_executor(
+            None, self.paste_from_bytes, BytesIO(await image.read())
+        )
+
+        xy0 = Coordinates(x, y)
+        xy1 = xy0 + size
+        bbox = xy0.bbox_to(xy1)
+
+        if bbox not in canvas:
+            await sql.close()
+            return await interaction.followup.send(f"Image is out of bounds. ({bbox})")
+
+        final_pixels = []
+        for pixel in pixels:
+            pixel.xy += xy0
+            final_pixels.append(pixel)
+
+        await canvas.place_pixels(sql, user_id=author.id, pixels=final_pixels)
+
+        await sql.close()
+
+        await interaction.followup.send(f"Placed image at ({x}, {y}) on {canvas.name}.")
+
+    def paste_from_bytes(self, img_bytes: BytesIO):
+        colors = Palette(self.palette.get_all_event_colors(self.info.current_event_id))
+        blank_rgb = (1, 1, 1)
+
+        img = Image.open(img_bytes, "r")
+        img = img.convert("RGBA")
+        width, height = img.size
+        pixel_values = numpy.array(list(img.getdata())).reshape((height, width, 4))
+
+        pixels = []
+        for row, i in enumerate(pixel_values):
+            for col, pixel in enumerate(i):
+                if pixel[3] == 0:
+                    continue
+                rgb = tuple(pixel[:3])
+                if rgb == blank_rgb:
+                    color = colors["blank"]
+                else:
+                    color = colors[rgb]
+                if color is None:
+                    raise ValueError(f"Invalid pixel color at ({col}, {row})")
+
+                pixels.append(
+                    Pixel(
+                        xy=Coordinates(col, row),
+                        color=color,
+                    )
+                )
+
+        return pixels, (width, height)
+
+    @admin_canvas_group.command(name="create")
+    @admin_check()
+    @app_commands.describe(
+        name="Name of the canvas",
+        width="Pixel width",
+        height="Pixel height",
+        event="Event ID",
+        _id="Canvas ID (leave blank to auto-generate)",
+        cooldown_length="Cooldown length in seconds (default 30s)",
+    )
+    @app_commands.rename(_id="id")
+    async def canvas_create(
+        self,
+        interaction: Interaction,
+        name: str,
+        width: int,
+        height: int,
+        event: int = None,
+        _id: int = None,
+        cooldown_length: int = 30,
+    ):
+        """Create a new canvas"""
+        await interaction.response.defer()
+
+        canvas = Canvas(
+            _id=_id,
+            name=name,
+            width=width,
+            height=height,
+            event=Event(_id=event),
+            cooldown_length=cooldown_length,
+        )
+
+        print(f"Creating canvas {canvas.name} ({canvas.width}x{canvas.height})")
+
+        timer = Timer()
+
+        sql = await self.sql()
+        _id = await sql.insert_canvas(canvas)
+        timer.mark("Inserted canvas")
+        canvas.id = _id
+        await sql.create_canvas_partition(canvas)
+        timer.mark("Created canvas partition")
+        await sql.create_pixels(canvas, self.palette.blank_color)
+        timer.mark("Inserted blank pixels")
+
+        await interaction.followup.send(
+            f"Created canvas {canvas.name} ({canvas.width}x{canvas.height})."
+        )
+
+        self.bot.cache[canvas.id] = Cache(sql, canvas=canvas)
+        await sql.close()
+
+    @admin_canvas_group.command(name="edit")
+    @admin_check()
+    @app_commands.describe(
+        canvas="Canvas to edit",
+        name="New name",
+        event="New event ID",
+        cooldown_length="New cooldown length in seconds",
+    )
+    async def canvas_edit(
+        self,
+        interaction: Interaction,
+        canvas: str,
+        name: str = None,
+        event: int = None,
+        cooldown_length: int = None,
+    ):
+        """Edit a canvas"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        canvas = await self.fetch_canvas_by_name(sql, canvas)
+
+        if name:
+            canvas.name = name
+        if event:
+            canvas.event = Event(_id=event)
+        if cooldown_length:
+            canvas.cooldown_length = cooldown_length
+
+        await canvas.edit(sql)
+        await sql.close()
+
+        await interaction.followup.send(f"Edited canvas '{canvas.name}'")
+
+    @canvas_edit.autocomplete("canvas")
+    async def canvas_edit_autocomplete_canvas(
+        self, interaction: Interaction, current: str
+    ):
+        return await self.autocomplete_canvas(interaction, current)
+
+    admin_blacklist_group = app_commands.Group(
+        name="blacklist", description="Blacklist commands", parent=admin_group
+    )
+
+    @admin_blacklist_group.command(name="add")
+    @admin_check()
+    @app_commands.describe(user="User to blacklist")
+    async def blacklist_add(self, interaction: Interaction, user: UserDiscord):
+        """Blacklist a user"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        user_obj = await sql.fetch_user(user.id)
+        if user_obj.is_blacklisted:
+            await sql.close()
+            return await interaction.followup.send(
+                f"{user.mention} is already blacklisted."
+            )
+        await user_obj.add_blacklist(sql)
+        await sql.close()
+        await interaction.followup.send(f"Blacklisted {user.mention}.")
+
+    @admin_blacklist_group.command(name="remove")
+    @admin_check()
+    @app_commands.describe(user="User to unblacklist")
+    async def blacklist_remove(self, interaction: Interaction, user: UserDiscord):
+        """Unblacklist a user"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        user_obj = await sql.fetch_user(user.id)
+        if not user_obj.is_blacklisted:
+            await sql.close()
+            return await interaction.followup.send(
+                f"{user.mention} is not blacklisted."
+            )
+        await user_obj.remove_blacklist(sql)
+        await sql.close()
+        await interaction.followup.send(f"Unblacklisted {user.mention}.")
+
+    @admin_blacklist_group.command(name="view")
+    @admin_check()
+    async def blacklist_view(self, interaction: Interaction):
+        """View the blacklist"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        blacklisted = await sql.fetch_blacklist()
+        await sql.close()
+
+        embed = self.base_embed(title="Blacklist")
+        embed.description = "\n".join([f"- {user}" for user in blacklisted])
+        if not blacklisted:
+            embed.description = "No users blacklisted."
+        await interaction.followup.send(embed=embed)
+
+    admin_colors_group = app_commands.Group(
+        name="colors", description="Color commands", parent=admin_group
+    )
+
+    @admin_colors_group.command(name="reload")
+    @admin_check()
+    async def colors_reload(self, interaction: Interaction):
+        """Reload the colors"""
+        await interaction.response.defer()
+        sql = await self.sql()
+        await self.load_colors()
+        await sql.close()
+        await interaction.followup.send("Reloaded colors.")
+
+    @admin_colors_group.command(name="create")
+    @admin_check()
+    @app_commands.describe(
+        name="Name of the color",
+        code="Abbreviated code",
+        _hex="Hex code",
+        r="Red value",
+        g="Green value",
+        b="Blue value",
+        emoji="Emoji to use. Leave blank to generate new emoji.",
+    )
+    @app_commands.rename(_hex="hex")
+    async def colors_create(
+        self,
+        interaction: Interaction,
+        name: str,
+        code: str,
+        _hex: str = None,
+        r: int = None,
+        g: int = None,
+        b: int = None,
+        emoji: str = None,
+    ):
+        """Create a new color"""
+        if (_hex is not None) == all(i is not None for i in [r, g, b]):
+            return await interaction.response.send_message(
+                "Please provide either a hex code or all of the RGB values."
+            )
+
+        if r and g and b:
+            if not all([0 <= c <= 255 for c in [r, g, b]]):
+                return await interaction.response.send_message(
+                    "Invalid RGB values. Please provide values between 0 and 255."
+                )
+        elif _hex:
+            if len(_hex) != 6:
+                return await interaction.response.send_message(
+                    "Invalid hex code. Please provide a 6-character hex code."
+                )
+            else:
+                r, g, b = tuple(int(_hex[i : i + 2], 16) for i in (0, 2, 4))
+
+        await interaction.response.defer()
+
+        color = Color(name=name, code=code, rgba=[r, g, b, 255], _global=False)
+
+        if emoji is not None:
+            if not re.match(r"<a?:\w+:(\d+)>$", emoji):
+                return await interaction.followup.send("Invalid emoji.")
+            else:
+                emoji_id = int(re.match(r"<a?:\w+:(\d+)>", emoji).group(1))
+                emoji_name = re.match(r"<a?:(\w+):\d+>", emoji).group(1)
+                color.emoji_id = emoji_id
+                color.emoji_name = emoji_name
+        else:
+            image_bytes, _ = await self.async_image_bytes(color.to_image_emoji)
+            emoji = await self.info.current_emoji_server.create_custom_emoji(
+                name=f"pl_{neutralise(color.code)}", image=image_bytes.read()
+            )
+
+            color.emoji_name = emoji.name
+            color.emoji_id = emoji.id
+
+        sql = await self.sql()
+        while True:
+            try:
+                await sql.insert_color(color)
+            except UniqueViolationError:
+                pass
+            else:
+                break
+        await sql.close()
+
+        await interaction.followup.send(
+            f"Created color {color.name} ({color.code}). {color.emoji_formatted}"
+        )
+        await self.load_colors()
+
+    admin_register_group = app_commands.Group(
+        name="register", description="Register commands", parent=admin_group
+    )
+
+    @admin_register_group.command(name="participation")
+    @admin_check()
+    @app_commands.describe(
+        guild_id="ID of the guild to register",
+        event_id="ID of the event to register for. Leave blank to use the current event.",
+        color_code="Code of custom color. Must already exist.",
+        invite="Invite link to the guild",
+        manager_role_id="ID of the manager role",
+    )
+    async def register_participate(
+        self,
+        interaction: Interaction,
+        guild_id: str,
+        event_id: int = None,
+        color_code: str = None,
+        invite: str = None,
+        manager_role_id: int = None,
+    ):
+        """Register a guild to participate"""
+        if not guild_id.isdigit():
+            return await interaction.response.send_message("Invalid guild ID.")
+        else:
+            guild_id = int(guild_id)
+        if event_id is None:
+            event_id = self.info.current_event_id
+
+        await interaction.response.defer()
+        from objects.guild import Guild
+
+        sql = await self.sql()
+
+        if color_code.isdigit():
+            color = await sql.fetch_color_by_id(int(color_code))
+        else:
+            color = await sql.fetch_colors_by_code(color_code)
+            color = color[color_code] if color else None
+        if color is None:
+            return await interaction.followup.send("Invalid color code.")
+
+        if await sql.fetch_participation(guild_id, event_id):
+            return await interaction.followup.send("Guild is already participating.")
+
+        await sql.fetch_guild(
+            guild_id,
+            insert_on_fail=Guild(
+                _id=guild_id, invite=invite, manager_role_id=manager_role_id
+            ),
+        )
+
+        participation = Participation(
+            guild_id=guild_id,
+            event_id=event_id,
+            color=color,
+        )
+
+        await sql.insert_participation(participation)
+
+        await sql.close()
+
+        await interaction.followup.send(f"Registered guild {guild_id} to participate.")
+
+    @admin_register_group.command(name="guild")
+    @admin_check()
+    @app_commands.describe(
+        guild_id="ID of the guild to register/edit",
+        invite="Invite link to the guild",
+        manager_role_id="ID of the manager role",
+    )
+    async def register_guild(
+        self,
+        interaction: Interaction,
+        guild_id: str,
+        invite: str = None,
+        manager_role_id: int = None,
+    ):
+        """Register a new guild / Edit an existing guild"""
+        if not guild_id.isdigit():
+            return await interaction.response.send_message("Invalid guild ID.")
+        else:
+            guild_id = int(guild_id)
+
+        await interaction.response.defer()
+
+        from objects.guild import Guild
+
+        sql = await self.sql()
+
+        guild = await sql.fetch_guild(
+            guild_id,
+            insert_on_fail=Guild(
+                _id=guild_id, invite=invite, manager_role_id=manager_role_id
+            ),
+        )
+
+        await sql.close()
+
+        await interaction.followup.send(f"Registered/edited guild {guild.id}.")
+
+
+# Imager stuff
+# - Styles
+# Other stuff
+# - Setup - modular setup views that set up servers
+#   - Start - set completely new values
+#   - Edit - edit existing values
+#   - View
+#   - Values
+#       - Manager role - (+ admin and manage server always have access)
+#       - Color - select previous color or create new one (participation-only)
+#       - Invite url - (participation-only)
+# - Schema
+# - Dockerize
+# Maybe
+# - Follow announcement channel cmd
+# - Regenerate all emoji
+# - Logs
+# - Auto-update banner
 
 
 async def setup(bot):
