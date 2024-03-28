@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Optional
-from discord import User as UserDiscord
 
 from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
@@ -12,7 +11,7 @@ if TYPE_CHECKING:
     from objects.event import Event
     from objects.frame import Frame
     from objects.pixel import Pixel
-    from objects.sqlManager import SQLManager
+    from sql.sqlManager import SQLManager
     from objects.user import User
 
 

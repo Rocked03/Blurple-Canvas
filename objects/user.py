@@ -14,7 +14,7 @@ from objects.timer import format_delta
 if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.color import Color
-    from objects.sqlManager import SQLManager
+    from sql.sqlManager import SQLManager
 
 
 class User(DiscordObject):

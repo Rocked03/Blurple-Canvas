@@ -36,7 +36,7 @@ from objects.frame import Frame, CustomFrame
 from objects.info import Info
 from objects.guild import Participation
 from objects.pixel import Pixel
-from objects.sqlManager import SQLManager
+from sql.sqlManager import SQLManager
 from objects.stats import Leaderboard
 from objects.timer import Timer, format_delta
 from objects.user import User

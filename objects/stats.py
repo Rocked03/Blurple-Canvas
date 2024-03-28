@@ -8,7 +8,7 @@ from discord import User as UserDiscord, NotFound
 
 from objects.color import Color
 from objects.discordObject import DiscordObject
-from objects.sqlManager import SQLManager
+from sql.sqlManager import SQLManager
 
 
 class StatsBase(DiscordObject):

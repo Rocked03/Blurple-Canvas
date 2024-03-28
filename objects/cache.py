@@ -2,7 +2,7 @@ import asyncio
 
 from objects.canvas import Canvas
 from objects.pixel import Pixel
-from objects.sqlManager import SQLManager
+from sql.sqlManager import SQLManager
 from objects.timer import Timer
 
 

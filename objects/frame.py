@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.guild import Guild
     from objects.pixel import Pixel
-    from objects.sqlManager import SQLManager
+    from sql.sqlManager import SQLManager
 
 
 class Frame(DiscordObject):

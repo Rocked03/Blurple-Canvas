@@ -5,13 +5,12 @@ from math import floor
 from typing import Optional, TYPE_CHECKING
 
 from discord import Interaction, ButtonStyle, SelectOption, Embed, File, Message
-from discord._types import ClientT
 from discord.ui import View, Button, Select, Modal, TextInput
 
 from objects.color import Palette
 from objects.coordinates import Coordinates, BoundingBox
 from objects.frame import CustomFrame
-from objects.sqlManager import SQLManager
+from sql.sqlManager import SQLManager
 
 if TYPE_CHECKING:
     from cogs.canvas import CanvasCog
