@@ -10,4 +10,8 @@ POSTGRES_CREDENTIALS = {
 
 # List of guild IDs that are allowed to use the admin commands.
 # Leave blank for global.
-ADMIN_GUILD_IDS = []
+ADMIN_GUILD_IDS = {123, 456}
+
+# List of user IDs that are allowed to use the owner commands.
+OWNER_IDS = {135, 246}
+
