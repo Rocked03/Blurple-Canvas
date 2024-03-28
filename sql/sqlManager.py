@@ -118,15 +118,6 @@ class SQLManager:
             )
             return returning[0]["id"]
 
-    async def create_canvas_partition(self, canvas: Canvas):
-        name = f"public.pixels_{canvas.id}"
-        await self.conn.execute(
-            f"CREATE TABLE {name} "
-            f"PARTITION OF pixels "
-            f"(PRIMARY KEY (canvas_id, x, y))"
-            f"FOR VALUES IN ({canvas.id})",
-        )
-
     async def update_canvas(self, canvas: Canvas):
         await self.conn.execute(
             "UPDATE canvas "

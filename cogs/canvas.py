@@ -1500,8 +1500,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         _id = await sql.insert_canvas(canvas)
         timer.mark("Inserted canvas")
         canvas.id = _id
-        await sql.create_canvas_partition(canvas)
-        timer.mark("Created canvas partition")
         await sql.create_pixels(canvas, self.palette.blank_color)
         timer.mark("Inserted blank pixels")
 
