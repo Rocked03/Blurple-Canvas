@@ -320,7 +320,7 @@ class SQLManager:
         pixels = await self.conn.fetch(
             (
                 "SELECT p.x, p.y, p.color_id "
-                "FROM pixels p "
+                "FROM pixel p "
                 "WHERE canvas_id = $1 AND "
                 "x >= $2 AND x <= $4 AND y >= $3 AND y <= $5"
             ),

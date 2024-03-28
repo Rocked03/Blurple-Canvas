@@ -1817,7 +1817,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Follow announcement channel cmd
 # - Regenerate all emoji
 # - Logs
-# - Auto-update banner
 
 
 async def setup(bot):
