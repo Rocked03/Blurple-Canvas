@@ -327,23 +327,18 @@ class SQLManager:
             canvas_id,
             *bbox.to_tuple(),
         )
-        colors = {
-            c["id"]: rename_invalid_keys(c)
-            for c in await self.conn.fetch(
-                "SELECT * FROM color WHERE id = ANY($1)",
-                list(set(p["color_id"] for p in pixels)),
-            )
-        }
-        for c in colors:
-            colors[c].pop("_id")
+
+        colors = await self.fetch_colors(
+            color_ids=list(set(p["color_id"] for p in pixels))
+        )
 
         from objects.pixel import Pixel
 
         return [
             Pixel(
                 bot=self.bot,
+                color=colors[pixel["color_id"]],
                 **rename_invalid_keys(pixel),
-                **colors[pixel["color_id"]],
             )
             for pixel in pixels
         ]

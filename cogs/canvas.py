@@ -1811,10 +1811,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #       - Manager role - (+ admin and manage server always have access)
 #       - Color - select previous color or create new one (participation-only)
 #       - Invite url - (participation-only)
-# - Follow channel?
 # - Schema
-# - Regenerate all emoji???
-# - Logs?
+# - Dockerize
+# Maybe
+# - Follow announcement channel cmd
+# - Regenerate all emoji
+# - Logs
+# - Auto-update banner
 
 
 async def setup(bot):
