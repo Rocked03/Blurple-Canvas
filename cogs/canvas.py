@@ -246,7 +246,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.wait_for_startup()
         canvases = sorted(
             sorted(
-                sorted(self.canvases, key=lambda canvas: canvas.name),
+                sorted(self.canvases, key=lambda canvas: canvas.name, reverse=True),
                 key=lambda canvas: canvas.event is None
                 or not canvas.event.id == self.info.current_event_id,
             ),

@@ -280,9 +280,15 @@ class FrameEditView(ConfirmView):
         def __init__(self, **kwargs):
             super().__init__(label="Edit values", **kwargs)
 
-        async def callback(self, interaction: Interaction):
-            modal = EditModal(
-                interaction.user.id,
+        def modal(self, user_id: int) -> EditModal:
+            common_params = {
+                "max_length": 5,
+                "required": True,
+            }
+            bbox = self.view.frame.bbox if self.view.frame.bbox else {}
+
+            return EditModal(
+                user_id,
                 inputs={
                     "name": TextInput(
                         label="Name",
@@ -292,47 +298,28 @@ class FrameEditView(ConfirmView):
                         custom_id="name",
                         required=True,
                     ),
-                    "x0": TextInput(
-                        label="Left border (x0)",
-                        default=(
-                            str(self.view.frame.bbox.x0) if self.view.frame.bbox else ""
-                        ),
-                        max_length=5,
-                        custom_id="x0",
-                        required=True,
-                    ),
-                    "y0": TextInput(
-                        label="Top border (y0)",
-                        default=(
-                            str(self.view.frame.bbox.y0) if self.view.frame.bbox else ""
-                        ),
-                        max_length=5,
-                        custom_id="y0",
-                        required=True,
-                    ),
-                    "x1": TextInput(
-                        label="Right border (x1)",
-                        default=(
-                            str(self.view.frame.bbox.x1) if self.view.frame.bbox else ""
-                        ),
-                        max_length=5,
-                        custom_id="x1",
-                        required=True,
-                    ),
-                    "y1": TextInput(
-                        label="Bottom border (y1)",
-                        default=(
-                            str(self.view.frame.bbox.y1) if self.view.frame.bbox else ""
-                        ),
-                        max_length=5,
-                        custom_id="y1",
-                        required=True,
-                    ),
+                    **{
+                        key: TextInput(
+                            label=label,
+                            default=str(bbox.get(key[0], "")),
+                            custom_id=key,
+                            **common_params,
+                        )
+                        for key, label in [
+                            ("x0", "Left border (x0)"),
+                            ("y0", "Top border (y0)"),
+                            ("x1", "Right border (x1)"),
+                            ("y1", "Bottom border (y1)"),
+                        ]
+                    },
                 },
                 title="Edit values - (x0, y0)-(x1, y1)",
                 timeout=300,
                 custom_id="edit",
             )
+
+        async def callback(self, interaction: Interaction):
+            modal = self.modal(interaction.user.id)
             await interaction.response.send_modal(modal)
             await modal.wait()
 
@@ -344,32 +331,28 @@ class FrameEditView(ConfirmView):
                     int(modal["x1"]),
                     int(modal["y1"]),
                 )
-                if bbox not in self.view.frame.canvas.bbox:
-                    self.view.error = (
-                        f"Invalid coordinates. "
-                        f"Please ensure the frame is within the canvas {self.view.frame.canvas.bbox}."
-                    )
-
-                elif bbox.width < 5 or bbox.height < 5:
-                    self.view.error = (
-                        "Invalid coordinates. Please ensure the frame is at least 5x5."
-                    )
-
-                elif (
-                    self.view.frame.canvas.bbox_percentage(bbox)
+                canvas_bbox = self.view.frame.canvas.bbox
+                if (
+                    bbox not in canvas_bbox
+                    or bbox.width < 5
+                    or bbox.height < 5
+                    or self.view.frame.canvas.bbox_percentage(bbox)
                     > self.view.max_size_percentage
                 ):
-                    rough = floor(
-                        (
-                            self.view.frame.canvas.bbox.area
-                            * self.view.max_size_percentage
-                        )
-                        ** 0.5
-                    )
                     self.view.error = (
-                        f"Invalid coordinates. "
-                        f"The frame must not exceed {self.view.max_size_percentage * 100:.0f}% of the canvas "
-                        f"(around {rough}x{rough})."
+                        "Invalid coordinates. " "Please specify digits only."
+                        if not bbox.is_valid()
+                        else (
+                            f"Invalid coordinates. "
+                            f"Please ensure the frame is within the canvas {canvas_bbox}."
+                            if bbox not in canvas_bbox
+                            else (
+                                "Invalid coordinates. Please ensure the frame is at least 5x5."
+                                if bbox.width < 5 or bbox.height < 5
+                                else f"Invalid coordinates. The frame must not exceed "
+                                f"{self.view.max_size_percentage * 100:.0f}% of the canvas."
+                            )
+                        )
                     )
 
                 else:
