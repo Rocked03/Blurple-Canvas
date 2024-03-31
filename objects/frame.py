@@ -44,9 +44,9 @@ class Frame(DiscordObject):
         self.focus = focus
         self.style_id = style_id
 
-        from objects.style import Style
+        from objects.style import Styles
 
-        self.style: Type[Style] = Style.get_style(style_id)
+        self.style: Type[Style] = Styles.get_style(style_id)
 
         self.name = None
         self.id = None

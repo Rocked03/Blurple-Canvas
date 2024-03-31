@@ -33,12 +33,6 @@ class Style:
             )
         )
 
-    @staticmethod
-    def get_style(style_id: int) -> Type[Style]:
-        if style_id is None or style_id not in STYLES:
-            return DEFAULT_STYLE
-        return STYLES[style_id]
-
     def frame_to_image_base(self) -> Image.Image:
         img = Image.new("RGBA", self.frame.multiply_zoom(self.zoom), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
@@ -113,11 +107,30 @@ class ClassicStyleLegacy(ClassicStyle):
         super().__init__(config, *args, **kwargs)
 
 
-STYLES: dict[int, Type[Style]] = {
-    0: Style,  # Base style
-    1: DefaultStyle,  # Default (need a better name)
-    2: ClassicStyleNew,  # Classic style - New blurple
-    3: ClassicStyleLegacy,  # Classic style - Legacy blurple
-}
+class Styles:
+    STYLES: dict[int, Type[Style]] = {
+        0: Style,  # Base style
+        1: DefaultStyle,  # Default (need a better name)
+        2: ClassicStyleNew,  # Classic style - New blurple
+        3: ClassicStyleLegacy,  # Classic style - Legacy blurple
+    }
 
-DEFAULT_STYLE = STYLES[1]
+    DEFAULT_STYLE = STYLES[1]
+
+    @staticmethod
+    def get_style(style_id: int) -> Type[Style]:
+        if style_id is None or not Styles.contains(style_id):
+            return Styles.DEFAULT_STYLE
+        return Styles.STYLES[style_id]
+
+    @staticmethod
+    def get_styles() -> dict[int, Type[Style]]:
+        return Styles.STYLES
+
+    @staticmethod
+    def get_names() -> list[str]:
+        return [style.name for style in Styles.STYLES.values()]
+
+    @staticmethod
+    def contains(style_id: int) -> bool:
+        return style_id in Styles.STYLES

@@ -389,6 +389,17 @@ class CanvasCog(commands.Cog, name="Canvas"):
         ][:25]
         return choices
 
+    async def autocomplete_style(self, interaction: Interaction, current: str):
+        from objects.style import Styles
+
+        return [
+            Choice(name=style.name, value=style_id)
+            for style_id, style in Styles.get_styles().items()
+            if not current
+            or neutralise(current) in neutralise(style.name)
+            or (current.isdigit() and style_id == int(current))
+        ][:25]
+
     async def cog_app_command_error(self, interaction: Interaction, error: Exception):
         ignored = (
             commands.CommandNotFound,
@@ -411,6 +422,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         y="y coordinate",
         zoom="Zoom level (default 25)",
         frame_id="Frame to view",
+        style="Frame style",
     )
     async def view(
         self,
@@ -419,6 +431,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         y: int = None,
         zoom: int = 25,
         frame_id: str = None,
+        style: int = None,
     ):
         """View the canvas"""
         if (x is None) != (y is None):
@@ -462,6 +475,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
 
+        if style:
+            frame.style_id = style
+
         # Generate image
         max_size = Coordinates(3000, 3000)
         file, file_name, size_bytes = await self.async_image(
@@ -491,8 +507,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     @view.autocomplete("frame_id")
     async def view_autocomplete_frame_id(self, interaction: Interaction, current: str):
-        choices = await self.autocomplete_frame_id(interaction, current)
-        return choices
+        return await self.autocomplete_frame_id(interaction, current)
+
+    @view.autocomplete("style")
+    async def view_autocomplete_style(self, interaction: Interaction, current: str):
+        return await self.autocomplete_style(interaction, current)
 
     @app_commands.command(name="place")
     @app_commands.describe(
