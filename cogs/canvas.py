@@ -34,7 +34,7 @@ from objects.coordinates import Coordinates
 from objects.event import Event
 from objects.frame import Frame, CustomFrame
 from objects.info import Info
-from objects.guild import Participation
+from objects.guild import Participation, Guild
 from objects.pixel import Pixel
 from sql.sqlManager import SQLManager
 from objects.stats import Leaderboard
@@ -47,6 +47,11 @@ from objects.views import (
     PaletteView,
     ConfirmView,
     FrameEditView,
+    Paginator,
+    SetupManagerRoleView,
+    SetupCustomColorView,
+    PaginatorView,
+    SetupInviteView,
 )
 
 
@@ -289,6 +294,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         return embed
 
+    async def create_color_emoji(self, color):
+        image_bytes, _ = await self.async_image_bytes(color.to_image_emoji)
+        emoji = await self.info.current_emoji_server.create_custom_emoji(
+            name=f"pl_{neutralise(color.code)}", image=image_bytes.read()
+        )
+        return emoji
+
     # Autocomplete methods
 
     async def autocomplete_canvas(self, _, current: str):
@@ -313,8 +325,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         return [
             Choice(name=name, value=str(canvas.id)) for name, canvas in filtered.items()
         ]
-
-    # Commands
 
     async def autocomplete_color(self, _, current, colors: list[Color] = None):
         return [
@@ -392,6 +402,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         else:
             traceback.print_exc()
             raise error
+
+    # Commands
 
     @app_commands.command(name="view")
     @app_commands.describe(
@@ -1289,7 +1301,128 @@ class CanvasCog(commands.Cog, name="Canvas"):
     ):
         return await self.autocomplete_frame_id(interaction, current)
 
+    setup_group = app_commands.Group(name="setup", description="Setup commands")
+
     # Admin Commands
+
+    @setup_group.command(name="start")
+    async def setup_start(self, interaction: Interaction):
+        """Start the setup process"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        participation = await sql.fetch_participation(
+            interaction.guild.id, self.info.current_event_id
+        )
+        if participation is not None:
+            guild = participation
+        else:
+            guild = await sql.fetch_guild(interaction.guild.id)
+
+        if not guild_permission_check(
+            interaction, guild.manager_role if guild else None
+        ):
+            await sql.close()
+            return await interaction.followup.send(
+                "You do not have permission to set up the bot. Please ask your server's admin."
+            )
+
+        if (
+            guild
+            and guild.manager_role
+            and (not participation or (guild.invite and participation.color_id))
+        ):
+            await sql.close()
+            return await interaction.followup.send(
+                "This server is already set up. Use `/setup edit` to edit the settings."
+            )
+
+        paginator = Paginator(user_id=interaction.user.id, base_embed=self.base_embed)
+
+        pages = {
+            "manager_role": None,
+            "custom_color": None,
+            "invite": None,
+        }
+
+        if guild is None or not guild.manager_role:
+            pages["manager_role"] = SetupManagerRoleView(None)
+
+        if participation:
+            if not participation.has_custom_color:
+                pages["custom_color"] = SetupCustomColorView(
+                    await sql.fetch_colors_by_guild(interaction.guild.id)
+                )
+
+            if not guild.invite:
+                pages["invite"] = SetupInviteView(None)
+
+        await sql.close()
+
+        for page in pages.values():
+            if page is not None:
+                paginator.add_page(page)
+
+        result = await paginator.start(interaction)
+
+        if not result:
+            return
+
+        await self.setup_update(interaction, pages, guild, participation)
+
+    async def setup_update(
+        self,
+        interaction: Interaction,
+        pages: dict,
+        guild: Guild = None,
+        participation: Participation = None,
+    ):
+        sql = await self.sql()
+        if not guild:
+            guild = Guild(_id=interaction.guild.id)
+        if pages["manager_role"]:
+            manager_role_view: SetupManagerRoleView = pages["manager_role"]
+            guild.manager_role = (
+                manager_role_view.role if manager_role_view.role else None
+            )
+        if pages["invite"]:
+            invite_view: SetupInviteView = pages["invite"]
+            guild.invite = (
+                invite_view.invite_obj.code if invite_view.invite_obj else None
+            )
+        if participation:
+            if pages["custom_color"]:
+                custom_color_view: SetupCustomColorView = pages["custom_color"]
+                if custom_color_view.create:
+                    r, g, b = re.match(
+                        custom_color_view.rgb_pattern,
+                        custom_color_view.create_color["rgb"],
+                    ).groups()
+                    color = Color(
+                        name=custom_color_view.create_color["name"],
+                        code=custom_color_view.create_color["code"],
+                        rgba=[int(r), int(g), int(b), 255],
+                        _global=False,
+                    )
+
+                    emoji = await self.create_color_emoji(color)
+
+                    color.emoji_name = emoji.name
+                    color.emoji_id = emoji.id
+
+                    color_id = await sql.insert_color(color)
+
+                    color.id = color_id
+
+                    participation.color = color
+
+                else:
+                    participation.color = custom_color_view.color
+
+            await sql.update_participation(participation)
+            await self.load_colors()
+        await sql.fetch_guild(guild.id, insert_on_fail=guild)
+        await sql.close()
 
     admin_group = app_commands.Group(
         name="admin", description="Admin commands", guild_ids=ADMIN_GUILD_IDS or None
@@ -1672,10 +1805,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 color.emoji_id = emoji_id
                 color.emoji_name = emoji_name
         else:
-            image_bytes, _ = await self.async_image_bytes(color.to_image_emoji)
-            emoji = await self.info.current_emoji_server.create_custom_emoji(
-                name=f"pl_{neutralise(color.code)}", image=image_bytes.read()
-            )
+            emoji = await self.create_color_emoji(color)
 
             color.emoji_name = emoji.name
             color.emoji_id = emoji.id

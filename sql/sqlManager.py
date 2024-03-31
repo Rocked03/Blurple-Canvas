@@ -199,7 +199,18 @@ class SQLManager:
 
         return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
-    # HISTORY RECORDS
+    async def fetch_colors_by_guild(self, guild_id: int) -> Palette:
+        rows = await self.conn.fetch(
+            "SELECT c.*, p.guild_id, p.event_id FROM color c "
+            "LEFT JOIN participation p ON c.id = p.color_id "
+            "LEFT JOIN guild g ON p.guild_id = g.id "
+            "WHERE p.guild_id = $1",
+            guild_id,
+        )
+
+        from objects.color import Color, Palette
+
+        return Palette(Color(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
     async def insert_color(self, color: Color) -> int:
         return (
@@ -218,6 +229,7 @@ class SQLManager:
             )
         )[0]["id"]
 
+    # HISTORY RECORDS
     async def fetch_history_records(
         self, canvas_id: int, *, user_id: int = None
     ) -> Generator[HistoryRecord, Any, None]:
@@ -237,8 +249,6 @@ class SQLManager:
 
         return (HistoryRecord(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
 
-    # PARTICIPATION
-
     async def insert_history_record(self, history_record: HistoryRecord):
         await self.conn.execute(
             (
@@ -253,6 +263,7 @@ class SQLManager:
             history_record.timestamp,
         )
 
+    # PARTICIPATION
     async def fetch_participation(self, guild_id: int, event_id: int) -> Participation:
         row = await self.conn.fetchrow(
             (
@@ -286,8 +297,6 @@ class SQLManager:
 
         return [Participation(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
-    # INFO
-
     async def insert_participation(self, participation: Participation):
         await self.conn.execute(
             (
@@ -299,14 +308,22 @@ class SQLManager:
             participation.color.id,
         )
 
-    # PIXELS
+    async def update_participation(self, participation: Participation):
+        await self.conn.execute(
+            "UPDATE participation SET color_id = $1 WHERE guild_id = $2 AND event_id = $3",
+            participation.color.id if participation.color else None,
+            participation.guild_id,
+            participation.event.id,
+        )
 
+    # INFO
     async def fetch_info(self) -> Info:
         row = await self.conn.fetchrow("SELECT * FROM info")
         from objects.info import Info
 
         return Info(bot=self.bot, **rename_invalid_keys(row))
 
+    # PIXELS
     async def fetch_pixels(self, canvas_id: int, bbox: BoundingBox) -> list[Pixel]:
         pixels = await self.conn.fetch(
             (
@@ -470,13 +487,11 @@ class SQLManager:
 
             guild = Guild(bot=self.bot, **rename_invalid_keys(row))
             if insert_on_fail and (
-                insert_on_fail.invite or insert_on_fail.manager_role_id
+                insert_on_fail.invite or insert_on_fail.manager_role
             ):
-                await self.update_guild(
-                    guild,
-                    invite=insert_on_fail.invite,
-                    manager_role_id=insert_on_fail.manager_role_id,
-                )
+                guild.manager_role = insert_on_fail.manager_role
+                guild.invite = insert_on_fail.invite
+                await self.update_guild(guild)
             return guild
         elif insert_on_fail:
             await self.insert_guild(insert_on_fail)
@@ -492,13 +507,11 @@ class SQLManager:
             guild.invite,
         )
 
-    async def update_guild(
-        self, guild: Guild, invite: str = None, manager_role_id: int = None
-    ):
+    async def update_guild(self, guild: Guild):
         await self.conn.execute(
             "UPDATE guild SET manager_role = COALESCE($1, manager_role), invite = COALESCE($2, invite) WHERE id = $3",
-            manager_role_id,
-            invite,
+            guild.manager_role.id,
+            guild.invite,
             guild.id,
         )
 

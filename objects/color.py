@@ -248,8 +248,13 @@ class Palette:
             return item in [color.name for color in self.colors.values()] or item in [
                 color.code for color in self.colors.values()
             ]
+        elif isinstance(item, tuple):
+            return any(color == item for color in self.colors.values())
         else:
             return False
 
     def __len__(self):
         return len(self.colors)
+
+    def __iter__(self):
+        return iter(self.colors.values())
