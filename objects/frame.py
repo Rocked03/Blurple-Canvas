@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.guild import Guild
     from objects.pixel import Pixel
+    from objects.style import Style
     from sql.sqlManager import SQLManager
 
 
@@ -116,35 +117,9 @@ class Frame(DiscordObject):
     def generate_image(
         self, *, zoom: int = 1, max_size: Coordinates = None
     ) -> Image.Image:
-        if max_size:
-            zoom = max(
-                1,
-                min(
-                    max_size.x // self.bbox.width,
-                    max_size.y // self.bbox.height,
-                ),
-            )
-        img = Image.new("RGBA", self.multiply_zoom(zoom), (255, 255, 255, 0))
-        draw = ImageDraw.Draw(img)
-        for coordinates, pixel in self.justified_pixels.items():
-            if zoom != 1:
-                adjusted_coordinates = (coordinates.x * zoom, coordinates.y * zoom)
-            # elif max_size is not None:
-            #     adjusted_coordinates = (
-            #         coordinates.x * max_size.x // self.bbox.width,
-            #         coordinates.y * max_size.y // self.bbox.height,
-            #     )
-            else:
-                adjusted_coordinates = coordinates.to_tuple()
-            opposite_corner = (
-                adjusted_coordinates[0] + zoom,
-                adjusted_coordinates[1] + zoom,
-            )
-            draw.rectangle(
-                (adjusted_coordinates, opposite_corner),
-                pixel.color.rgba,
-            )
-        return img
+        from objects.style import Style
+
+        return Style(self, zoom=zoom, max_size=max_size).frame_to_image_base()
 
     def to_emoji(self, *, focus: Color = None, new_color: Color = None) -> str:
         pixels = self.justified_pixels

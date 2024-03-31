@@ -6,7 +6,7 @@ class Coordinates:
         self.x = x
         self.y = y
 
-    def to_tuple(self):
+    def to_tuple(self) -> tuple[int, int]:
         return self.x, self.y
 
     def bbox_to(self, xy1: Coordinates):
@@ -23,7 +23,7 @@ class Coordinates:
     def __hash__(self):
         return hash((self.x, self.y))
 
-    def __add__(self, other):
+    def __add__(self, other) -> Coordinates:
         if isinstance(other, Coordinates):
             return Coordinates(self.x + other.x, self.y + other.y)
         if isinstance(other, int):
@@ -39,6 +39,15 @@ class Coordinates:
             return Coordinates(self.x - other, self.y - other)
         if isinstance(other, tuple):
             return Coordinates(self.x - other[0], self.y - other[1])
+        raise TypeError(f"Unsupported type: {type(other)}")
+
+    def __mul__(self, other):
+        if isinstance(other, Coordinates):
+            return Coordinates(self.x * other.x, self.y * other.y)
+        if isinstance(other, int):
+            return Coordinates(self.x * other, self.y * other)
+        if isinstance(other, tuple):
+            return Coordinates(self.x * other[0], self.y * other[1])
         raise TypeError(f"Unsupported type: {type(other)}")
 
 

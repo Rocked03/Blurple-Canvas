@@ -1978,9 +1978,22 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 # Imager stuff
 # - Styles
+#   - Default
+#   - Classic + Classic Legacy
+#   - General
+#      - Picture Frame
+#      - Projector (desaturated)
+#      - CRT TV (recoloured? saturated?)
+#      - Old-timey (sepia)
+#      - Holographic
+#      - Flag
+#   - Memes
+#      - My beloved locket
 # Other stuff
 # - Schema
 # - Dockerize
+# - toggle make all partner colours global
+# - readme
 # Maybe
 # - Follow announcement channel cmd
 # - Regenerate all emoji
