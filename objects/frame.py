@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Type
 
 from PIL import Image, ImageDraw
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.guild import Guild
     from objects.pixel import Pixel
-    from objects.style import Style
+    from objects.style import Style, Styles
     from sql.sqlManager import SQLManager
 
 
@@ -31,6 +31,7 @@ class Frame(DiscordObject):
         bbox: BoundingBox = None,
         canvas: Canvas = None,
         focus: Coordinates = None,
+        style_id: int = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -41,6 +42,11 @@ class Frame(DiscordObject):
         )
         self.pixels = pixels
         self.focus = focus
+        self.style_id = style_id
+
+        from objects.style import Style
+
+        self.style: Type[Style] = Style.get_style(style_id)
 
         self.name = None
         self.id = None
@@ -117,9 +123,7 @@ class Frame(DiscordObject):
     def generate_image(
         self, *, zoom: int = 1, max_size: Coordinates = None
     ) -> Image.Image:
-        from objects.style import Style
-
-        return Style(self, zoom=zoom, max_size=max_size).frame_to_image_base()
+        return self.style(self, zoom=zoom, max_size=max_size).frame_to_image_base()
 
     def to_emoji(self, *, focus: Color = None, new_color: Color = None) -> str:
         pixels = self.justified_pixels
@@ -161,7 +165,6 @@ class CustomFrame(Frame):
         canvas_id: int = None,
         owner_id: int = None,
         name: str = None,
-        style_id: int = None,
         canvas: Canvas = None,
         owner: User | Guild = None,
         **kwargs,
@@ -170,7 +173,6 @@ class CustomFrame(Frame):
         self.id = _id
         self.name = name
         self.is_guild_owned = is_guild_owned
-        self.style_id = style_id
 
         from objects.canvas import Canvas
 
