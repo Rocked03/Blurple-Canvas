@@ -1979,14 +1979,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # Imager stuff
 # - Styles
 # Other stuff
-# - Setup - modular setup views that set up servers
-#   - Start - set completely new values
-#   - Edit - edit existing values
-#   - View
-#   - Values
-#       - Manager role - (+ admin and manage server always have access)
-#       - Color - select previous color or create new one (participation-only)
-#       - Invite url - (participation-only)
 # - Schema
 # - Dockerize
 # Maybe
