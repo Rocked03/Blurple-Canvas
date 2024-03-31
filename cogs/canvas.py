@@ -1324,7 +1324,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         ):
             await sql.close()
             return await interaction.followup.send(
-                "You do not have permission to set up the bot. Please ask your server's admin."
+                "You do not have permission to setup your server. Please ask your server's admin."
             )
 
         if (
@@ -1359,6 +1359,63 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await sql.close()
 
+        await self.setup_update(interaction, paginator, pages, guild, participation)
+
+    @setup_group.command(name="edit")
+    async def setup_edit(self, interaction: Interaction):
+        """Edit your server's setup"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        participation = await sql.fetch_participation(
+            interaction.guild.id, self.info.current_event_id
+        )
+        if participation is not None:
+            guild = participation
+        else:
+            guild = await sql.fetch_guild(interaction.guild.id)
+
+        if not guild_permission_check(
+            interaction, guild.manager_role if guild else None
+        ):
+            await sql.close()
+            return await interaction.followup.send(
+                "You do not have permission to edit your server's setup. Please ask your server's admin."
+            )
+
+        if not guild:
+            await sql.close()
+            return await interaction.followup.send(
+                "This server is not set up. Use `/setup start` to begin the setup process."
+            )
+
+        paginator = Paginator(user_id=interaction.user.id, base_embed=self.base_embed)
+
+        pages = {
+            "manager_role": SetupManagerRoleView(guild.manager_role),
+            "custom_color": None,
+            "invite": None,
+        }
+
+        if participation:
+            try:
+                invite = await self.bot.fetch_invite(guild.invite)
+            except NotFound:
+                invite = None
+            pages["invite"] = SetupInviteView(invite)
+
+        await sql.close()
+
+        await self.setup_update(interaction, paginator, pages, guild, participation)
+
+    async def setup_update(
+        self,
+        interaction: Interaction,
+        paginator: Paginator,
+        pages: dict,
+        guild: Guild = None,
+        participation: Participation = None,
+    ):
         for page in pages.values():
             if page is not None:
                 paginator.add_page(page)
@@ -1368,15 +1425,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if not result:
             return
 
-        await self.setup_update(interaction, pages, guild, participation)
-
-    async def setup_update(
-        self,
-        interaction: Interaction,
-        pages: dict,
-        guild: Guild = None,
-        participation: Participation = None,
-    ):
         sql = await self.sql()
         if not guild:
             guild = Guild(_id=interaction.guild.id)
