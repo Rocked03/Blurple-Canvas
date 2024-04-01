@@ -88,6 +88,14 @@ class BoundingBox:
     def area(self):
         return self.width * self.height
 
+    @property
+    def max_dimension(self):
+        return max(self.width, self.height)
+
+    @property
+    def min_dimension(self):
+        return min(self.width, self.height)
+
     def to_tuple(self):
         return self.x0, self.y0, self.x1, self.y1
 

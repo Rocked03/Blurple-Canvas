@@ -163,7 +163,7 @@ class Frame(DiscordObject):
         return "\n".join(emoji_list)
 
     def multiply_zoom(self, zoom: int) -> tuple[int, int]:
-        return tuple[int, int]([self.bbox.width * zoom, self.bbox.height * zoom])
+        return self.bbox.size * zoom
 
     def __str__(self):
         return f"Frame {self.bbox} ({self.canvas})"

@@ -28,8 +28,12 @@ class Style:
         if max_size is None and zoom is None:
             max_size = Coordinates.double(
                 3000
-                if frame.width >= frame.canvas.width // 2
-                else (2000 if frame.width >= frame.canvas.width // 4 else 1500)
+                if frame.bbox.max_dimension >= frame.canvas.bbox.max_dimension // 2
+                else (
+                    2000
+                    if frame.bbox.max_dimension >= frame.canvas.bbox.max_dimension // 4
+                    else 1500
+                )
             )
 
         if zoom or max_size:
@@ -51,17 +55,10 @@ class Style:
     def adjusted_size(self) -> Coordinates:
         return self.frame.size * self.zoom
 
-    def get_color(
-        self, color: Color, replace_color: dict[int, tuple[int, int, int, int]] = None
-    ) -> tuple[int, int, int, int]:
-        if replace_color and color.id in replace_color:
-            return replace_color[color.id]
-        else:
-            return color.rgba
+    def get_color(self, color: Color) -> tuple[int, int, int, int]:
+        return color.rgba
 
-    def frame_to_image_base(
-        self, replace_color: dict[int, tuple[int, int, int, int]] = None
-    ) -> Image.Image:
+    def frame_to_image_base(self) -> Image.Image:
         img = Image.new("RGBA", self.frame.multiply_zoom(self.zoom), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         for coordinates, pixel in self.frame.justified_pixels.items():
@@ -69,7 +66,7 @@ class Style:
             opposite_corner = coordinates + self.zoom
             draw.rectangle(
                 (coordinates.to_tuple(), opposite_corner.to_tuple()),
-                self.get_color(pixel.color, replace_color),
+                self.get_color(pixel.color),
             )
         return img
 
@@ -143,7 +140,6 @@ class ClassicStyle(Style):
             self.font_color_xy = font_color_xy
 
             self.subtitle_spacing = subtitle_spacing
-            self.blank_color = blank_color
 
     def __init__(self, config: Config, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -196,9 +192,7 @@ class ClassicStyle(Style):
             )
 
     def generate_image(self) -> Image.Image:
-        image = self.frame_to_image_base(
-            {1: self.config.blank_color} if self.config.blank_color else None
-        )
+        image = self.frame_to_image_base()
 
         base = Image.new(
             "RGBA",
@@ -300,13 +294,17 @@ class ClassicStyleNew(ClassicStyle):
 class ClassicStyleLegacy(ClassicStyle):
     name = "Classic (Legacy Blurple)"
 
+    def get_color(self, color: Color) -> tuple[int, int, int, int]:
+        if color.code == "blank":
+            return 114, 137, 218, 127
+        return color.rgba
+
     def __init__(self, *args, **kwargs):
         config = ClassicStyle.Config(
             font_path="resources/fonts/UniSansHeavy.otf",
             font_size_subtitle=18,
             font_size_title=21,
             background_color=(114, 137, 218, 255),
-            blank_color=(114, 137, 218, 127),
         )
 
         super().__init__(config, *args, **kwargs)
