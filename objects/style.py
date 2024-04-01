@@ -282,6 +282,29 @@ class DefaultStyle(Style):
         return base
 
 
+class DefaultStyleLight(DefaultStyle):
+    name = "Canvas Light (Default)"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.config = DefaultStyle.Config()
+
+
+class DefaultStyleDark(DefaultStyle):
+    name = "Canvas Dark"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.config = DefaultStyle.Config(
+            background_color=(35, 39, 42, 255),
+            font_color_title=(255, 255, 255, 255),
+            font_color_subtitle=(88, 101, 242, 255),
+            icon_path="resources/icon_dark.png",
+        )
+
+
 class ClassicStyle(Style):
     name = "Classic"
 
@@ -457,9 +480,10 @@ class ClassicStyleLegacy(ClassicStyle):
 class Styles:
     STYLES: dict[int, Type[Style]] = {
         0: Style,  # Base style
-        1: DefaultStyle,  # Default (need a better name)
-        2: ClassicStyleNew,  # Classic style - New blurple
-        3: ClassicStyleLegacy,  # Classic style - Legacy blurple
+        1: DefaultStyleLight,  # Canvas Light (default)
+        2: DefaultStyleDark,  # Canvas Dark
+        3: ClassicStyleNew,  # Classic style - New blurple
+        4: ClassicStyleLegacy,  # Classic style - Legacy blurple
     }
 
     DEFAULT_STYLE = STYLES[1]
