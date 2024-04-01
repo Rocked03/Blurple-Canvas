@@ -138,6 +138,7 @@ class Canvas(DiscordObject):
         return frame
 
     async def load_frame_pixels(self, sql_manager: SQLManager, frame: Frame):
+        frame.canvas = self
         if self.is_cache:
             frame.load_pixels_from_local(self)
         else:

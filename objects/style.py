@@ -134,6 +134,8 @@ class DefaultStyle(Style):
             font_size_subtitle_percent: float = 0.2,
             font_color_title: tuple[int, int, int, int] = (255, 255, 255, 255),
             font_color_subtitle: tuple[int, int, int, int] = (185, 196, 237, 255),
+            icon_path: str = "resources/icon_light.png",
+            icon_size_percent: float = 0.5,
             spacing_percent: float = 0.45,
             **kwargs,
         ):
@@ -151,6 +153,9 @@ class DefaultStyle(Style):
 
             self.font_color_title = font_color_title
             self.font_color_subtitle = font_color_subtitle
+
+            self.icon_path = icon_path
+            self.icon_size_percent = icon_size_percent
 
             self.spacing_percent = spacing_percent
 
@@ -172,6 +177,10 @@ class DefaultStyle(Style):
         @property
         def font_subtitle(self) -> FreeTypeFont:
             return self.get_font_from_percent(self.font_size_subtitle_percent)
+
+        @property
+        def icon_size(self) -> int:
+            return round(self.height * self.icon_size_percent)
 
         @property
         def spacing(self):
@@ -234,6 +243,18 @@ class DefaultStyle(Style):
             ),
             self.config.font_color_subtitle,
         )
+
+        if self.config.icon_size / label.width < 0.2:
+            icon = Image.open(self.config.icon_path)
+            icon = icon.resize((self.config.icon_size, self.config.icon_size))
+            label.paste(
+                icon,
+                Coordinates(
+                    (label_size.y - icon.height) // 2,
+                    (label_size.y - icon.height) // 2,
+                ).to_tuple(),
+                icon,
+            )
 
         # Combining it together
 
