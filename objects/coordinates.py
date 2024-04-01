@@ -54,6 +54,24 @@ class Coordinates:
             return Coordinates(self.x * other[0], self.y * other[1])
         raise TypeError(f"Unsupported type: {type(other)}")
 
+    def __truediv__(self, other):
+        if isinstance(other, Coordinates):
+            return Coordinates(self.x / other.x, self.y / other.y)
+        if isinstance(other, int):
+            return Coordinates(self.x / other, self.y / other)
+        if isinstance(other, tuple):
+            return Coordinates(self.x / other[0], self.y / other[1])
+        raise TypeError(f"Unsupported type: {type(other)}")
+
+    def __floordiv__(self, other):
+        if isinstance(other, Coordinates):
+            return Coordinates(self.x // other.x, self.y // other.y)
+        if isinstance(other, int):
+            return Coordinates(self.x // other, self.y // other)
+        if isinstance(other, tuple):
+            return Coordinates(self.x // other[0], self.y // other[1])
+        raise TypeError(f"Unsupported type: {type(other)}")
+
 
 class BoundingBox:
     def __init__(self, xy0: Coordinates, xy1: Coordinates = Coordinates(0, 0)):

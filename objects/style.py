@@ -7,6 +7,7 @@ from PIL.ImageDraw2 import Font
 from PIL.ImageFont import FreeTypeFont
 
 from objects.coordinates import Coordinates
+from objects.imager import Imager
 
 if TYPE_CHECKING:
     from objects.color import Color
@@ -24,6 +25,9 @@ class Style:
         max_size: Coordinates = None,
     ):
         self.frame = frame
+
+        self.base: Image.Image = None
+        self.draw: ImageDraw.ImageDraw = None
 
         if max_size is None and zoom is None:
             max_size = Coordinates.double(
@@ -73,93 +77,6 @@ class Style:
     def generate_image(self) -> Image.Image:
         return self.frame_to_image_base()
 
-
-class Config:
-    def __init__(self, *args, **kwargs):
-        self.font_path = None
-
-    def get_font(self, size: int) -> FreeTypeFont:
-        return ImageFont.truetype(self.font_path, size)
-
-    def calculate_font_size(self, size: int, size_percent: float) -> int:
-        return round(size * size_percent)
-
-
-class DefaultStyle(Style):
-    name = "Default"
-
-    class Config(Config):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.config = DefaultStyle.Config()
-
-    def generate_image(self) -> Image.Image:
-        image = self.frame_to_image_base()
-
-        # additional stuff here
-
-        return image
-
-
-class ClassicStyle(Style):
-    name = "Classic"
-
-    class Config(Config):
-        def __init__(
-            self,
-            *args,
-            font_path: str = "resources/fonts/GintoNordBlack.otf",
-            font_size_title: int = 19,
-            font_size_subtitle: int = 16,
-            font_size_xy: int = 60,
-            background_color: tuple[int, int, int, int] = (88, 101, 242, 255),
-            border_width: int = 100,
-            font_color_title: tuple[int, int, int, int] = (255, 255, 255, 255),
-            font_color_subtitle: tuple[int, int, int, int] = (185, 196, 237, 255),
-            font_color_xy: tuple[int, int, int, int] = (185, 196, 237, 255),
-            subtitle_spacing: int = 30,
-            blank_color: tuple[int, int, int, int] = None,
-            **kwargs,
-        ):
-            super().__init__(*args, **kwargs)
-            self.font_path = font_path
-
-            self.font_size_title = self.get_font(font_size_title)
-            self.font_size_subtitle = self.get_font(font_size_subtitle)
-            self.font_size_xy = self.get_font(font_size_xy)
-
-            self.background_color = background_color
-            self.border_width = border_width
-
-            self.font_color_title = font_color_title
-            self.font_color_subtitle = font_color_subtitle
-            self.font_color_xy = font_color_xy
-
-            self.subtitle_spacing = subtitle_spacing
-
-    def __init__(self, config: Config, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.config = config
-        self.base: Image.Image = None
-        self.draw: ImageDraw.ImageDraw = None
-
-    @property
-    def size(self) -> Coordinates:
-        return self.adjusted_size + self.config.border_width
-
-    @property
-    def width(self) -> int:
-        return self.size.x
-
-    @property
-    def height(self) -> int:
-        return self.size.y
-
     def text_size(self, text: str, font: FreeTypeFont) -> Coordinates:
         return Coordinates(*self.draw.textbbox(text=text, xy=(0, 0), font=font)[2:])
 
@@ -191,6 +108,212 @@ class ClassicStyle(Style):
                 img,
             )
 
+
+class Config:
+    def __init__(self, *args, **kwargs):
+        self.font_path = None
+
+    def get_font(self, size: int) -> FreeTypeFont:
+        return ImageFont.truetype(self.font_path, size)
+
+
+class DefaultStyle(Style):
+    name = "Default"
+
+    class Config(Config):
+        def __init__(
+            self,
+            *args,
+            background_color: tuple[int, int, int, int] = (88, 101, 242, 255),
+            min_width: int = 500,
+            height_percent: float = 0.12,
+            corner_radius_percent: float = 0.25,
+            gap_size_percent: float = 0.03,
+            font_path: str = "resources/fonts/GintoNordBlack.otf",
+            font_size_title_percent: float = 0.4,
+            font_size_subtitle_percent: float = 0.2,
+            font_color_title: tuple[int, int, int, int] = (255, 255, 255, 255),
+            font_color_subtitle: tuple[int, int, int, int] = (185, 196, 237, 255),
+            spacing_percent: float = 0.45,
+            **kwargs,
+        ):
+            super().__init__(*args, **kwargs)
+            self.background_color = background_color
+
+            self.min_width = min_width
+            self.height_percent = height_percent
+            self.corner_radius_percent = corner_radius_percent
+            self.gap_size_percent = gap_size_percent
+
+            self.font_path = font_path
+            self.font_size_title_percent = font_size_title_percent
+            self.font_size_subtitle_percent = font_size_subtitle_percent
+
+            self.font_color_title = font_color_title
+            self.font_color_subtitle = font_color_subtitle
+
+            self.spacing_percent = spacing_percent
+
+            self.height: int = None
+            self.gap_size: int = None
+
+        def set_style(self, style: Style):
+            self.height = round(style.adjusted_size.y * self.height_percent)
+            self.gap_size = round(style.adjusted_size.y * self.gap_size_percent)
+
+        @property
+        def corner_radius(self) -> int:
+            return round(self.height * self.corner_radius_percent)
+
+        @property
+        def font_title(self) -> FreeTypeFont:
+            return self.get_font_from_percent(self.font_size_title_percent)
+
+        @property
+        def font_subtitle(self) -> FreeTypeFont:
+            return self.get_font_from_percent(self.font_size_subtitle_percent)
+
+        @property
+        def spacing(self):
+            return round(self.height * self.spacing_percent)
+
+        def get_font_from_percent(self, percent: float) -> FreeTypeFont:
+            return self.get_font(round(self.height * percent))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.config = DefaultStyle.Config()
+
+    def generate_image(self) -> Image.Image:
+        self.config.set_style(self)
+
+        image = self.frame_to_image_base()
+
+        label_size = Coordinates(
+            max(self.config.min_width, self.adjusted_size.x), self.config.height
+        )
+
+        label = Imager.round_rectangle(
+            label_size.to_tuple(),
+            self.config.corner_radius,
+            self.config.background_color,
+            all_corners=True,
+        )
+        draw = ImageDraw.Draw(label)
+        self.base = label
+        self.draw = draw
+
+        self.add_text(
+            self.frame.canvas.name,
+            self.config.font_title,
+            lambda text_size: ((label_size - text_size) // 2).to_tuple(),
+            self.config.font_color_title,
+        )
+
+        self.add_text(
+            "Project Blurple",
+            self.config.font_subtitle,
+            lambda text_size: (
+                (label_size.x - text_size.x) // 2,
+                (label_size.y - self.config.spacing) // 2 - text_size.y,
+            ),
+            self.config.font_color_subtitle,
+        )
+
+        self.add_text(
+            (
+                self.frame.name
+                if self.frame.name
+                else (str(self.frame.focus) if self.frame.focus else "Blurple Canvas")
+            ),
+            self.config.font_subtitle,
+            lambda text_size: (
+                (label_size.x - text_size.x) // 2,
+                (label_size.y + self.config.spacing) // 2,
+            ),
+            self.config.font_color_subtitle,
+        )
+
+        # Combining it together
+
+        base = Image.new(
+            "RGBA",
+            (
+                max(self.adjusted_size.x, label_size.x),
+                self.adjusted_size.y + label_size.y + self.config.gap_size,
+            ),
+        )
+        base.paste(
+            image,
+            Coordinates(
+                (base.width - image.width) // 2,
+                0,
+            ).to_tuple(),
+        )
+        base.paste(
+            label,
+            Coordinates(
+                (base.width - label.width) // 2, image.height + self.config.gap_size
+            ).to_tuple(),
+        )
+
+        return base
+
+
+class ClassicStyle(Style):
+    name = "Classic"
+
+    class Config(Config):
+        def __init__(
+            self,
+            *args,
+            font_path: str = "resources/fonts/GintoNordBlack.otf",
+            font_size_title: int = 19,
+            font_size_subtitle: int = 16,
+            font_size_xy: int = 60,
+            background_color: tuple[int, int, int, int] = (88, 101, 242, 255),
+            border_width: int = 100,
+            font_color_title: tuple[int, int, int, int] = (255, 255, 255, 255),
+            font_color_subtitle: tuple[int, int, int, int] = (185, 196, 237, 255),
+            font_color_xy: tuple[int, int, int, int] = (185, 196, 237, 255),
+            subtitle_spacing: int = 30,
+            blank_color: tuple[int, int, int, int] = None,
+            **kwargs,
+        ):
+            super().__init__(*args, **kwargs)
+            self.font_path = font_path
+
+            self.font_title = self.get_font(font_size_title)
+            self.font_subtitle = self.get_font(font_size_subtitle)
+            self.font_xy = self.get_font(font_size_xy)
+
+            self.background_color = background_color
+            self.border_width = border_width
+
+            self.font_color_title = font_color_title
+            self.font_color_subtitle = font_color_subtitle
+            self.font_color_xy = font_color_xy
+
+            self.subtitle_spacing = subtitle_spacing
+
+    def __init__(self, config: Config, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.config = config
+
+    @property
+    def size(self) -> Coordinates:
+        return self.adjusted_size + self.config.border_width
+
+    @property
+    def width(self) -> int:
+        return self.size.x
+
+    @property
+    def height(self) -> int:
+        return self.size.y
+
     def generate_image(self) -> Image.Image:
         image = self.frame_to_image_base()
 
@@ -210,7 +333,7 @@ class ClassicStyle(Style):
 
         self.add_text(
             "Project",
-            self.config.font_size_subtitle,
+            self.config.font_subtitle,
             lambda text_size: (
                 (self.config.border_width - text_size.x) // 2,
                 (
@@ -223,7 +346,7 @@ class ClassicStyle(Style):
         )
         self.add_text(
             "Blurple",
-            self.config.font_size_subtitle,
+            self.config.font_subtitle,
             lambda text_size: (
                 (self.config.border_width - text_size.x) // 2,
                 (self.config.border_width // 2 + self.config.subtitle_spacing // 2),
@@ -241,7 +364,7 @@ class ClassicStyle(Style):
                     else self.frame.canvas.name
                 )
             ),
-            self.config.font_size_title,
+            self.config.font_title,
             lambda text_size: (
                 max((self.config.border_width - text_size.x) // 2, 3),
                 (self.config.border_width - text_size.y) // 2,
@@ -252,7 +375,7 @@ class ClassicStyle(Style):
         if self.frame.focus:
             self.add_text(
                 f"{self.frame.focus.x}  =  x",
-                self.config.font_size_xy,
+                self.config.font_xy,
                 lambda text_size: (
                     (
                         self.width
@@ -266,7 +389,7 @@ class ClassicStyle(Style):
 
             self.add_text(
                 f"y  =  {self.frame.focus.y}",
-                self.config.font_size_xy,
+                self.config.font_xy,
                 lambda text_size: (
                     (self.config.border_width - text_size.x) // 2,
                     (
