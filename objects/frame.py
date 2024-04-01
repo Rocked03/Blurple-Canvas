@@ -90,6 +90,14 @@ class Frame(DiscordObject):
         return self.bbox.size
 
     @property
+    def width(self) -> int:
+        return self.bbox.width
+
+    @property
+    def height(self) -> int:
+        return self.bbox.height
+
+    @property
     def style(self) -> Type[Style]:
         from objects.style import Styles
 
@@ -126,7 +134,7 @@ class Frame(DiscordObject):
         return Coordinates(self.focus.x - self.bbox.x0, self.focus.y - self.bbox.y0)
 
     def generate_image(
-        self, *, zoom: int = 1, max_size: Coordinates = None
+        self, *, zoom: int = None, max_size: Coordinates = None
     ) -> Image.Image:
         return self.style(self, zoom=zoom, max_size=max_size).generate_image()
 

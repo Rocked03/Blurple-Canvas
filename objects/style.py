@@ -20,22 +20,32 @@ class Style:
         self,
         frame: Frame,
         *,
-        zoom: int = 1,
+        zoom: int = None,
         max_size: Coordinates = None,
     ):
         self.frame = frame
 
-        self.zoom = (
-            zoom
-            if not max_size
-            else max(
-                1,
-                min(
-                    max_size.x // self.frame.bbox.width,
-                    max_size.y // self.frame.bbox.height,
-                ),
+        if max_size is None and zoom is None:
+            max_size = Coordinates.double(
+                3000
+                if frame.width >= frame.canvas.width // 2
+                else (2000 if frame.width >= frame.canvas.width // 4 else 1500)
             )
-        )
+
+        if zoom or max_size:
+            self.zoom = (
+                zoom
+                if not max_size
+                else max(
+                    1,
+                    min(
+                        max_size.x // self.frame.bbox.width,
+                        max_size.y // self.frame.bbox.height,
+                    ),
+                )
+            )
+        else:
+            self.zoom = 1
 
     @property
     def adjusted_size(self) -> Coordinates:

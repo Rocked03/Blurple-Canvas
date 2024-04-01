@@ -479,10 +479,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             frame.set_style(style)
 
         # Generate image
-        max_size = Coordinates(3000, 3000)
         file, file_name, size_bytes = await self.async_image(
             frame.generate_image,
-            max_size=max_size,
             file_name=f"canvas_{canvas.name_safe}_{x}-{y}.png",
         )
 
