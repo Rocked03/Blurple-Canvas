@@ -125,7 +125,7 @@ class Canvas(DiscordObject):
         from objects.frame import Frame
 
         frame = Frame(
-            canvas_id=self.id,
+            canvas=self,
             bbox=bbox,
             focus=focus,
         )

@@ -9,8 +9,12 @@ class Coordinates:
     def to_tuple(self) -> tuple[int, int]:
         return self.x, self.y
 
-    def bbox_to(self, xy1: Coordinates):
+    def bbox_to(self, xy1: Coordinates) -> BoundingBox:
         return BoundingBox(self, xy1)
+
+    @staticmethod
+    def double(xy: int) -> Coordinates:
+        return Coordinates(xy, xy)
 
     def __str__(self):
         return f"({self.x}, {self.y})"
@@ -78,7 +82,7 @@ class BoundingBox:
 
     @property
     def size(self):
-        return self.width, self.height
+        return Coordinates(self.width, self.height)
 
     @property
     def area(self):

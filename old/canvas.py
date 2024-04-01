@@ -280,8 +280,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             self.last_updated = last_updated
 
     class image:
-        # font = lambda x: ImageFont.truetype("Uni Sans Heavy.otf", x)
-        font = lambda x: ImageFont.truetype("GintoNord-Black.otf", x)
+        # font = lambda x: ImageFont.truetype("UniSansHeavy.otf", x)
+        font = lambda x: ImageFont.truetype("GintoNordBlack.otf", x)
         fontxy = font(60)
         # fonttitle = font(18)
         fonttitle = font(16)

@@ -44,10 +44,6 @@ class Frame(DiscordObject):
         self.focus = focus
         self.style_id = style_id
 
-        from objects.style import Styles
-
-        self.style: Type[Style] = Styles.get_style(style_id)
-
         self.name = None
         self.id = None
 
@@ -93,6 +89,15 @@ class Frame(DiscordObject):
     def size(self) -> Coordinates:
         return self.bbox.size
 
+    @property
+    def style(self) -> Type[Style]:
+        from objects.style import Styles
+
+        return Styles.get_style(self.style_id)
+
+    def set_style(self, style_id: int):
+        self.style_id = style_id
+
     async def load_pixels(self, sql_manager: SQLManager):
         self.pixels = await sql_manager.fetch_pixels(self.canvas.id, self.bbox)
 
@@ -123,7 +128,7 @@ class Frame(DiscordObject):
     def generate_image(
         self, *, zoom: int = 1, max_size: Coordinates = None
     ) -> Image.Image:
-        return self.style(self, zoom=zoom, max_size=max_size).frame_to_image_base()
+        return self.style(self, zoom=zoom, max_size=max_size).generate_image()
 
     def to_emoji(self, *, focus: Color = None, new_color: Color = None) -> str:
         pixels = self.justified_pixels

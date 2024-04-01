@@ -476,7 +476,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return await interaction.followup.send(str(e), ephemeral=True)
 
         if style:
-            frame.style_id = style
+            frame.set_style(style)
 
         # Generate image
         max_size = Coordinates(3000, 3000)
