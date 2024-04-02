@@ -121,6 +121,7 @@ class Styles:
     from objects.styles.default import DefaultStyleLight, DefaultStyleDark
     from objects.styles.classic import ClassicStyleNew, ClassicStyleLegacy
     from objects.styles.template import PhotographStyle
+    from objects.styles.filter import CrunchyStyle
 
     STYLES: dict[int, Type[Style]] = {
         # Base Styles (0-9)
@@ -130,6 +131,7 @@ class Styles:
         3: ClassicStyleNew,  # Classic style - New blurple
         4: ClassicStyleLegacy,  # Classic style - Legacy blurple
         # Fun Designs (10-29)
+        10: CrunchyStyle,  # Crunchy
         # Memes (30-49)
         30: PhotographStyle,  # Look at this photograaaaaph
     }

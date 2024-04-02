@@ -2033,7 +2033,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #      - My beloved locket
 #      - Look at this graph
 #      - Pinwheel spinny
-#      - bad upscale
+#      - Bad upscale
+#      - Tell the difference
 # Other stuff
 # - Schema
 # - Dockerize
