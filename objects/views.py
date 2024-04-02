@@ -4,7 +4,7 @@ import re
 from copy import copy
 from enum import Enum
 from math import floor
-from typing import Optional, TYPE_CHECKING, Callable
+from typing import Optional, TYPE_CHECKING, Callable, Type
 
 from discord import (
     Interaction,
@@ -25,6 +25,7 @@ from discord.ui import View, Button, Select, Modal, TextInput, Item
 from objects.color import Palette, Color
 from objects.coordinates import Coordinates, BoundingBox
 from objects.frame import CustomFrame
+from objects.style import Styles, Style
 from sql.sqlManager import SQLManager
 
 if TYPE_CHECKING:
@@ -479,6 +480,7 @@ class FrameEditView(ConfirmView):
 
         self.error = None
 
+        self.style = Styles.get_style()
         self.embed: Embed = self.to_embed()
         self.file: Optional[File] = None
 
@@ -488,6 +490,7 @@ class FrameEditView(ConfirmView):
         self.clear_items()
 
         self.add_item(self.EditButton(row=0))
+        self.add_item(self.StyleSelect(self.style, row=1))
 
         self.add_item(self.cancel_button(row=0))
         self.add_item(self.confirm_button(row=0, disabled=not self.frame.is_complete))
@@ -518,6 +521,7 @@ class FrameEditView(ConfirmView):
         embed.description = (
             f"**Name:** {self.frame.name or ''}\n"
             f"**Coordinates:** {self.frame.bbox if self.frame.bbox else ''}\n"
+            f"**Style:** {self.style.name}\n"
             f"\n"
             f"> *Tip: Coordinates are specified by the top-left `(x0, y0)` and bottom-right `(x1, y1)` corners.*\n"
             + (f"\n{self.error}" if self.error else "")
@@ -531,9 +535,10 @@ class FrameEditView(ConfirmView):
         sql: SQLManager = await self.canvas_cog.sql()
         await self.frame.load_pixels(sql)
         await sql.close()
+        self.frame.set_style(self.style.id)
         file, file_name, size_bytes = await self.canvas_cog.async_image(
             self.frame.generate_image,
-            max_size=Coordinates(512, 512),
+            max_size=Coordinates(1000, 1000),
             file_name=f"frame.png",
         )
         embed.set_image(url=file_name)
@@ -599,24 +604,19 @@ class FrameEditView(ConfirmView):
                 canvas_bbox = self.view.frame.canvas.bbox
                 if (
                     bbox not in canvas_bbox
-                    or bbox.width < 5
-                    or bbox.height < 5
+                    or bbox.min_dimension < 5
                     or self.view.frame.canvas.bbox_percentage(bbox)
                     > self.view.max_size_percentage
                 ):
                     self.view.error = (
-                        "Invalid coordinates. " "Please specify digits only."
-                        if not bbox.is_valid()
+                        f"Invalid coordinates. "
+                        f"Please ensure the frame is within the canvas {canvas_bbox}."
+                        if bbox not in canvas_bbox
                         else (
-                            f"Invalid coordinates. "
-                            f"Please ensure the frame is within the canvas {canvas_bbox}."
-                            if bbox not in canvas_bbox
-                            else (
-                                "Invalid coordinates. Please ensure the frame is at least 5x5."
-                                if bbox.min_dimension < 5
-                                else f"Invalid coordinates. The frame must not exceed "
-                                f"{self.view.max_size_percentage * 100:.0f}% of the canvas."
-                            )
+                            "Invalid coordinates. Please ensure the frame is at least 5x5."
+                            if bbox.min_dimension < 5
+                            else f"Invalid coordinates. The frame must not exceed "
+                            f"{self.view.max_size_percentage * 100:.0f}% of the canvas."
                         )
                     )
 
@@ -626,6 +626,29 @@ class FrameEditView(ConfirmView):
             except ValueError:
                 self.view.error = "Invalid coordinates. Please specify digits only."
 
+            await self.view.update_message()
+
+    class StyleSelect(Select):
+        def __init__(self, selected_style: Type[Style] = None, **kwargs):
+            options = [
+                SelectOption(
+                    label=style.name,
+                    value=str(style_id),
+                    default=style == selected_style,
+                )
+                for style_id, style in Styles.get_styles().items()
+            ]
+            super().__init__(
+                placeholder="Select a style",
+                options=options,
+                min_values=1,
+                max_values=1,
+                **kwargs,
+            )
+
+        async def callback(self, interaction: Interaction):
+            self.view.style = Styles.get_style(int(self.values[0]))
+            await interaction.response.defer()
             await self.view.update_message()
 
 

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 class Style:
     name = "Raw"
+    id = 0
     hide_embed_info: bool = False
 
     def __init__(
@@ -136,7 +137,7 @@ class Styles:
     DEFAULT_STYLE = STYLES[1]
 
     @staticmethod
-    def get_style(style_id: int) -> Type[Style]:
+    def get_style(style_id: int = None) -> Type[Style]:
         if style_id is None or not Styles.contains(style_id):
             return Styles.DEFAULT_STYLE
         return Styles.STYLES[style_id]

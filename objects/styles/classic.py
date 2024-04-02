@@ -152,6 +152,7 @@ class ClassicStyle(Style):
 
 class ClassicStyleNew(ClassicStyle):
     name = "Classic (New Blurple)"
+    id = 3
 
     def __init__(self, *args, **kwargs):
         config = ClassicStyle.Config()
@@ -161,6 +162,7 @@ class ClassicStyleNew(ClassicStyle):
 
 class ClassicStyleLegacy(ClassicStyle):
     name = "Classic (Legacy Blurple)"
+    id = 4
 
     def get_color(self, color: Color) -> tuple[int, int, int, int]:
         if color.code == "blank":

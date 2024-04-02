@@ -38,6 +38,7 @@ class TemplateStyle(Style):
 
 class PhotographStyle(TemplateStyle):
     name = "Look at this Canvas"
+    id = 30
 
     class Config(TemplateStyle.Config):
         def __init__(
