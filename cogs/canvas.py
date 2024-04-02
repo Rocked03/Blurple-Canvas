@@ -2006,6 +2006,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #      - Flag
 #   - Memes
 #      - My beloved locket
+#      - Look at this graph
+#      - Pinwheel spinny
+#      - bad upscale
 # Other stuff
 # - Schema
 # - Dockerize
