@@ -120,7 +120,7 @@ class Config:
 class Styles:
     from objects.styles.default import DefaultStyleLight, DefaultStyleDark
     from objects.styles.classic import ClassicStyleNew, ClassicStyleLegacy
-    from objects.styles.template import PhotographStyle
+    from objects.styles.template import PhotographStyle, DifferenceStyle
     from objects.styles.filter import CrunchyStyle
 
     STYLES: dict[int, Type[Style]] = {
@@ -134,6 +134,7 @@ class Styles:
         10: CrunchyStyle,  # Crunchy
         # Memes (30-49)
         30: PhotographStyle,  # Look at this photograaaaaph
+        31: DifferenceStyle,  # Corporate needs you to find the difference
     }
 
     DEFAULT_STYLE = STYLES[1]
