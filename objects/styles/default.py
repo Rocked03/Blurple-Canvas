@@ -105,7 +105,15 @@ class DefaultStyle(Style):
         self.draw = draw
 
         self.add_text(
-            self.frame.canvas.name,
+            (
+                self.frame.name
+                if self.frame.name
+                else (
+                    str(self.frame.focus_fake_coordinates)
+                    if self.frame.focus
+                    else self.frame.canvas.name
+                )
+            ),
             self.config.font_title,
             lambda text_size: ((label_size - text_size) // 2).to_tuple(),
             self.config.font_color_title,
@@ -123,9 +131,9 @@ class DefaultStyle(Style):
 
         self.add_text(
             (
-                self.frame.name
-                if self.frame.name
-                else (str(self.frame.focus) if self.frame.focus else "Blurple Canvas")
+                self.frame.canvas.name
+                if self.frame.name or self.frame.focus
+                else "Blurple Canvas"
             ),
             self.config.font_subtitle,
             lambda text_size: (

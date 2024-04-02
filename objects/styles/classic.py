@@ -119,7 +119,7 @@ class ClassicStyle(Style):
 
         if self.frame.focus:
             self.add_text(
-                f"{self.frame.focus.x}  =  x",
+                f"{self.frame.focus_fake_coordinates.x}  =  x",
                 self.config.font_xy,
                 lambda text_size: (
                     (
@@ -133,7 +133,7 @@ class ClassicStyle(Style):
             )
 
             self.add_text(
-                f"y  =  {self.frame.focus.y}",
+                f"y  =  {self.frame.focus_fake_coordinates.y}",
                 self.config.font_xy,
                 lambda text_size: (
                     (self.config.border_width - text_size.x) // 2,

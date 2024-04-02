@@ -467,7 +467,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     frame = await canvas.get_frame_full(sql)
                 else:
                     frame = await canvas.get_frame_from_coordinate(
-                        sql, canvas.get_true_coordinates(x, y), zoom
+                        sql, canvas.get_true_coordinates(x, y), zoom, focus=True
                     )
             await sql.close()
 

@@ -133,6 +133,10 @@ class Frame(DiscordObject):
             return None
         return Coordinates(self.focus.x - self.bbox.x0, self.focus.y - self.bbox.y0)
 
+    @property
+    def focus_fake_coordinates(self) -> Coordinates:
+        return self.focus + self.canvas.start_coordinates
+
     def generate_image(
         self, *, zoom: int = None, max_size: Coordinates = None
     ) -> Image.Image:
