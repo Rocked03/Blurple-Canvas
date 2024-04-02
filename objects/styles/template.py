@@ -1,6 +1,8 @@
+from enum import Enum
 from random import choice
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+from PIL.ImageFont import FreeTypeFont
 
 from objects.color import Color
 from objects.coordinates import Coordinates
@@ -9,19 +11,63 @@ from objects.style import Style, Config
 
 class TemplateStyle(Style):
     class Config(Config):
-        def __init__(self, *args, template_path: str, position: Coordinates, **kwargs):
+        def __init__(
+            self,
+            *args,
+            template_path: str,
+            position: Coordinates,
+            cutout_size: Coordinates = None,
+            rotation: int = 0,
+            background_color: tuple[int, int, int, int] = 0,
+            **kwargs
+        ):
             super().__init__(*args, **kwargs)
 
             self.template_path = template_path
             self.position = position
+            self.cutout_size = cutout_size
+            self.rotation = rotation
+            self.background_color = background_color
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.config: TemplateStyle.Config = None
 
-    def process_image(self, image: Image.Image) -> Image.Image:
-        raise NotImplementedError
+    class Size(Enum):
+        FIT = 0
+        FILL = 1
+
+    def process_image(self, image: Image.Image, size: Size = Size.FIT) -> Image.Image:
+        if self.config.cutout_size:
+            size = Coordinates(*image.size)
+            ratios = (
+                self.config.cutout_size.x / size.x,
+                self.config.cutout_size.y / size.y,
+            )
+            new_size = size * (max(ratios) if size == self.Size.FIT else min(ratios))
+
+            image = image.resize(new_size.to_tuple())
+            cutout = Image.new(
+                "RGBA", self.config.cutout_size.to_tuple(), self.config.background_color
+            )
+            cutout.paste(
+                image,
+                (
+                    (self.config.cutout_size.x - new_size.x) // 2,
+                    (self.config.cutout_size.y - new_size.y) // 2,
+                ),
+                image,
+            )
+
+        else:
+            cutout = image
+
+        cutout = cutout.rotate(
+            self.config.rotation, expand=True, resample=Image.BICUBIC
+        )
+
+        return cutout
 
     def combine_images(
         self, template: Image.Image, processed: Image.Image
@@ -43,53 +89,19 @@ class PhotographStyle(TemplateStyle):
     name = "Look at this Canvas"
     id = 30
 
-    class Config(TemplateStyle.Config):
-        def __init__(
-            self,
-            *args,
-            cutout_size: Coordinates = Coordinates(185, 129),
-            rotation: int = 15,
-            background_color: tuple[int, int, int, int] = (35, 39, 42, 255),
-            **kwargs
-        ):
-            super().__init__(*args, **kwargs)
-
-            self.cutout_size = cutout_size
-            self.rotation = rotation
-            self.background_color = background_color
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.config: PhotographStyle.Config = self.Config(
+        self.config: TemplateStyle.Config = self.Config(
             template_path="resources/templates/photograph.png",
             position=Coordinates(370, 147),
+            rotation=15,
+            cutout_size=Coordinates(185, 129),
+            background_color=(35, 39, 42, 255),
         )
 
     def process_image(self, image: Image.Image) -> Image.Image:
-        size = Coordinates(*image.size)
-        new_size = size * max(
-            self.config.cutout_size.x / size.x,
-            self.config.cutout_size.y / size.y,
-        )
-
-        image = image.resize(new_size.to_tuple())
-        cutout = Image.new(
-            "RGBA", self.config.cutout_size.to_tuple(), self.config.background_color
-        )
-        cutout.paste(
-            image,
-            (
-                (self.config.cutout_size.x - new_size.x) // 2,
-                (self.config.cutout_size.y - new_size.y) // 2,
-            ),
-            image,
-        )
-        cutout = cutout.rotate(
-            self.config.rotation, expand=True, resample=Image.BICUBIC
-        )
-
-        return cutout
+        return super().process_image(image, self.Size.FILL)
 
     def combine_images(
         self, template: Image.Image, processed: Image.Image
@@ -104,19 +116,6 @@ class DifferenceStyle(TemplateStyle):
     name = "Find the Difference"
     id = 31
 
-    class Config(TemplateStyle.Config):
-        def __init__(
-            self,
-            *args,
-            cutout_size: Coordinates = Coordinates(413, 413),
-            rotation: int = -10,
-            **kwargs
-        ):
-            super().__init__(*args, **kwargs)
-
-            self.cutout_size = cutout_size
-            self.rotation = rotation
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -124,35 +123,97 @@ class DifferenceStyle(TemplateStyle):
             ["mona_lisa.png", "rplace.png", "starry_night.png"]
         )
 
-        self.config: DifferenceStyle.Config = self.Config(
+        self.config: TemplateStyle.Config = self.Config(
             template_path=path,
             position=Coordinates(141, 51),
+            cutout_size=Coordinates(413, 413),
+            rotation=-10,
         )
-
-    def process_image(self, image: Image.Image) -> Image.Image:
-        size = Coordinates(*image.size)
-        new_size = size * min(
-            self.config.cutout_size.x / size.x,
-            self.config.cutout_size.y / size.y,
-        )
-
-        image = image.resize(new_size.to_tuple())
-        cutout = Image.new("RGBA", self.config.cutout_size.to_tuple())
-        cutout.paste(
-            image,
-            (
-                (self.config.cutout_size.x - new_size.x) // 2,
-                (self.config.cutout_size.y - new_size.y) // 2,
-            ),
-            image,
-        )
-        cutout = cutout.rotate(
-            self.config.rotation, expand=True, resample=Image.BICUBIC
-        )
-
-        return cutout
 
     def get_color(self, color: Color) -> tuple[int, int, int, int]:
         if color.code == "blank":
             return 71, 75, 107, 255
         return color.rgba
+
+
+class WesternStyle(TemplateStyle):
+    name = "Western"
+    id = 11
+
+    class Config(TemplateStyle.Config):
+        def __init__(
+            self,
+            *args,
+            font_path: str = "resources/fonts/WesternBangBang.otf",
+            font_size_title: int = 80,
+            font_size_subtitle: int = 60,
+            font_color: tuple[int, int, int, int] = (51, 31, 18, 255),
+            text_position_title: Coordinates = Coordinates(250, 180),
+            text_position_subtitle: Coordinates = Coordinates(250, 100),
+            **kwargs
+        ):
+            super().__init__(*args, **kwargs)
+
+            self.font_path = font_path
+            self.font_size_title = font_size_title
+            self.font_size_subtitle = font_size_subtitle
+            self.font_color = font_color
+            self.text_position_title = text_position_title
+            self.text_position_subtitle = text_position_subtitle
+
+        @property
+        def font_title(self) -> FreeTypeFont:
+            return ImageFont.truetype(self.font_path, self.font_size_title)
+
+        @property
+        def font_subtitle(self) -> FreeTypeFont:
+            return ImageFont.truetype(self.font_path, self.font_size_subtitle)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.config: WesternStyle.Config = self.Config(
+            template_path="resources/templates/old_paper.png",
+            position=Coordinates(56, 230),
+            cutout_size=Coordinates(392, 411),
+        )
+
+    def to_sepia(self, rgba: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        r, g, b, a = rgba
+        r = min(int(r * 0.393 + g * 0.769 + b * 0.189), 255)
+        g = min(int(r * 0.349 + g * 0.686 + b * 0.168), 255)
+        b = min(int(r * 0.272 + g * 0.534 + b * 0.131), 255)
+        return r, g, b, a
+
+    def get_color(self, color: Color) -> tuple[int, int, int, int]:
+        if color.id == 1:
+            return 0, 0, 0, 0
+        return self.to_sepia(color.rgba)
+
+    def generate_image(self) -> Image.Image:
+        self.base = super().generate_image()
+        self.draw = ImageDraw.Draw(self.base)
+
+        self.add_text(
+            (
+                self.frame.canvas.name
+                if self.frame.has_special_text
+                else "Blurple Canvas"
+            ),
+            self.config.font_subtitle,
+            lambda text_size: (
+                self.config.text_position_subtitle - text_size // 2
+            ).to_tuple(),
+            self.config.font_color,
+        )
+
+        self.add_text(
+            self.frame.leading_text,
+            self.config.font_title,
+            lambda text_size: (
+                self.config.text_position_title - text_size // 2
+            ).to_tuple(),
+            self.config.font_color,
+        )
+
+        return self.base

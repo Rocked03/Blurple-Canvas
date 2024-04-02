@@ -120,8 +120,9 @@ class Config:
 class Styles:
     from objects.styles.default import DefaultStyleLight, DefaultStyleDark
     from objects.styles.classic import ClassicStyleNew, ClassicStyleLegacy
-    from objects.styles.template import PhotographStyle, DifferenceStyle
     from objects.styles.filter import CrunchyStyle
+    from objects.styles.template import WesternStyle
+    from objects.styles.template import PhotographStyle, DifferenceStyle
 
     STYLES: dict[int, Type[Style]] = {
         # Base Styles (0-9)
@@ -132,6 +133,7 @@ class Styles:
         4: ClassicStyleLegacy,  # Classic style - Legacy blurple
         # Fun Designs (10-29)
         10: CrunchyStyle,  # Crunchy
+        11: WesternStyle,  # Western (sepia)
         # Memes (30-49)
         30: PhotographStyle,  # Look at this photograaaaaph
         31: DifferenceStyle,  # Corporate needs you to find the difference

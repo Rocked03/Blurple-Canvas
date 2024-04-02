@@ -100,15 +100,7 @@ class ClassicStyle(Style):
         )
 
         self.add_text(
-            (
-                self.frame.name
-                if self.frame.name
-                else (
-                    str(self.frame.focus)
-                    if self.frame.focus
-                    else self.frame.canvas.name
-                )
-            ),
+            self.frame.leading_text,
             self.config.font_title,
             lambda text_size: (
                 max((self.config.border_width - text_size.x) // 2, 3),

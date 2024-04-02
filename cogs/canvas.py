@@ -2020,8 +2020,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
 # Imager stuff
 # - Styles
-#   - Default
-#   - Classic + Classic Legacy
 #   - General
 #      - Picture Frame
 #      - Projector (desaturated)
@@ -2031,10 +2029,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #      - Flag
 #   - Memes
 #      - My beloved locket
-#      - Look at this graph
 #      - Pinwheel spinny
-#      - Bad upscale
-#      - Tell the difference
 # Other stuff
 # - Schema
 # - Dockerize

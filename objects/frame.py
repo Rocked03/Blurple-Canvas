@@ -137,6 +137,18 @@ class Frame(DiscordObject):
     def focus_fake_coordinates(self) -> Coordinates:
         return self.focus + self.canvas.start_coordinates
 
+    @property
+    def leading_text(self) -> str:
+        return (
+            self.name
+            if self.name
+            else (str(self.focus_fake_coordinates) if self.focus else self.canvas.name)
+        )
+
+    @property
+    def has_special_text(self) -> bool:
+        return bool(self.name or self.focus)
+
     def generate_image(
         self, *, zoom: int = None, max_size: Coordinates = None
     ) -> Image.Image:
