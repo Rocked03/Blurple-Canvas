@@ -29,45 +29,47 @@ class Coordinates:
 
     def __add__(self, other) -> Coordinates:
         if isinstance(other, Coordinates):
-            return Coordinates(self.x + other.x, self.y + other.y)
+            return self + other.to_tuple()
         if isinstance(other, int):
-            return Coordinates(self.x + other, self.y + other)
+            return self + (other, other)
         if isinstance(other, tuple):
             return Coordinates(self.x + other[0], self.y + other[1])
         raise TypeError(f"Unsupported type: {type(other)}")
 
     def __sub__(self, other):
         if isinstance(other, Coordinates):
-            return Coordinates(self.x - other.x, self.y - other.y)
+            return self - other.to_tuple()
         if isinstance(other, int):
-            return Coordinates(self.x - other, self.y - other)
+            return self - (other, other)
         if isinstance(other, tuple):
             return Coordinates(self.x - other[0], self.y - other[1])
         raise TypeError(f"Unsupported type: {type(other)}")
 
     def __mul__(self, other):
         if isinstance(other, Coordinates):
-            return Coordinates(self.x * other.x, self.y * other.y)
+            return self * other.to_tuple()
         if isinstance(other, int):
-            return Coordinates(self.x * other, self.y * other)
+            return self * (other, other)
         if isinstance(other, tuple):
-            return Coordinates(self.x * other[0], self.y * other[1])
+            return Coordinates(round(self.x * other[0]), round(self.y * other[1]))
+        if isinstance(other, float):
+            return self * (other, other)
         raise TypeError(f"Unsupported type: {type(other)}")
 
     def __truediv__(self, other):
         if isinstance(other, Coordinates):
-            return Coordinates(self.x / other.x, self.y / other.y)
+            return self / other.to_tuple()
         if isinstance(other, int):
-            return Coordinates(self.x / other, self.y / other)
+            return self / (other, other)
         if isinstance(other, tuple):
-            return Coordinates(self.x / other[0], self.y / other[1])
+            return Coordinates(round(self.x / other[0]), round(self.y / other[1]))
         raise TypeError(f"Unsupported type: {type(other)}")
 
     def __floordiv__(self, other):
         if isinstance(other, Coordinates):
-            return Coordinates(self.x // other.x, self.y // other.y)
+            return self // other.to_tuple()
         if isinstance(other, int):
-            return Coordinates(self.x // other, self.y // other)
+            return self // (other, other)
         if isinstance(other, tuple):
             return Coordinates(self.x // other[0], self.y // other[1])
         raise TypeError(f"Unsupported type: {type(other)}")

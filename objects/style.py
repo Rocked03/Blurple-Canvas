@@ -118,13 +118,18 @@ class Config:
 class Styles:
     from objects.styles.default import DefaultStyleLight, DefaultStyleDark
     from objects.styles.classic import ClassicStyleNew, ClassicStyleLegacy
+    from objects.styles.template import PhotographStyle
 
     STYLES: dict[int, Type[Style]] = {
-        0: Style,  # Base style
+        # Base Styles (0-9)
+        0: Style,  # Raw unedited
         1: DefaultStyleLight,  # Canvas Light (default)
         2: DefaultStyleDark,  # Canvas Dark
         3: ClassicStyleNew,  # Classic style - New blurple
         4: ClassicStyleLegacy,  # Classic style - Legacy blurple
+        # Fun Designs (10-29)
+        # Memes (30-49)
+        30: PhotographStyle,  # Look at this photograaaaaph
     }
 
     DEFAULT_STYLE = STYLES[1]
