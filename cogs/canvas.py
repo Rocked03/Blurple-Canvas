@@ -488,12 +488,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
         embed = self.base_embed(
             user=interaction.user,
             title=(
-                f"{self.info.title} • "
-                + (
-                    f"{canvas.name} {Coordinates(x, y) if x and y else ''}"
-                    if not frame.name
-                    else f"{canvas.name} • {frame.name} {frame.centroid}"
+                (
+                    f"{self.info.title} • "
+                    + (
+                        f"{canvas.name} {Coordinates(x, y) if x and y else ''}"
+                        if not frame.name
+                        else f"{canvas.name} • {frame.name} {frame.centroid}"
+                    )
                 )
+                if not frame.style.hide_embed_info
+                else None
             ),
             footer=f"Frame #{frame.id}" if frame.id is not None else f"{canvas.id}",
         )

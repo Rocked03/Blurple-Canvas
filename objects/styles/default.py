@@ -183,6 +183,7 @@ class DefaultStyle(Style):
 
 class DefaultStyleLight(DefaultStyle):
     name = "Canvas Light (Default)"
+    hide_embed_info = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -192,6 +193,7 @@ class DefaultStyleLight(DefaultStyle):
 
 class DefaultStyleDark(DefaultStyle):
     name = "Canvas Dark"
+    hide_embed_info = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

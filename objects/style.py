@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 class Style:
     name = "Raw"
+    hide_embed_info: bool = False
 
     def __init__(
         self,
