@@ -244,7 +244,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def get_available_colors(self, guild_id: int = None) -> Palette:
         await self.wait_for_startup()
         return self.palette.get_available_colors_as_palette(
-            guild_id, self.info.current_event_id
+            guild_id=guild_id, event_id=self.info.current_event_id
         )
 
     async def sort_canvases(self) -> list[Canvas]:
@@ -560,7 +560,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         color = (await self.get_available_colors())[color]
         if color is not None:
-            if not color.is_valid(interaction.guild_id, self.info.current_event_id):
+            if not color.is_valid(
+                guild_id=(
+                    interaction.guild_id if not self.info.all_colors_global else None
+                ),
+                event_id=self.info.current_event_id,
+            ):
                 await sql.close()
                 return await interaction.followup.send(
                     f"{color.name} is not available in this guild."
@@ -1320,8 +1325,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     setup_group = app_commands.Group(name="setup", description="Setup commands")
 
-    # Admin Commands
-
     @setup_group.command(name="start")
     async def setup_start(self, interaction: Interaction):
         """Start the setup process"""
@@ -1489,6 +1492,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await sql.fetch_guild(guild.id, insert_on_fail=guild)
         await sql.close()
 
+    # Admin Commands
     admin_group = app_commands.Group(
         name="admin", description="Admin commands", guild_ids=ADMIN_GUILD_IDS or None
     )
@@ -1890,6 +1894,23 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
         await self.load_colors()
 
+    @admin_colors_group.command(name="toggle-global")
+    @admin_check()
+    async def colors_toggle_global(self, interaction: Interaction):
+        """Toggle whether all partner colors are global"""
+        await interaction.response.defer()
+
+        sql = await self.sql()
+        self.info.all_colors_global = not self.info.all_colors_global
+        await sql.toggle_global_colors()
+        await sql.close()
+        await self.load_colors()
+        await interaction.followup.send(
+            "Exclusive colors are now global."
+            if self.info.all_colors_global
+            else "Exclusive colors are no longer global."
+        )
+
     admin_register_group = app_commands.Group(
         name="register", description="Register commands", parent=admin_group
     )
@@ -2012,7 +2033,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # Other stuff
 # - Schema
 # - Dockerize
-# - toggle make all partner colours global
 # - readme
 # Maybe
 # - Follow announcement channel cmd

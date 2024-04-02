@@ -229,6 +229,13 @@ class SQLManager:
             )
         )[0]["id"]
 
+    async def toggle_global_colors(self):
+        await self.conn.execute(
+            "UPDATE info "
+            "SET all_colors_global = NOT all_colors_global "
+            "RETURNING all_colors_global"
+        )
+
     # HISTORY RECORDS
     async def fetch_history_records(
         self, canvas_id: int, *, user_id: int = None

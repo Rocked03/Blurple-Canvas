@@ -29,6 +29,7 @@ class Info(DiscordObject):
         event_role_id: int = None,
         event_role: Role = None,
         default_canvas_id: int = None,
+        all_colors_global: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -37,6 +38,7 @@ class Info(DiscordObject):
         self.cached_canvas_ids = cached_canvas_ids
         self.highlight_color = highlight_color
         self.default_canvas_id = default_canvas_id
+        self.all_colors_global = all_colors_global
 
         from objects.event import Event
 

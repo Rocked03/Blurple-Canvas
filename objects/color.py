@@ -78,9 +78,9 @@ class Color(DiscordObject):
     def hex(self) -> int:
         return int(self.hex_str, 16)
 
-    def is_valid(self, guild_id: int, event_id: int = None) -> bool:
+    def is_valid(self, *, guild_id: int = None, event_id: int = None) -> bool:
         return self.is_global or (
-            self.guild.id == guild_id
+            (not guild_id or self.guild.id == guild_id)
             and (self.event.id == event_id or self.event.id is None or event_id is None)
         )
 
@@ -171,17 +171,26 @@ class Palette:
     def get_all_event_colors(self, event_id: int) -> list[Color]:
         return self.get_global_colors() + self.get_event_colors(event_id)
 
-    def get_available_colors(self, guild_id: int, event_id: int) -> list[Color]:
-        return self.get_global_colors() + list(
-            set(self.get_guild_colors(guild_id)) & set(self.get_event_colors(event_id))
+    def get_available_colors(
+        self, *, guild_id: int = None, event_id: int
+    ) -> list[Color]:
+        return self.get_global_colors() + (
+            list(
+                set(self.get_guild_colors(guild_id))
+                & set(self.get_event_colors(event_id))
+                if guild_id
+                else self.get_event_colors(event_id)
+            )
         )
 
     def get_all_colors_as_palette(self) -> Palette:
         return Palette(self.get_all_colors())
 
-    def get_available_colors_as_palette(self, guild_id: int, event_id: int) -> Palette:
+    def get_available_colors_as_palette(
+        self, *, guild_id: int = None, event_id: int
+    ) -> Palette:
         return Palette(
-            self.get_available_colors(guild_id, event_id)
+            self.get_available_colors(guild_id=guild_id, event_id=event_id)
             + ([self.edit_color] if self.edit_color else [])
         )
 
