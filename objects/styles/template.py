@@ -64,7 +64,7 @@ class PhotographStyle(TemplateStyle):
 
     def process_image(self, image: Image.Image) -> Image.Image:
         size = Coordinates(*image.size)
-        new_size = size * min(
+        new_size = size * max(
             self.config.cutout_size.x / size.x,
             self.config.cutout_size.y / size.y,
         )
