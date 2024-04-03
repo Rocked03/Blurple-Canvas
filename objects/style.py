@@ -32,7 +32,7 @@ class Style:
         self.draw: ImageDraw.ImageDraw = None
 
         if max_size is None and zoom is None:
-            max_size = Coordinates.double(
+            self.max_size = Coordinates.double(
                 3000
                 if frame.bbox.max_dimension >= frame.canvas.bbox.max_dimension // 2
                 else (
@@ -41,21 +41,25 @@ class Style:
                     else 1500
                 )
             )
+        else:
+            self.max_size = max_size
 
-        if zoom or max_size:
-            self.zoom = (
-                zoom
-                if not max_size
+    @property
+    def zoom(self) -> int:
+        if self.zoom or self.max_size:
+            return (
+                self.zoom
+                if not self.max_size
                 else max(
                     1,
                     min(
-                        max_size.x // self.frame.bbox.width,
-                        max_size.y // self.frame.bbox.height,
+                        self.max_size.x // self.frame.bbox.width,
+                        self.max_size.y // self.frame.bbox.height,
                     ),
                 )
             )
         else:
-            self.zoom = 1
+            return 1
 
     @property
     def adjusted_size(self) -> Coordinates:
