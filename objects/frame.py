@@ -116,6 +116,9 @@ class Frame(DiscordObject):
     def regenerate(self, canvas: Canvas):
         return Frame(canvas=canvas, bbox=self.bbox, focus=self.focus)
 
+    def justified_coordinates(self, xy: Coordinates) -> Coordinates:
+        return xy - self.bbox.x0
+
     @property
     def justified_pixels(self) -> dict[Coordinates, Pixel]:
         if self.pixels is None:

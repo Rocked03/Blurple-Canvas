@@ -2024,7 +2024,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #      - Picture Frame
 #      - Projector (desaturated)
 #      - CRT TV (recoloured? saturated?)
-#      - Old-timey (sepia)
 #      - Holographic
 #      - Flag
 #   - Memes

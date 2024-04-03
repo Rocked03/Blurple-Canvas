@@ -6,6 +6,7 @@ from PIL.ImageFont import FreeTypeFont
 
 from objects.color import Color
 from objects.coordinates import Coordinates
+from objects.pixel import Pixel
 from objects.style import Style, Config
 
 
@@ -130,7 +131,8 @@ class DifferenceStyle(TemplateStyle):
             rotation=-10,
         )
 
-    def get_color(self, color: Color) -> tuple[int, int, int, int]:
+    def get_color(self, pixel: Pixel) -> tuple[int, int, int, int]:
+        color = pixel.color
         if color.code == "blank":
             return 71, 75, 107, 255
         return color.rgba
@@ -185,7 +187,8 @@ class WesternStyle(TemplateStyle):
         b = min(int(r * 0.272 + g * 0.534 + b * 0.131), 255)
         return r, g, b, a
 
-    def get_color(self, color: Color) -> tuple[int, int, int, int]:
+    def get_color(self, pixel: Pixel) -> tuple[int, int, int, int]:
+        color = pixel.color
         if color.id == 1:
             return 0, 0, 0, 0
         return self.to_sepia(color.rgba)

@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 
 from objects.color import Color
 from objects.coordinates import Coordinates
+from objects.pixel import Pixel
 from objects.style import Style, Config
 
 
@@ -156,7 +157,8 @@ class ClassicStyleLegacy(ClassicStyle):
     name = "Classic (Legacy Blurple)"
     id = 4
 
-    def get_color(self, color: Color) -> tuple[int, int, int, int]:
+    def get_color(self, pixel: Pixel) -> tuple[int, int, int, int]:
+        color = pixel.color
         if color.code == "blank":
             return 114, 137, 218, 127
         return color.rgba

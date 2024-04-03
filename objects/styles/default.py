@@ -27,6 +27,7 @@ class DefaultStyle(Style):
             font_color_subtitle: tuple[int, int, int, int] = (185, 196, 237, 255),
             icon_path: str = "resources/icon_light.png",
             icon_size_percent: float = 0.5,
+            icon_opacity: float = 1,
             spacing_percent: float = 0.45,
             **kwargs,
         ):
@@ -47,6 +48,7 @@ class DefaultStyle(Style):
 
             self.icon_path = icon_path
             self.icon_size_percent = icon_size_percent
+            self.icon_opacity = icon_opacity
 
             self.spacing_percent = spacing_percent
 
@@ -109,6 +111,7 @@ class DefaultStyle(Style):
             self.config.font_title,
             lambda text_size: ((label_size - text_size) // 2).to_tuple(),
             self.config.font_color_title,
+            max_width=label_size.x * 0.9,
         )
 
         self.add_text(
@@ -137,6 +140,8 @@ class DefaultStyle(Style):
 
         if self.config.icon_size / label.width < 0.2:
             icon = Image.open(self.config.icon_path)
+            if self.config.icon_opacity < 1:
+                icon = self.multiply_opacity(icon, self.config.icon_opacity)
             icon = icon.resize((self.config.icon_size, self.config.icon_size))
             label.paste(
                 icon,
@@ -171,6 +176,15 @@ class DefaultStyle(Style):
         )
 
         return base
+
+    def multiply_opacity(self, image: Image.Image, percent: float):
+        bands = image.split()
+
+        alpha = bands[3]
+        alpha = alpha.point(lambda x: int(x * percent))
+
+        new_bands = bands[:3] + (alpha,)
+        return Image.merge("RGBA", new_bands)
 
 
 class DefaultStyleLight(DefaultStyle):

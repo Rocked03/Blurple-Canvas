@@ -6,3 +6,4 @@ numpy~=1.26.4
 pymongo~=3.12.3
 discord.py~=2.3.2
 # python -m pip install "discord.py[voice] @ git+https://github.com/rapptz/discord.py"
+opensimplex~=0.4.5

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from copy import copy
 from typing import TYPE_CHECKING, Type, Callable
 
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont
 
 from objects.coordinates import Coordinates
+from objects.pixel import Pixel
 
 if TYPE_CHECKING:
     from objects.color import Color
@@ -59,8 +61,8 @@ class Style:
     def adjusted_size(self) -> Coordinates:
         return self.frame.size * self.zoom
 
-    def get_color(self, color: Color) -> tuple[int, int, int, int]:
-        return color.rgba
+    def get_color(self, pixel: Pixel) -> tuple[int, int, int, int]:
+        return pixel.color.rgba
 
     def frame_to_image_base(self) -> Image.Image:
         img = Image.new("RGBA", self.frame.multiply_zoom(self.zoom), (255, 255, 255, 0))
@@ -70,7 +72,7 @@ class Style:
             opposite_corner = coordinates + self.zoom
             draw.rectangle(
                 (coordinates.to_tuple(), opposite_corner.to_tuple()),
-                self.get_color(pixel.color),
+                self.get_color(pixel),
             )
         return img
 
@@ -88,8 +90,14 @@ class Style:
         color: tuple[int, int, int, int],
         *,
         rotation: int = 0,
+        max_width: int = None,
     ):
         text_size = self.text_size(text, font)
+        if max_width and text_size.x > max_width:
+            new_font = copy(font)
+            new_font.size = max_width * font.size // text_size.x
+            font = new_font
+            text_size = self.text_size(text, font)
 
         if rotation == 0:
             self.draw.text(
@@ -120,9 +128,8 @@ class Config:
 class Styles:
     from objects.styles.default import DefaultStyleLight, DefaultStyleDark
     from objects.styles.classic import ClassicStyleNew, ClassicStyleLegacy
-    from objects.styles.filter import CrunchyStyle
-    from objects.styles.template import WesternStyle
-    from objects.styles.template import PhotographStyle, DifferenceStyle
+    from objects.styles.filter import CrunchyStyle, HolographicStyle
+    from objects.styles.template import WesternStyle, PhotographStyle, DifferenceStyle
 
     STYLES: dict[int, Type[Style]] = {
         # Base Styles (0-9)
@@ -134,6 +141,7 @@ class Styles:
         # Fun Designs (10-29)
         10: CrunchyStyle,  # Crunchy
         11: WesternStyle,  # Western (sepia)
+        12: HolographicStyle,  # Holographic
         # Memes (30-49)
         30: PhotographStyle,  # Look at this photograaaaaph
         31: DifferenceStyle,  # Corporate needs you to find the difference
