@@ -49,7 +49,7 @@ class HolographicStyle(DefaultStyle):
             self,
             hue: int = 227 / 360,
             saturation: float = 0.60,
-            blur_radius_percent: int = 0.001,
+            blur_radius_percent: int = 0.01,
             wave_frequency: float = 0.6,
             degree_detail=1,
             max_size: Coordinates = Coordinates.double(1000),
