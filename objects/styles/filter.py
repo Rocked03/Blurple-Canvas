@@ -49,7 +49,10 @@ class HolographicStyle(DefaultStyle):
             self,
             hue: int = 227 / 360,
             saturation: float = 0.60,
-            blur_radius: int = 30,
+            blur_radius_percent: int = 0.001,
+            wave_frequency: float = 0.6,
+            degree_detail=1,
+            max_size: Coordinates = Coordinates.double(1000),
             *args,
             **kwargs
         ):
@@ -57,7 +60,10 @@ class HolographicStyle(DefaultStyle):
 
             self.hue = hue
             self.saturation = saturation
-            self.blur_radius = blur_radius
+            self.blur_radius_percent = blur_radius_percent
+            self.wave_frequency = wave_frequency
+            self.degree_detail = degree_detail
+            self.max_size = max_size
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -69,14 +75,16 @@ class HolographicStyle(DefaultStyle):
             icon_opacity=220 / 255,
         )
 
-        self.max_size = Coordinates.double(1000)
+        self.max_size = self.config.max_size
 
-        self.wave_frequency = 0.6
-        self.degree_detail = 1
         seed = randint(0, 1000)
         np.random.seed(seed)
         self.noise_generator = OpenSimplex(seed=seed)
         self.noise: dict[float, float] = {}
+
+    @property
+    def blur_radius(self) -> int:
+        return round(self.config.blur_radius_percent * self.frame.bbox.max_dimension)
 
     def generate_image(self) -> Image.Image:
         image = super().generate_image()
@@ -131,7 +139,7 @@ class HolographicStyle(DefaultStyle):
     def get_wave_weight(self, x: float) -> float:
         if x not in self.noise:
             self.noise[x] = (
-                self.noise_generator.noise2(x * self.wave_frequency, 0) + 1
+                self.noise_generator.noise2(x * self.config.wave_frequency, 0) + 1
             ) / 2
         return self.noise[x]
 
@@ -140,7 +148,8 @@ class HolographicStyle(DefaultStyle):
         dy = size.y - xy.y - 1
         angle_deg = degrees(atan2(dy, dx))
         return round(
-            angle_deg if angle_deg <= 180 else 360 - angle_deg, self.degree_detail
+            angle_deg if angle_deg <= 180 else 360 - angle_deg,
+            self.config.degree_detail,
         )
 
     def distance_from_origin(self, xy: Coordinates, size: Coordinates):
