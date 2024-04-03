@@ -70,7 +70,7 @@ class HolographicStyle(DefaultStyle):
         )
 
         self.wave_frequency = 0.6
-        self.degree_detail = 2
+        self.degree_detail = 0
         seed = randint(0, 1000)
         np.random.seed(seed)
         self.noise_generator = OpenSimplex(seed=seed)
