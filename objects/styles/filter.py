@@ -91,14 +91,14 @@ class HolographicStyle(DefaultStyle):
 
         image = image.crop(
             (
-                -self.config.blur_radius,
-                -self.config.blur_radius,
-                image.width + self.config.blur_radius,
-                image.height + self.config.blur_radius,
+                -self.blur_radius,
+                -self.blur_radius,
+                image.width + self.blur_radius,
+                image.height + self.blur_radius,
             )
         )
 
-        blur = image.filter(ImageFilter.GaussianBlur(radius=self.config.blur_radius))
+        blur = image.filter(ImageFilter.GaussianBlur(radius=self.blur_radius))
         blur = self.multiply_opacity(blur, 0.8)
 
         blur.paste(image, (0, 0), image)
