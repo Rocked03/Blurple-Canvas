@@ -69,7 +69,7 @@ class HolographicStyle(DefaultStyle):
             icon_opacity=220 / 255,
         )
 
-        self.max_size = Coordinates.double(1500)
+        self.max_size = Coordinates.double(1000)
 
         self.wave_frequency = 0.6
         self.degree_detail = 1
