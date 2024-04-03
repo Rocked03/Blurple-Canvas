@@ -44,11 +44,13 @@ class Style:
         else:
             self.max_size = max_size
 
+        self.set_zoom = zoom
+
     @property
     def zoom(self) -> int:
-        if self.zoom or self.max_size:
+        if self.set_zoom or self.max_size:
             return (
-                self.zoom
+                self.set_zoom
                 if not self.max_size
                 else max(
                     1,
