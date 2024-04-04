@@ -41,12 +41,14 @@ class TemplateStyle(Style):
 
     def process_image(self, image: Image.Image, size: Size = Size.FIT) -> Image.Image:
         if self.config.cutout_size:
-            size = Coordinates(*image.size)
+            image_size = Coordinates(*image.size)
             ratios = (
-                self.config.cutout_size.x / size.x,
-                self.config.cutout_size.y / size.y,
+                self.config.cutout_size.x / image_size.x,
+                self.config.cutout_size.y / image_size.y,
             )
-            new_size = size * (max(ratios) if size == self.Size.FIT else min(ratios))
+            new_size = image_size * (
+                min(ratios) if size == self.Size.FIT else max(ratios)
+            )
 
             image = image.resize(new_size.to_tuple())
             cutout = Image.new(
@@ -101,8 +103,10 @@ class PhotographStyle(TemplateStyle):
             background_color=(35, 39, 42, 255),
         )
 
-    def process_image(self, image: Image.Image) -> Image.Image:
-        return super().process_image(image, self.Size.FILL)
+    def process_image(
+        self, image: Image.Image, size: TemplateStyle.Size = TemplateStyle.Size.FILL
+    ) -> Image.Image:
+        return super().process_image(image, size)
 
     def combine_images(
         self, template: Image.Image, processed: Image.Image
