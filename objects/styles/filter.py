@@ -47,10 +47,8 @@ class HolographicStyle(DefaultStyle):
     class Config(DefaultStyle.Config):
         def __init__(
             self,
-            hue: int = 227 / 360,
-            saturation: float = 0.60,
             blur_radius_percent: int = 0.01,
-            wave_frequency: float = 0.6,
+            wave_frequency: float = 0.3,
             degree_detail=1,
             max_size: Coordinates = Coordinates.double(1000),
             *args,
@@ -58,8 +56,6 @@ class HolographicStyle(DefaultStyle):
         ):
             super().__init__(*args, **kwargs)
 
-            self.hue = hue
-            self.saturation = saturation
             self.blur_radius_percent = blur_radius_percent
             self.wave_frequency = wave_frequency
             self.degree_detail = degree_detail
@@ -82,23 +78,21 @@ class HolographicStyle(DefaultStyle):
         self.noise_generator = OpenSimplex(seed=seed)
         self.noise: dict[float, float] = {}
 
-    @property
-    def blur_radius(self) -> int:
-        return round(self.config.blur_radius_percent * self.frame.bbox.max_dimension)
-
     def generate_image(self) -> Image.Image:
         image = super().generate_image()
 
+        blur_radius = self.config.blur_radius_percent * max(image.size)
+
         image = image.crop(
             (
-                -self.blur_radius,
-                -self.blur_radius,
-                image.width + self.blur_radius,
-                image.height + self.blur_radius,
+                -blur_radius,
+                -blur_radius,
+                image.width + blur_radius,
+                image.height + blur_radius,
             )
         )
 
-        blur = image.filter(ImageFilter.GaussianBlur(radius=self.blur_radius))
+        blur = image.filter(ImageFilter.GaussianBlur(radius=blur_radius))
         blur = self.multiply_opacity(blur, 0.8)
 
         blur.paste(image, (0, 0), image)
@@ -129,7 +123,7 @@ class HolographicStyle(DefaultStyle):
                 )
 
                 lightness = alpha.getpixel((x, y))
-                lightness *= weight * 0.5 + 0.5
+                lightness *= weight * 0.8 + 0.2
 
                 alpha.putpixel((x, y), round(lightness))
 
@@ -137,11 +131,16 @@ class HolographicStyle(DefaultStyle):
         return Image.merge("RGBA", new_bands)
 
     def get_wave_weight(self, x: float) -> float:
+        y = x + 60 % 180
         if x not in self.noise:
             self.noise[x] = (
                 self.noise_generator.noise2(x * self.config.wave_frequency, 0) + 1
             ) / 2
-        return self.noise[x]
+        if y not in self.noise:
+            self.noise[y] = (
+                self.noise_generator.noise2(y * self.config.wave_frequency, 0) + 1
+            ) / 2
+        return self.noise[x] * self.noise[y]
 
     def angle_from_origin(self, xy: Coordinates, size: Coordinates) -> float:
         dx = xy.x - size.x / 2
@@ -161,7 +160,7 @@ class HolographicStyle(DefaultStyle):
     def calculate_total_weight(
         self, wave_weight: float, distance_weight: float
     ) -> float:
-        return 1 - (1 - wave_weight) * distance_weight
+        return 1 - (1 - wave_weight) * (distance_weight * 0.6)
 
     def get_color(self, pixel: Pixel) -> tuple[int, int, int, int]:
         color = pixel.color
@@ -171,11 +170,8 @@ class HolographicStyle(DefaultStyle):
         lightness = self.lightness(*color.rgb)
         lightness = lightness * 0.8 + 0.2
 
-        r, g, b = hsv_to_rgb(self.config.hue, self.config.saturation, lightness)
+        r, g, b = 88, 100, 245
 
-        r = round(r * 255)
-        g = round(g * 255)
-        b = round(b * 255)
         lightness = round(lightness * 255)
 
         return r, g, b, lightness
