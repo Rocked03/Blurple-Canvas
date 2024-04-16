@@ -25,7 +25,7 @@ class Imager:
 
         @staticmethod
         def font(size: int):
-            return ImageFont.truetype("GintoNordBlack.otf", size)
+            return ImageFont.truetype("resources/fonts/GintoNordBlack.otf", size)
 
         def blurple_rgba(self, alpha: int):
             return *self.blurple_rgb, alpha
