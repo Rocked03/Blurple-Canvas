@@ -360,7 +360,7 @@ class SQLManager:
 
     async def create_pixels(self, canvas: Canvas, color: Color):
         await self.conn.execute(
-            "INSERT INTO pixels (canvas_id, x, y, color_id) "
+            "INSERT INTO pixel (canvas_id, x, y, color_id) "
             "SELECT $1, x, y, $2 FROM generate_series(0, $3) x, generate_series(0, $4) y",
             canvas.id,
             color.id,
@@ -373,7 +373,7 @@ class SQLManager:
 
     async def set_pixels(self, pixels: list[Pixel]):
         await self.conn.executemany(
-            "UPDATE pixels SET color_id = $1 WHERE canvas_id = $2 AND x = $3 AND y = $4",
+            "UPDATE pixel SET color_id = $1 WHERE canvas_id = $2 AND x = $3 AND y = $4",
             [(pixel.color.id, pixel.canvas.id, pixel.x, pixel.y) for pixel in pixels],
         )
 
