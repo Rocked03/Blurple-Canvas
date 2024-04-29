@@ -2068,8 +2068,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #      - My beloved locket
 #      - Pinwheel spinny
 # Other stuff
-# - Schema
-# - Dockerize
 # - readme
 # Maybe
 # - Follow announcement channel cmd
