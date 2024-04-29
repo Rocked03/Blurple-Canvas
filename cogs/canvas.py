@@ -187,6 +187,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.startup_events.info.set()
 
     async def load_cache(self):
+        await self.startup_events.info.wait()
+
         sql = await self.sql()
         info = await sql.fetch_info()
         cache = await sql.fetch_canvas_by_event(
