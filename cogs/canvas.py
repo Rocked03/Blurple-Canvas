@@ -1519,6 +1519,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await sql.fetch_guild(guild.id, insert_on_fail=guild)
         await sql.close()
 
+    @app_commands.command()
+    async def invite(self, interaction: Interaction):
+        """Invite the Canvas bot to your own server!"""
+        embed = self.base_embed(
+            user=interaction.user,
+            title="Invite the Canvas bot",
+        )
+        embed.description = (
+            f"Click the [here](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=414464658496)"
+            f" to invite the Canvas bot to your server!"
+        )
+        await interaction.response.send_message(embed=embed)
+
     # Admin Commands
     admin_group = app_commands.Group(
         name="admin", description="Admin commands", guild_ids=ADMIN_GUILD_IDS or None
@@ -2058,7 +2071,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Schema
 # - Dockerize
 # - readme
-# - Bot invite
 # Maybe
 # - Follow announcement channel cmd
 # - Regenerate all emoji
