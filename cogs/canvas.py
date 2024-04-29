@@ -25,7 +25,7 @@ from discord.app_commands import Choice
 from discord.ext import commands
 from discord.utils import utcnow
 
-from config import POSTGRES_CREDENTIALS, ADMIN_GUILD_IDS
+from config import POSTGRES_CREDENTIALS, ADMIN_GUILD_IDS, LOCK_BOT
 from objects.cache import Cache
 from objects.canvas import Canvas
 from objects.color import Palette, Color
@@ -117,6 +117,15 @@ def guild_permission_check(interaction: Interaction, manager_role: Role = None):
             manager_role in interaction.user.roles,
         ]
     )
+
+
+async def locked_bot_check(interaction: Interaction):
+    if LOCK_BOT:
+        await interaction.response.send_message(
+            "The bot is currently locked for maintenance. Please try again later.",
+            ephemeral=True,
+        )
+        return True
 
 
 class CanvasCog(commands.Cog, name="Canvas"):
@@ -434,6 +443,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         style: int = None,
     ):
         """View the canvas"""
+        if locked_bot_check(interaction):
+            return
+
         if (x is None) != (y is None):
             return await interaction.response.send_message(
                 "Please provide both x and y coordinates."
@@ -523,6 +535,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
+        if locked_bot_check(interaction):
+            return
+
         await interaction.response.defer()
 
         sql = await self.sql()
@@ -1147,6 +1162,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @frame_group.command(name="create")
     async def frame_create(self, interaction: Interaction):
         """Starts frame creation UI"""
+        if locked_bot_check(interaction):
+            return
+
         await interaction.response.defer()
 
         try:
@@ -1174,6 +1192,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @frame_group.command(name="guild-create")
     async def frame_guild_create(self, interaction: Interaction):
         """Create a guild frame"""
+        if locked_bot_check(interaction):
+            return
+
         await interaction.response.defer()
 
         sql = await self.sql()
@@ -2033,6 +2054,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 # - Schema
 # - Dockerize
 # - readme
+# - Bot invite
 # Maybe
 # - Follow announcement channel cmd
 # - Regenerate all emoji

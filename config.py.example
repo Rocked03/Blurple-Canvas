@@ -1,6 +1,8 @@
 TOKEN = 'tokenhere'
 BOT_PREFIX = 'p/'
 
+LOCK_BOT = False
+
 POSTGRES_CREDENTIALS = {
     "user": "username",
     "password": "password",
