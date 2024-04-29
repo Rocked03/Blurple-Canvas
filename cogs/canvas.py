@@ -1970,11 +1970,14 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         sql = await self.sql()
 
-        if color_code.isdigit():
-            color = await sql.fetch_color_by_id(int(color_code))
+        if color_code:
+            if color_code.isdigit():
+                color = await sql.fetch_color_by_id(int(color_code))
+            else:
+                color = await sql.fetch_colors_by_code(color_code)
+                color = color[color_code] if color else None
         else:
-            color = await sql.fetch_colors_by_code(color_code)
-            color = color[color_code] if color else None
+            color = None
         if color is None:
             return await interaction.followup.send("Invalid color code.")
 
