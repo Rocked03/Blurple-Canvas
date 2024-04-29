@@ -1588,7 +1588,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         msg = await interaction.followup.send(f"Refreshing cache for {canvas}...")
         await self.bot.cache[canvas.id].force_refresh(sql)
-        await sql.close()
         await msg.edit(content=f"Refreshed cache for {canvas}.")
 
     @canvas_refresh.autocomplete("canvas")
