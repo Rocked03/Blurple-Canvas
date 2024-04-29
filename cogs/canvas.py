@@ -443,7 +443,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         style: int = None,
     ):
         """View the canvas"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         if (x is None) != (y is None):
@@ -535,7 +535,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         await interaction.response.defer()
@@ -1162,7 +1162,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @frame_group.command(name="create")
     async def frame_create(self, interaction: Interaction):
         """Starts frame creation UI"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         await interaction.response.defer()
@@ -1192,7 +1192,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @frame_group.command(name="guild-create")
     async def frame_guild_create(self, interaction: Interaction):
         """Create a guild frame"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         await interaction.response.defer()
