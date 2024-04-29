@@ -1976,10 +1976,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             else:
                 color = await sql.fetch_colors_by_code(color_code)
                 color = color[color_code] if color else None
+            if color is None:
+                return await interaction.followup.send("Invalid color code.")
         else:
             color = None
-        if color is None:
-            return await interaction.followup.send("Invalid color code.")
 
         if await sql.fetch_participation(guild_id, event_id):
             return await interaction.followup.send("Guild is already participating.")
