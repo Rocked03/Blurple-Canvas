@@ -37,11 +37,13 @@ class Cache:
         )
 
         event.set()
+        await sql_manager.close()
 
     async def force_refresh(self, sql_manager: SQLManager):
         await self.setup_event.wait()
         self.force_refresh_event.clear()
         await self.setup(sql_manager, self.force_refresh_event)
+        await sql_manager.close()
 
     async def cycle_queue(self):
         await self.setup_event.wait()

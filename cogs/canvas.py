@@ -187,6 +187,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.startup_events.info.set()
 
     async def load_cache(self):
+        await self.startup_events.info.wait()
+
         sql = await self.sql()
         info = await sql.fetch_info()
         cache = await sql.fetch_canvas_by_event(
@@ -443,7 +445,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         style: int = None,
     ):
         """View the canvas"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         if (x is None) != (y is None):
@@ -535,7 +537,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     )
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         await interaction.response.defer()
@@ -1162,7 +1164,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @frame_group.command(name="create")
     async def frame_create(self, interaction: Interaction):
         """Starts frame creation UI"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         await interaction.response.defer()
@@ -1192,7 +1194,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @frame_group.command(name="guild-create")
     async def frame_guild_create(self, interaction: Interaction):
         """Create a guild frame"""
-        if locked_bot_check(interaction):
+        if await locked_bot_check(interaction):
             return
 
         await interaction.response.defer()
@@ -1517,6 +1519,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await sql.fetch_guild(guild.id, insert_on_fail=guild)
         await sql.close()
 
+    @app_commands.command()
+    async def invite(self, interaction: Interaction):
+        """Invite the Canvas bot to your own server!"""
+        embed = self.base_embed(
+            user=interaction.user,
+            title="Invite the Canvas bot",
+        )
+        embed.description = (
+            f"Click the [here](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=414464658496)"
+            f" to invite the Canvas bot to your server!"
+        )
+        await interaction.response.send_message(embed=embed)
+
     # Admin Commands
     admin_group = app_commands.Group(
         name="admin", description="Admin commands", guild_ids=ADMIN_GUILD_IDS or None
@@ -1588,7 +1603,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         msg = await interaction.followup.send(f"Refreshing cache for {canvas}...")
         await self.bot.cache[canvas.id].force_refresh(sql)
-        await sql.close()
         await msg.edit(content=f"Refreshed cache for {canvas}.")
 
     @canvas_refresh.autocomplete("canvas")
@@ -1971,13 +1985,16 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         sql = await self.sql()
 
-        if color_code.isdigit():
-            color = await sql.fetch_color_by_id(int(color_code))
+        if color_code:
+            if color_code.isdigit():
+                color = await sql.fetch_color_by_id(int(color_code))
+            else:
+                color = await sql.fetch_colors_by_code(color_code)
+                color = color[color_code] if color else None
+            if color is None:
+                return await interaction.followup.send("Invalid color code.")
         else:
-            color = await sql.fetch_colors_by_code(color_code)
-            color = color[color_code] if color else None
-        if color is None:
-            return await interaction.followup.send("Invalid color code.")
+            color = None
 
         if await sql.fetch_participation(guild_id, event_id):
             return await interaction.followup.send("Guild is already participating.")
@@ -2051,10 +2068,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #      - My beloved locket
 #      - Pinwheel spinny
 # Other stuff
-# - Schema
-# - Dockerize
 # - readme
-# - Bot invite
 # Maybe
 # - Follow announcement channel cmd
 # - Regenerate all emoji

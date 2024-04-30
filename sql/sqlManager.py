@@ -312,7 +312,7 @@ class SQLManager:
             ),
             participation.guild_id,
             participation.event.id,
-            participation.color.id,
+            participation.color.id if participation.color else None,
         )
 
     async def update_participation(self, participation: Participation):
