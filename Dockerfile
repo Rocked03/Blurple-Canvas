@@ -16,6 +16,7 @@ RUN pip install --upgrade pip
 
 # Install dependencies
 RUN pip install -r requirements.txt
+RUN pip install "discord.py[voice] @ git+https://github.com/rapptz/discord.py"  # Newer version to support bot banner editing
 
 # Copy the rest of the application code
 COPY . .
