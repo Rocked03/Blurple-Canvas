@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import copy
 from typing import TYPE_CHECKING, Optional, Type
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from objects.color import Color
 from objects.coordinates import BoundingBox, Coordinates
@@ -37,7 +37,7 @@ class Frame(DiscordObject):
         super().__init__(**kwargs)
         self.bbox: Optional[BoundingBox] = (
             BoundingBox(Coordinates(x_0, y_0), Coordinates(x_1, y_1))
-            if not bbox and (x_0 and y_0 and x_1 and y_1)
+            if not bbox and all(edge is not None for edge in [x_0, y_0, x_1, y_1])
             else bbox
         )
         self.pixels = pixels
