@@ -198,6 +198,9 @@ class Palette:
             + ([self.edit_color] if self.edit_color else [])
         )
 
+    def copy_colors(self):
+        return {color.id: color for color in self.colors.values()}
+
     def remove_color(self, color: Color):
         self.colors.pop(color.id)
 
