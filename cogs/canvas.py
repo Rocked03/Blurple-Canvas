@@ -1970,13 +1970,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         event_id: int = None,
         color_code: str = None,
         invite: str = None,
-        manager_role_id: int = None,
+        manager_role_id: str = None,
     ):
         """Register a guild to participate"""
         if not guild_id.isdigit():
             return await interaction.response.send_message("Invalid guild ID.")
         else:
             guild_id = int(guild_id)
+
+        if not manager_role_id.isdigit():
+            return await interaction.response.send_message("Invalid manager role ID.")
+        else:
+            manager_role_id = int(manager_role_id)
+
         if event_id is None:
             event_id = self.info.current_event_id
 
@@ -2030,13 +2036,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
         interaction: Interaction,
         guild_id: str,
         invite: str = None,
-        manager_role_id: int = None,
+        manager_role_id: str = None,
     ):
         """Register a new guild / Edit an existing guild"""
         if not guild_id.isdigit():
             return await interaction.response.send_message("Invalid guild ID.")
         else:
             guild_id = int(guild_id)
+
+        if not manager_role_id.isdigit():
+            return await interaction.response.send_message("Invalid manager role ID.")
+        else:
+            manager_role_id = int(manager_role_id)
 
         await interaction.response.defer()
 
