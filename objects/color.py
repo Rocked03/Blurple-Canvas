@@ -54,7 +54,11 @@ class Color(DiscordObject):
 
     @property
     def emoji_formatted(self) -> str:
-        return f"<:{self.emoji_name}:{self.emoji_id}>" if self.emoji_name else None
+        return (
+            f"<:{self.emoji_name}:{self.emoji_id}>"
+            if self.emoji_name and self.emoji_id
+            else None
+        )
 
     @property
     def rgba_formatted(self) -> str:
@@ -193,6 +197,9 @@ class Palette:
             self.get_available_colors(guild_id=guild_id, event_id=event_id)
             + ([self.edit_color] if self.edit_color else [])
         )
+
+    def remove_color(self, color: Color):
+        self.colors.pop(color.id)
 
     def sorted(self, colors: list[Color] = None) -> list[Color]:
         if colors is None:

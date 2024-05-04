@@ -1397,9 +1397,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         if participation:
             if not participation.has_custom_color:
-                pages["custom_color"] = SetupCustomColorView(
-                    await sql.fetch_colors_by_guild(interaction.guild.id)
-                )
+                palette = await sql.fetch_colors_by_guild(interaction.guild.id)
+                for color in palette:
+                    if not self.bot.get_emoji(color.emoji_id):
+                        palette.remove_color(color)
+                pages["custom_color"] = SetupCustomColorView(palette)
 
             if not guild.invite:
                 pages["invite"] = SetupInviteView(None)
