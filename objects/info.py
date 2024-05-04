@@ -69,9 +69,9 @@ class Info(DiscordObject):
 
     async def fetch_admin_server(self):
         try:
-            if not self.admin_server_id:
+            if not self.admin_server:
                 self.admin_server = await self.bot.fetch_guild(self.admin_server_id)
-            if not self.canvas_admin_ids:
+            if not self.canvas_admin_roles:
                 self.canvas_admin_roles = [
                     self.admin_server.get_role(role_id)
                     for role_id in self.canvas_admin_ids
@@ -82,9 +82,9 @@ class Info(DiscordObject):
 
     async def fetch_host_server(self):
         try:
-            if not self.host_server_id:
+            if not self.host_server:
                 self.host_server = await self.bot.fetch_guild(self.host_server_id)
-            if not self.event_role_id:
+            if not self.event_role:
                 self.event_role = self.host_server.get_role(self.event_role_id)
         except NotFound:
             pass
@@ -92,7 +92,7 @@ class Info(DiscordObject):
 
     async def fetch_current_emoji_server(self):
         try:
-            if not self.current_emoji_server_id:
+            if not self.current_emoji_server:
                 self.current_emoji_server = await self.bot.fetch_guild(
                     self.current_emoji_server_id
                 )
