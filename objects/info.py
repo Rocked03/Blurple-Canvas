@@ -39,6 +39,10 @@ class Info(DiscordObject):
         self.highlight_color = highlight_color
         self.default_canvas_id = default_canvas_id
         self.all_colors_global = all_colors_global
+        self.admin_server_id = admin_server_id
+        self.current_emoji_server_id = current_emoji_server_id
+        self.event_role_id = event_role_id
+        self.host_server_id = host_server_id
 
         from objects.event import Event
 
@@ -48,40 +52,53 @@ class Info(DiscordObject):
             else current_event
         )
 
-        self.admin_server: Optional[Guild] = (
-            self.bot.get_guild(admin_server_id)
-            if admin_server_id and self.bot
-            else admin_server
-        )
+        self.admin_server: Optional[Guild] = admin_server
+        self.canvas_admin_roles: list[Role] = []
+        self.current_emoji_server: Optional[Guild] = current_emoji_server
+        self.host_server: Optional[Guild] = host_server
+        self.event_role: Optional[Role] = event_role
 
-        self.host_server: Optional[Guild] = (
-            self.bot.get_guild(host_server_id)
-            if host_server_id and self.bot
-            else host_server
-        )
-        self.host_server_id = host_server_id
-
-        self.event_role: Optional[Role] = (
-            self.host_server.get_role(event_role_id)
-            if event_role_id and self.host_server
-            else event_role
-        )
-
-        self.current_emoji_server: Optional[Guild] = (
-            self.bot.get_guild(current_emoji_server_id)
-            if current_emoji_server_id and self.bot
-            else current_emoji_server
-        )
-
-        self.canvas_admin_roles = (
-            [self.admin_server.get_role(role_id) for role_id in self.canvas_admin_ids]
-            if self.admin_server
-            else []
-        )
+        if self.bot:
+            self.bot.loop.create_task(self.fetch_admin_server())
+            self.bot.loop.create_task(self.fetch_host_server())
+            self.bot.loop.create_task(self.fetch_current_emoji_server())
 
     @property
     def current_event_id(self):
         return self.current_event.id if self.current_event else None
+
+    async def fetch_admin_server(self):
+        try:
+            if not self.admin_server_id:
+                self.admin_server = await self.bot.fetch_guild(self.admin_server_id)
+            if not self.canvas_admin_ids:
+                self.canvas_admin_roles = [
+                    self.admin_server.get_role(role_id)
+                    for role_id in self.canvas_admin_ids
+                ]
+        except NotFound:
+            pass
+        return self.admin_server
+
+    async def fetch_host_server(self):
+        try:
+            if not self.host_server_id:
+                self.host_server = await self.bot.fetch_guild(self.host_server_id)
+            if not self.event_role_id:
+                self.event_role = self.host_server.get_role(self.event_role_id)
+        except NotFound:
+            pass
+        return self.host_server
+
+    async def fetch_current_emoji_server(self):
+        try:
+            if not self.current_emoji_server_id:
+                self.current_emoji_server = await self.bot.fetch_guild(
+                    self.current_emoji_server_id
+                )
+        except NotFound:
+            pass
+        return self.current_emoji_server
 
     async def check_perms(self, interaction: Interaction):
         try:
