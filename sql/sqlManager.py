@@ -517,7 +517,7 @@ class SQLManager:
     async def update_guild(self, guild: Guild):
         await self.conn.execute(
             "UPDATE guild SET manager_role = COALESCE($1, manager_role), invite = COALESCE($2, invite) WHERE id = $3",
-            guild.manager_role.id,
+            guild.manager_role.id if guild.manager_role else None,
             guild.invite,
             guild.id,
         )
