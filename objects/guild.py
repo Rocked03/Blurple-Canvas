@@ -34,7 +34,7 @@ class Guild(DiscordObject):
 
     @property
     def invite_url(self):
-        return f"https://discord.gg/{self.invite}/" if self.invite else None
+        return f"https://discord.gg/{self.invite}" if self.invite else None
 
     def invite_url_masked_markdown(self, text: str):
         return f"[{text}]({self.invite_url})" if self.invite_url else text
