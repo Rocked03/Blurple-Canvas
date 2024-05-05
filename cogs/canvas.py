@@ -1529,7 +1529,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             title="Invite the Canvas bot",
         )
         embed.description = (
-            f"Click the [here](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=414464658496)"
+            f"Click [here](https://discord.com/oauth2/authorize?client_id={self.bot.user.id}&scope=bot&permissions=414464658496)"
             f" to invite the Canvas bot to your server!"
         )
         await interaction.response.send_message(embed=embed)
