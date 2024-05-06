@@ -818,7 +818,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 + color.guild.invite_url_masked_markdown(
                     f"__**{color.guild.guild.name}**__"
                     if color.guild.guild
-                    else "__its' own partner server__"
+                    else "__its own partner server__"
                 )
                 + "."
             )
