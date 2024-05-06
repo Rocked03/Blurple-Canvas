@@ -5,7 +5,7 @@ from typing import Generator, Any, Optional
 from typing import TYPE_CHECKING
 
 from asyncpg import Connection, UndefinedFunctionError
-from discord import Client
+from discord import Client, User as UserDiscord
 
 from objects.coordinates import BoundingBox
 
@@ -430,27 +430,57 @@ class SQLManager:
 
         await self.set_pixels(pixels)
 
-    async def fetch_user(self, user_id: int, *, insert_on_fail: User = None) -> User:
+    async def fetch_user(
+        self, user: UserDiscord, *, user_id: int = None, insert_on_fail: User = None
+    ) -> User:
+        user_id = user.id if user_id is None else user_id
         row = await self.conn.fetchrow(
             "SELECT u.*, b.date_added, "
-            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length "
+            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length,"
+            "d.username, d.profile_picture_url, d.user_id as discord_user_id "
             "FROM public.user u "
             "LEFT JOIN blacklist b ON u.id = b.user_id "
             "LEFT JOIN canvas c ON u.current_canvas_id = c.id "
+            "LEFT JOIN discord_user_profile d ON u.id = d.user_id "
             "WHERE u.id = $1",
             user_id,
         )
         if row:
+            if (
+                row["username"] != user.name
+                or row["profile_picture_url"] != user.avatar.url
+            ):
+                try:
+                    if row["discord_user_id"]:
+                        await self.conn.execute(
+                            "UPDATE discord_user_profile SET username = $1, profile_picture_url = $2 WHERE user_id = $3",
+                            user.name,
+                            user.avatar.url,
+                            user_id,
+                        )
+                    else:
+                        await self.conn.execute(
+                            "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
+                            "VALUES ($1, $2, $3)",
+                            user_id,
+                            user.name,
+                            user.avatar.url,
+                        )
+                except UndefinedFunctionError:
+                    pass
+
             from objects.user import User
 
-            return User(bot=self.bot, **rename_invalid_keys(row))
+            user_obj = User(bot=self.bot, **rename_invalid_keys(row))
+            user_obj.set_user(user)
+            return user_obj
         elif insert_on_fail:
-            await self.insert_user(insert_on_fail)
+            await self.insert_user(insert_on_fail, user_discord=user)
             return insert_on_fail
         else:
-            return await self.insert_empty_user(user_id)
+            return await self.insert_empty_user(user_id, user_discord=user)
 
-    async def insert_user(self, user: User):
+    async def insert_user(self, user: User, *, user_discord: UserDiscord = None):
         await self.conn.execute(
             (
                 "INSERT INTO public.user (id, current_canvas_id, skip_confirm, cooldown_remind) "
@@ -462,10 +492,24 @@ class SQLManager:
             user.cooldown_remind,
         )
 
+        if user_discord:
+            await self.conn.execute(
+                "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
+                "VALUES ($1, $2, $3) "
+                "ON CONFLICT (user_id) DO NOTHING ",
+                user.id,
+                user_discord.name,
+                user_discord.avatar.url,
+            )
+
     # GUILD
 
     async def insert_empty_user(
-        self, user_id: int, *, current_canvas_id: int = None
+        self,
+        user_id: int,
+        *,
+        current_canvas_id: int = None,
+        user_discord: UserDiscord = None,
     ) -> User:
         if current_canvas_id is None:
             if self.info:
@@ -479,7 +523,7 @@ class SQLManager:
             skip_confirm=False,
             cooldown_remind=False,
         )
-        await self.insert_user(user)
+        await self.insert_user(user, user_discord=user_discord)
         return user
 
     async def fetch_guild(
@@ -553,7 +597,7 @@ class SQLManager:
         return [Blacklist(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
     async def set_current_canvas(self, user: User):
-        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.fetch_user(user.user, user_id=user.id, insert_on_fail=user)
         await self.conn.execute(
             "UPDATE public.user SET current_canvas_id = $1 WHERE id = $2",
             user.current_canvas.id,
@@ -561,7 +605,7 @@ class SQLManager:
         )
 
     async def set_skip_confirm(self, user: User):
-        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.fetch_user(user.user, user_id=user.id, insert_on_fail=user)
         await self.conn.execute(
             "UPDATE public.user SET skip_confirm = $1 WHERE id = $2",
             user.skip_confirm,
@@ -569,7 +613,7 @@ class SQLManager:
         )
 
     async def set_cooldown_remind(self, user: User):
-        await self.fetch_user(user.id, insert_on_fail=user)
+        await self.fetch_user(user.user, user_id=user.id, insert_on_fail=user)
         await self.conn.execute(
             "UPDATE public.user SET cooldown_remind = $1 WHERE id = $2",
             user.cooldown_remind,

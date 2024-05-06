@@ -224,10 +224,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await asyncio.sleep(3600)
 
     # Fetch methods
-    async def find_canvas(self, user_id) -> tuple[User, Canvas]:
+    async def find_canvas(self, user_discord: UserDiscord) -> tuple[User, Canvas]:
         sql = await self.sql()
         await self.wait_for_startup()
-        user = await sql.fetch_user(user_id)
+        user = await sql.fetch_user(user_discord)
         if user.current_canvas is None:
             await sql.close()
             raise ValueError(
@@ -465,7 +465,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         try:
             timer = Timer()
-            user, canvas = await self.find_canvas(interaction.user.id)
+            user, canvas = await self.find_canvas(interaction.user)
 
             canvas = await self.check_cache(canvas)
 
@@ -545,7 +545,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
 
         try:
-            user, canvas = await self.find_canvas(interaction.user.id)
+            user, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
@@ -747,7 +747,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
 
         sql = await self.sql()
-        user = await sql.fetch_user(interaction.user.id)
+        user = await sql.fetch_user(interaction.user)
         canvas = await sql.fetch_canvas_by_name(canvas)
 
         if canvas is None:
@@ -861,7 +861,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Toggle skipping placing confirmation"""
         await interaction.response.defer(ephemeral=True)
         sql = await self.sql()
-        user = await sql.fetch_user(interaction.user.id)
+        user = await sql.fetch_user(interaction.user)
         await user.toggle_skip_confirm(sql)
         await sql.close()
         await interaction.followup.send(
@@ -874,7 +874,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Toggle cooldown reminders"""
         await interaction.response.defer()
         sql = await self.sql()
-        user = await sql.fetch_user(interaction.user.id)
+        user = await sql.fetch_user(interaction.user)
         await user.toggle_cooldown_remind(sql)
         await sql.close()
         await interaction.followup.send(
@@ -894,7 +894,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
 
         try:
-            _, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
             return await interaction.response.send_message(str(e), ephemeral=True)
@@ -958,7 +958,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
 
         try:
-            _, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
             return await interaction.response.send_message(str(e), ephemeral=True)
@@ -1055,7 +1055,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 guild_name = guild.name if guild else str(guild_id)
 
         try:
-            _, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             return await interaction.response.send_message(str(e), ephemeral=True)
 
@@ -1170,7 +1170,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
 
         try:
-            _, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             return await interaction.followup.send(str(e), ephemeral=True)
         canvas = await self.check_cache(canvas)
@@ -1223,7 +1223,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
 
         try:
-            _, canvas = await self.find_canvas(interaction.user.id)
+            _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             return await interaction.followup.send(str(e), ephemeral=True)
         canvas = await self.check_cache(canvas)
@@ -1637,7 +1637,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
 
         try:
-            user, canvas = await self.find_canvas(interaction.user.id)
+            user, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
@@ -1804,7 +1804,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Blacklist a user"""
         await interaction.response.defer()
         sql = await self.sql()
-        user_obj = await sql.fetch_user(user.id)
+        user_obj = await sql.fetch_user(user)
         if user_obj.is_blacklisted:
             await sql.close()
             return await interaction.followup.send(
@@ -1821,7 +1821,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         """Unblacklist a user"""
         await interaction.response.defer()
         sql = await self.sql()
-        user_obj = await sql.fetch_user(user.id)
+        user_obj = await sql.fetch_user(user)
         if not user_obj.is_blacklisted:
             await sql.close()
             return await interaction.followup.send(
