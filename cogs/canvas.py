@@ -1063,12 +1063,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 guild = self.bot.get_guild(guild_id)
                 guild_name = guild.name if guild else str(guild_id)
 
+        await interaction.response.defer()
+
         try:
             _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
-            return await interaction.response.send_message(str(e), ephemeral=True)
-
-        await interaction.response.defer()
+            return await interaction.followup.send(str(e), ephemeral=True)
 
         sql = await self.sql()
         if guild_id:
