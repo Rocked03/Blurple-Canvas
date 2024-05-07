@@ -3,7 +3,7 @@ import re
 import traceback
 from functools import partial
 from io import BytesIO
-from random import randint
+from random import randint, choice
 from typing import Optional, Callable, Literal
 
 import numpy
@@ -139,7 +139,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         self.startup_events = StartupEvents()
 
         # SQL
-        self.pool: Optional[Pool] = None
+        self.pools: List[Pool] = []
         self.bot.loop.create_task(self.startup_connect_sql())
 
         # Info
@@ -166,20 +166,26 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.startup_events.startup.wait()
 
     async def startup_connect_sql(self):
-        self.pool = await create_pool(**POSTGRES_CREDENTIALS)
+        for i in range(5):
+            self.pool.append(await create_pool(**POSTGRES_CREDENTIALS))
         self.startup_events.sql.set()
         print("Connected to PostgreSQL database")
 
+    def random_pool(self):
+        return choice(self.pools)
+
     async def sql(self) -> SQLManager:
         await self.startup_events.sql.wait()
-        connection = await self.pool.acquire()
+        print("Waiting for pool")
+        pool = self.random_pool()
+        connection = await pool.acquire()
         print("Acquired from pool")
-        self.bot.loop.create_task(self.timeout_connection(connection))
+        self.bot.loop.create_task(self.timeout_connection(pool, connection))
         return SQLManager(connection, self.bot, info=self.info)
 
-    async def timeout_connection(self, connection):
-        await asyncio.sleep(600)
-        await self.pool.release(connection)
+    async def timeout_connection(self, pool, connection):
+        await asyncio.sleep(120)
+        await pool.release(connection)
 
     async def load_info(self):
         sql = await self.sql()
