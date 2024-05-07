@@ -446,7 +446,7 @@ class SQLManager:
             user_id,
         )
         if row:
-            if (
+            if user and (
                 row["username"] != user.name
                 or row["profile_picture_url"] != user.avatar.url
             ):
