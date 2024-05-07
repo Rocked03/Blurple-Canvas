@@ -25,7 +25,7 @@ class UserStatsBase(StatsBase):
         self.user: Optional[UserDiscord] = None
 
         if self.bot is not None:
-            asyncio.run(self.load_user())
+            self.bot.loop.create_task(self.load_user())
 
     @property
     def name(self):
@@ -54,7 +54,7 @@ class GuildStatsBase(StatsBase):
         self.guild = None
 
         if self.bot is not None:
-            asyncio.run(self.load_guild())
+            self.bot.loop.create_task(self.load_guild())
 
     @property
     def name(self):
