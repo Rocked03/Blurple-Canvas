@@ -1623,6 +1623,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         image="Image to paste",
         x="top-left x coordinate",
         y="top-left y coordinate",
+        author="Author of the paste",
+        bypass_lock="Bypass canvas lock",
     )
     async def canvas_paste(
         self,
@@ -1631,6 +1633,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         x: int,
         y: int,
         author: UserDiscord = None,
+        bypass_lock: bool = False,
     ):
         """Paste an image onto the canvas"""
         if author is None:
@@ -1646,7 +1649,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
 
-        if canvas.is_locked:
+        if canvas.is_locked and not bypass_lock:
             await sql.close()
             return await interaction.followup.send(f"**{canvas.name}** is read-only.")
 
@@ -1657,7 +1660,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
         xy0 = Coordinates(x, y)
-        xy1 = xy0 + size
+        xy1 = xy0 + size - Coordinates(1, 1)
         bbox = xy0.bbox_to(xy1)
 
         if bbox not in canvas:
