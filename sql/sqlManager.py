@@ -440,8 +440,8 @@ class SQLManager:
             "d.username, d.profile_picture_url, d.user_id as discord_user_id "
             "FROM (SELECT * FROM public.user WHERE public.user.id = $1) u "
             "LEFT JOIN blacklist b ON u.id = b.user_id "
-            "LEFT JOIN canvas c ON u.current_canvas_id = c.id "
-            "LEFT JOIN discord_user_profile d ON u.id = d.user_id ",
+            "LEFT JOIN canvas c ON u.current_canvas_id = c.id ",
+            # "LEFT JOIN discord_user_profile d ON u.id = d.user_id ",
             user_id,
         )
         if row:
