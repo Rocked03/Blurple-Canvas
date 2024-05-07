@@ -13,6 +13,7 @@ from discord import (
     app_commands,
     Interaction,
     User as UserDiscord,
+    Object,
     Client,
     File,
     Embed,
@@ -1200,7 +1201,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
 
         sql = await self.sql()
-        guild = await sql.fetch_guild(interaction.guild.id)
+        guild = await sql.fetch_guild(interaction.guild)
         await sql.close()
 
         perms = interaction.user.guild_permissions
@@ -1286,7 +1287,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             return await interaction.followup.send("Frame not found.")
 
         if frame.is_guild_owned:
-            guild = await sql.fetch_guild(interaction.guild.id)
+            guild = await sql.fetch_guild(interaction.guild)
 
             if not guild_permission_check(interaction, guild.manager_role):
                 await sql.close()
@@ -1364,7 +1365,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if participation is not None:
             guild = participation
         else:
-            guild = await sql.fetch_guild(interaction.guild.id)
+            guild = await sql.fetch_guild(interaction.guild)
 
         if not guild_permission_check(
             interaction, guild.manager_role if guild else None
@@ -1422,7 +1423,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if participation is not None:
             guild = participation
         else:
-            guild = await sql.fetch_guild(interaction.guild.id)
+            guild = await sql.fetch_guild(interaction.guild)
 
         if not guild_permission_check(
             interaction, guild.manager_role if guild else None
@@ -1518,7 +1519,10 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
             await sql.update_participation(participation)
             await self.load_colors()
-        await sql.fetch_guild(guild.id, insert_on_fail=guild)
+
+        if not guild.guild:
+            guild.guild = self.bot.get_guild(guild.id)
+        await sql.fetch_guild(guild.guild, insert_on_fail=guild)
         await sql.close()
 
     @app_commands.command()
@@ -2007,8 +2011,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if await sql.fetch_participation(guild_id, event_id):
             return await interaction.followup.send("Guild is already participating.")
 
+        guild_discord = self.bot.get_guild(guild_id)
+        if guild_discord is None:
+            guild_discord = Object(id=guild_id)
         await sql.fetch_guild(
-            guild_id,
+            guild_discord,
             insert_on_fail=Guild(
                 _id=guild_id, invite=invite, manager_role_id=manager_role_id
             ),

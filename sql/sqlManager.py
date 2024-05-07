@@ -5,7 +5,7 @@ from typing import Generator, Any, Optional
 from typing import TYPE_CHECKING
 
 from asyncpg import Connection, UndefinedFunctionError
-from discord import Client, User as UserDiscord
+from discord import Client, User as UserDiscord, Guild as GuildDiscord
 
 from objects.coordinates import BoundingBox
 
@@ -527,11 +527,11 @@ class SQLManager:
         return user
 
     async def fetch_guild(
-        self, guild_id: int, *, insert_on_fail: Guild = None
+        self, guild_discord: GuildDiscord, *, insert_on_fail: Guild = None
     ) -> Guild:
         row = await self.conn.fetchrow(
             "SELECT * FROM guild WHERE id = $1",
-            guild_id,
+            guild_discord.id,
         )
         if row:
             from objects.guild import Guild
@@ -542,21 +542,30 @@ class SQLManager:
             ):
                 guild.manager_role = insert_on_fail.manager_role
                 guild.invite = insert_on_fail.invite
+                if not guild.guild:
+                    guild.guild = guild_discord
                 await self.update_guild(guild)
             return guild
         elif insert_on_fail:
             await self.insert_guild(insert_on_fail)
             return insert_on_fail
         else:
-            return await self.insert_empty_guild(guild_id)
+            return await self.insert_empty_guild(guild_discord)
 
     async def insert_guild(self, guild: Guild):
         await self.conn.execute(
-            "INSERT INTO guild (id, manager_role, invite) " "VALUES ($1, $2, $3)",
+            "INSERT INTO guild (id, manager_role, invite) VALUES ($1, $2, $3)",
             guild.id,
             guild.manager_role,
             guild.invite,
         )
+
+        if guild.guild and isinstance(guild.guild, GuildDiscord) and guild.name:
+            await self.conn.execute(
+                "INSERT INTO discord_guild_record (guild_id, name) VALUES ($1, $2)",
+                guild.id,
+                guild.guild.name,
+            )
 
     async def update_guild(self, guild: Guild):
         await self.conn.execute(
@@ -566,15 +575,28 @@ class SQLManager:
             guild.id,
         )
 
+        if guild.guild and isinstance(guild.guild, GuildDiscord) and guild.name:
+            await self.conn.execute(
+                "INSERT INTO discord_guild_record (guild_id, name) "
+                "VALUES ($1, $2) "
+                "ON CONFLICT (guild_id) DO "
+                "UPDATE SET name = CASE "
+                "WHEN discord_guild_record.name <> EXCLUDED.name "
+                "THEN EXCLUDED.name ELSE discord_guild_record.name END;",
+                guild.id,
+                guild.guild.name,
+            )
+
     # USER MODIFIERS
 
-    async def insert_empty_guild(self, guild_id: int) -> Guild:
+    async def insert_empty_guild(self, guild_discord: GuildDiscord) -> Guild:
         from objects.guild import Guild
 
         guild = Guild(
-            _id=guild_id,
+            _id=guild_discord.id,
             manager_role=None,
             invite=None,
+            guild=guild_discord,
         )
         await self.insert_guild(guild)
         return guild

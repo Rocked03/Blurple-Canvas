@@ -716,9 +716,11 @@ class SetupManagerRoleView(PaginatorView):
             super().__init__(label="Edit role", **kwargs)
 
         @property
-        def role_id_or_name(self):
+        def role_id_or_name(self) -> str:
             return (
-                self.view.role_id_or_name.strip() if self.view.role_id_or_name else None
+                str(self.view.role_id_or_name).strip()
+                if self.view.role_id_or_name
+                else None
             )
 
         async def callback(self, interaction: Interaction):
