@@ -436,37 +436,37 @@ class SQLManager:
         user_id = user.id if user_id is None else user_id
         row = await self.conn.fetchrow(
             "SELECT u.*, b.date_added, "
-            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length "  # , "
-            # "d.username, d.profile_picture_url, d.user_id as discord_user_id "
+            "c.name, c.locked, c.event_id, c.width, c.height, c.cooldown_length, "
+            "d.username, d.profile_picture_url, d.user_id as discord_user_id "
             "FROM (SELECT * FROM public.user WHERE public.user.id = $1) u "
             "LEFT JOIN blacklist b ON u.id = b.user_id "
-            "LEFT JOIN canvas c ON u.current_canvas_id = c.id ",
-            # "LEFT JOIN discord_user_profile d ON u.id = d.user_id ",
+            "LEFT JOIN canvas c ON u.current_canvas_id = c.id "
+            "LEFT JOIN discord_user_profile d ON u.id = d.user_id ",
             user_id,
         )
         if row:
-            # if user and (
-            #     row["username"] != user.name
-            #     or row["profile_picture_url"] != user.avatar.url
-            # ):
-            #     try:
-            #         if row["discord_user_id"]:
-            #             await self.conn.execute(
-            #                 "UPDATE discord_user_profile SET username = $1, profile_picture_url = $2 WHERE user_id = $3",
-            #                 user.name,
-            #                 user.avatar.url,
-            #                 user_id,
-            #             )
-            #         else:
-            #             await self.conn.execute(
-            #                 "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
-            #                 "VALUES ($1, $2, $3)",
-            #                 user_id,
-            #                 user.name,
-            #                 user.avatar.url,
-            #             )
-            #     except UndefinedFunctionError:
-            #         pass
+            if user and (
+                row["username"] != user.name
+                or row["profile_picture_url"] != user.avatar.url
+            ):
+                try:
+                    if row["discord_user_id"]:
+                        await self.conn.execute(
+                            "UPDATE discord_user_profile SET username = $1, profile_picture_url = $2 WHERE user_id = $3",
+                            user.name,
+                            user.avatar.url,
+                            user_id,
+                        )
+                    else:
+                        await self.conn.execute(
+                            "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
+                            "VALUES ($1, $2, $3)",
+                            user_id,
+                            user.name,
+                            user.avatar.url,
+                        )
+                except UndefinedFunctionError:
+                    pass
 
             from objects.user import User
 
@@ -491,15 +491,15 @@ class SQLManager:
             user.cooldown_remind,
         )
 
-        # if user_discord:
-        #     await self.conn.execute(
-        #         "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
-        #         "VALUES ($1, $2, $3) "
-        #         "ON CONFLICT (user_id) DO NOTHING ",
-        #         user.id,
-        #         user_discord.name,
-        #         user_discord.avatar.url,
-        #     )
+        if user_discord:
+            await self.conn.execute(
+                "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
+                "VALUES ($1, $2, $3) "
+                "ON CONFLICT (user_id) DO NOTHING ",
+                user.id,
+                user_discord.name,
+                user_discord.avatar.url,
+            )
 
     # GUILD
 
