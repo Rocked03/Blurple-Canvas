@@ -900,15 +900,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if user is None:
             user = interaction.user
 
+        await interaction.response.defer()
+
         sql = await self.sql()
 
         try:
             _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
-            return await interaction.response.send_message(str(e), ephemeral=True)
-
-        await interaction.response.defer()
+            return await interaction.followup.send(str(e))
 
         stats = await sql.fetch_user_stats(user.id, canvas.id)
         await sql.close()
@@ -964,15 +964,15 @@ class CanvasCog(commands.Cog, name="Canvas"):
             guild = self.bot.get_guild(guild_id)
         guild_name = guild.name if guild else str(guild_id)
 
+        await interaction.response.defer()
+
         sql = await self.sql()
 
         try:
             _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
-            return await interaction.response.send_message(str(e), ephemeral=True)
-
-        await interaction.response.defer()
+            return await interaction.followup.send(str(e))
 
         if canvas.event is None:
             await sql.close()
