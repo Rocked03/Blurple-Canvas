@@ -167,7 +167,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def startup_connect_sql(self):
         for i in range(5):
-            self.pool.append(await create_pool(**POSTGRES_CREDENTIALS))
+            self.pools.append(await create_pool(**POSTGRES_CREDENTIALS))
         self.startup_events.sql.set()
         print("Connected to PostgreSQL database")
 
