@@ -709,6 +709,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         if (
             self.info.event_role
             and self.info.host_server
+            and self.info.host_server.me
             and self.info.host_server.me.guild_permissions.manage_roles
         ):
             try:
