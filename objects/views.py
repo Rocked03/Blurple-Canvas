@@ -111,7 +111,8 @@ class ConfirmView(View):
         await self.interaction.response.edit_message(view=self)
 
     async def defer(self) -> None:
-        await self.interaction.response.defer()
+        if self.interaction:
+            await self.interaction.response.defer()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
         return interaction.user.id == self.user_id
