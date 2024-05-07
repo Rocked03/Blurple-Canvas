@@ -4,7 +4,7 @@ import traceback
 from functools import partial
 from io import BytesIO
 from random import randint, choice
-from typing import Optional, Callable, Literal
+from typing import Optional, Callable, Literal, List
 
 import numpy
 from PIL import Image
@@ -552,15 +552,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         sql = await self.sql()
 
-        print("Placing pixel")
-
         try:
             user, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
             await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
-
-        print("Found canvas and user")
 
         if user.is_blacklisted:
             await sql.close()
@@ -590,8 +586,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
                     f"You are on cooldown. You can place another pixel {cooldown.time_left_markdown}.",
                     ephemeral=True,
                 )
-
-        print("Hit cooldown")
 
         color = (await self.get_available_colors())[color]
         if color is not None:
@@ -762,11 +756,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await interaction.response.defer()
 
         sql = await self.sql()
-        print("Join command")
         user = await sql.fetch_user(interaction.user)
-        print("Fetched user")
         canvas = await sql.fetch_canvas_by_name(canvas)
-        print("Fetched canvas")
 
         if canvas is None:
             await sql.close()
