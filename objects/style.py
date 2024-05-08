@@ -71,11 +71,12 @@ class Style:
         return pixel.color.rgba
 
     def frame_to_image_base(self) -> Image.Image:
-        img = Image.new("RGBA", self.frame.multiply_zoom(self.zoom), (255, 255, 255, 0))
+        zoom = self.zoom
+        img = Image.new("RGBA", self.frame.multiply_zoom(zoom), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         for coordinates, pixel in self.frame.justified_pixels.items():
-            coordinates *= self.zoom
-            opposite_corner = coordinates + self.zoom
+            coordinates *= zoom
+            opposite_corner = coordinates + zoom
             draw.rectangle(
                 (coordinates.to_tuple(), opposite_corner.to_tuple()),
                 self.get_color(pixel),
