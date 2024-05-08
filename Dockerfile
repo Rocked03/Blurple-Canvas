@@ -22,4 +22,4 @@ RUN pip install "discord.py[voice] @ git+https://github.com/rapptz/discord.py"  
 COPY . .
 
 # Set the command to run your Python script
-CMD ["python", "main.py"]
+CMD ["python", "-u", "main.py"]
