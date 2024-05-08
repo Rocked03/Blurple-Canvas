@@ -112,7 +112,10 @@ class ConfirmView(View):
 
     async def defer(self) -> None:
         if self.interaction:
-            await self.interaction.response.defer()
+            try:
+                await self.interaction.response.defer()
+            except NotFound:
+                print("Couldn't find the interaction to defer.")
 
     async def interaction_check(self, interaction: Interaction) -> bool:
         return interaction.user.id == self.user_id
