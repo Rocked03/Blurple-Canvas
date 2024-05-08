@@ -14,13 +14,13 @@ from discord import (
     User,
 )
 from discord.ext import commands
-from discord.ext.commands import Bot
+from discord.ext.commands import AutoShardedBot
 
-from config import BOT_PREFIX, OWNER_IDS, TOKEN
+from config import BOT_PREFIX, OWNER_IDS, TOKEN, SHARD_COUNT, SHARD_IDS
 from objects.cache import Cache
 
 
-class CanvasBot(Bot):
+class CanvasBot(AutoShardedBot):
     async def is_owner(self, user: User):
         if user.id in OWNER_IDS:  # Implement your own conditions here
             return True
@@ -51,12 +51,14 @@ bot = CanvasBot(
     member_cache_flags=MemberCacheFlags.all(),
 )
 
+bot.shard_count = SHARD_COUNT
+bot.shard_ids = SHARD_IDS
+
 bot.recent_cog = None
 bot.help = bot.description
 bot.cache: dict[int, Cache] = {}
 
 bot.remove_command("help")
-
 
 @bot.event
 async def on_connect():
