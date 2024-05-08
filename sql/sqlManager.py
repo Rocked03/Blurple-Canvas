@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Generator, Any, Optional
+from typing import Generator, Any, Optional, Dict, List
 from typing import TYPE_CHECKING
 
+from aiohttp import ClientSession
 from asyncpg import Connection, UndefinedFunctionError
 from discord import Client, User as UserDiscord, Guild as GuildDiscord
 
+from config import BASE_URL, API_KEY
 from objects.coordinates import BoundingBox
 
 if TYPE_CHECKING:
@@ -429,6 +431,34 @@ class SQLManager:
         )
 
         await self.set_pixels(pixels)
+
+        canvas_updates: Dict[int, List[Pixel]] = {
+            canvas_id: [] for canvas_id in set(pixel.canvas.id for pixel in pixels)
+        }
+        for pixel in pixels:
+            canvas_updates[pixel.canvas.id].append(pixel)
+
+        headers = {"X-API-KEY": API_KEY}
+        async with ClientSession() as session:
+            for canvas_id in canvas_updates:
+                endpoint = f"{BASE_URL}/canvas/{canvas_id}/pixel/bot"
+
+                pixels_http = [
+                    {
+                        "x": pixel.x,
+                        "y": pixel.y,
+                        "rgba": pixel.color.rgba,
+                    }
+                    for pixel in canvas_updates[canvas_id]
+                ]
+
+                try:
+                    async with session.post(
+                        endpoint, data=pixels_http, headers=headers
+                    ) as response:
+                        await response.text()
+                except Exception:
+                    pass
 
     async def fetch_user(
         self, user: UserDiscord, *, user_id: int = None, insert_on_fail: User = None
