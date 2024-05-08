@@ -237,12 +237,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
         sql = await self.sql()
         await self.wait_for_startup()
         user = await sql.fetch_user(user_discord)
+        await sql.close()
         if user.current_canvas is None:
-            await sql.close()
             raise ValueError(
                 "You have not joined a canvas! Please use `/join` to join a canvas."
             )
-        await sql.close()
         canvas = user.current_canvas
         if canvas is None:
             raise ValueError("Cannot find your canvas. Please `/join` a canvas.")
@@ -481,6 +480,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             # Get frame
             if frame:
                 if not frame.canvas == canvas:
+                    await sql.close()
                     return await interaction.followup.send(
                         "This frame does not belong to this canvas."
                     )
@@ -711,6 +711,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             sql, user=user, xy=coordinates, color=color, guild_id=interaction.guild_id
         )
         frame = await canvas.regenerate_frame(sql, frame)
+        await sql.close()
         embed.title = f"Placed pixel • {suffix}"
         embed.description = frame.to_emoji()
 
@@ -984,6 +985,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         stats = await sql.fetch_guild_stats(guild_id, canvas.id)
 
         if stats is None:
+            await sql.close()
             return await interaction.followup.send(
                 f"I couldn't find any stats for this guild ({guild_name}) in {canvas.name}!"
             )
@@ -1082,6 +1084,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
             )
 
         if not leaderboard:
+            await sql.close()
             if guild_id:
                 return await interaction.followup.send(
                     f"No leaderboard found for guild {guild_name} in *{canvas.name}*. "
@@ -1211,7 +1214,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         sql = await self.sql()
         guild = await sql.fetch_guild(interaction.guild)
-        await sql.close()
 
         perms = interaction.user.guild_permissions
         if guild is None:
@@ -1235,6 +1237,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         try:
             _, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
+            await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
         canvas = await self.check_cache(canvas)
 
@@ -1316,9 +1319,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
         )
 
         if frame:
-            sql = await self.sql()
             await frame.update(sql)
-            await sql.close()
+        await sql.close()
 
     @frame_edit.autocomplete("frame_id")
     async def frame_edit_autocomplete_frame_id(
@@ -1619,6 +1621,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         msg = await interaction.followup.send(f"Refreshing cache for {canvas}...")
         await self.bot.cache[canvas.id].force_refresh(sql)
         await msg.edit(content=f"Refreshed cache for {canvas}.")
+        await sql.close()
 
     @canvas_refresh.autocomplete("canvas")
     async def canvas_refresh_autocomplete_canvas(
@@ -1650,16 +1653,12 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         await interaction.response.defer()
 
-        sql = await self.sql()
-
         try:
             user, canvas = await self.find_canvas(interaction.user)
         except ValueError as e:
-            await sql.close()
             return await interaction.followup.send(str(e), ephemeral=True)
 
         if canvas.is_locked and not bypass_lock:
-            await sql.close()
             return await interaction.followup.send(f"**{canvas.name}** is read-only.")
 
         canvas = await self.check_cache(canvas)
@@ -1673,7 +1672,6 @@ class CanvasCog(commands.Cog, name="Canvas"):
         bbox = xy0.bbox_to(xy1)
 
         if bbox not in canvas:
-            await sql.close()
             return await interaction.followup.send(f"Image is out of bounds. ({bbox})")
 
         final_pixels = []
@@ -1681,8 +1679,8 @@ class CanvasCog(commands.Cog, name="Canvas"):
             pixel.xy += xy0
             final_pixels.append(pixel)
 
+        sql = await self.sql()
         await canvas.place_pixels(sql, user_id=author.id, pixels=final_pixels)
-
         await sql.close()
 
         await interaction.followup.send(f"Placed image at ({x}, {y}) on {canvas.name}.")
@@ -2016,11 +2014,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 color = await sql.fetch_colors_by_code(color_code)
                 color = color[color_code] if color else None
             if color is None:
+                await sql.close()
                 return await interaction.followup.send("Invalid color code.")
         else:
             color = None
 
         if await sql.fetch_participation(guild_id, event_id):
+            await sql.close()
             return await interaction.followup.send("Guild is already participating.")
 
         guild_discord = self.bot.get_guild(guild_id)
