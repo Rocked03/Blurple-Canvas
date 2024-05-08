@@ -5,6 +5,7 @@ from datetime import timedelta, datetime
 from typing import Optional
 
 from discord import User as UserDiscord, NotFound
+from discord.utils import escape_markdown
 
 from objects.color import Color
 from objects.discordObject import DiscordObject
@@ -99,7 +100,7 @@ class Ranking(UserStatsBase):
         if highlighted_user_id == self.user_id:
             txt.append(f"{self.mention} (you) - ")
         else:
-            txt.append(f"{self.name} - ")
+            txt.append(f"{escape_markdown(self.name)} - ")
         txt.append(f"{self.total_pixels:,} pixels")
         return "".join(txt)
 
