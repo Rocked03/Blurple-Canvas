@@ -454,7 +454,7 @@ class SQLManager:
                         await self.conn.execute(
                             "UPDATE discord_user_profile SET username = $1, profile_picture_url = $2 WHERE user_id = $3",
                             user.name,
-                            user.avatar.url,
+                            user.display_avatar.url,
                             user_id,
                         )
                     else:
@@ -463,7 +463,7 @@ class SQLManager:
                             "VALUES ($1, $2, $3)",
                             user_id,
                             user.name,
-                            user.avatar.url,
+                            user.display_avatar.url,
                         )
                 except UndefinedFunctionError:
                     pass
@@ -498,7 +498,7 @@ class SQLManager:
                 "ON CONFLICT (user_id) DO NOTHING ",
                 user.id,
                 user_discord.name,
-                user_discord.avatar.url,
+                user_discord.display_avatar.url,
             )
 
     # GUILD
