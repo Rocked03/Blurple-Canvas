@@ -1,0 +1,28 @@
+# this example only works when the config.py has a shard count of 5
+
+services:
+  s0:
+    image: rocked03/blurple-canvas
+    build: .
+    environment:
+      - SHARD_IDS=0
+  s1:
+    image: rocked03/blurple-canvas
+    build: .
+    environment:
+      - SHARD_IDS=1
+  s2:
+    image: rocked03/blurple-canvas
+    build: .
+    environment:
+      - SHARD_IDS=2
+  s3:
+    image: rocked03/blurple-canvas
+    build: .
+    environment:
+      - SHARD_IDS=3
+  s4:
+    image: rocked03/blurple-canvas
+    build: .
+    environment:
+      - SHARD_IDS=4
