@@ -119,6 +119,18 @@ class BoundingBox:
     def to_tuple(self):
         return self.x0, self.y0, self.x1, self.y1
 
+    def get(self, value):
+        if value == "x0":
+            return self.x0
+        elif value == "y0":
+            return self.y0
+        elif value == "x1":
+            return self.x1
+        elif value == "y1":
+            return self.y1
+        else:
+            raise ValueError(f"Invalid value: {value}")
+
     def __contains__(self, item):
 
         from objects.pixel import Pixel

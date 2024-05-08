@@ -557,7 +557,7 @@ class FrameEditView(ConfirmView):
                 "max_length": 5,
                 "required": True,
             }
-            bbox = self.view.frame.bbox if self.view.frame.bbox else {}
+            bbox = self.view.frame.bbox if self.view.frame.bbox else None
 
             return EditModal(
                 user_id,
@@ -573,7 +573,7 @@ class FrameEditView(ConfirmView):
                     **{
                         key: TextInput(
                             label=label,
-                            default=str(bbox.get(key[0], "")),
+                            default=bbox.get(key[0]),
                             custom_id=key,
                             **common_params,
                         )
