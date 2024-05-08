@@ -176,10 +176,11 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
     async def sql(self) -> SQLManager:
         await self.startup_events.sql.wait()
+        timer = Timer()
         print("Waiting for pool")
         pool = self.random_pool()
         connection = await pool.acquire()
-        print("Acquired from pool")
+        timer.mark("Acquired from pool")
         self.bot.loop.create_task(self.timeout_connection(pool, connection))
         return SQLManager(connection, self.bot, info=self.info)
 
