@@ -573,7 +573,7 @@ class FrameEditView(ConfirmView):
                     **{
                         key: TextInput(
                             label=label,
-                            default=bbox.get(key[0]),
+                            default=bbox.get(key[0]) if bbox else None,
                             custom_id=key,
                             **common_params,
                         )
