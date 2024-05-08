@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from asyncpg import create_pool
 from discord import Intents
+from discord.app_commands import CommandNotFound
 from discord.ext.commands import Bot
 
 from config import TOKEN, POSTGRES_CREDENTIALS
@@ -70,6 +71,14 @@ async def update_banner():
             await bot.user.edit(banner=gif_bytes.read())
 
     await sql.close()
+
+
+@bot.event
+async def on_command_error(context, exception):
+    if isinstance(exception, CommandNotFound):
+        pass  # Ignore CommandNotFound exception
+    else:
+        pass
 
 
 try:
