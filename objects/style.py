@@ -76,7 +76,7 @@ class Style:
         draw = ImageDraw.Draw(img)
         for coordinates, pixel in self.frame.justified_pixels.items():
             coordinates *= zoom
-            opposite_corner = coordinates + zoom
+            opposite_corner = coordinates + zoom - 1
             draw.rectangle(
                 (coordinates.to_tuple(), opposite_corner.to_tuple()),
                 self.get_color(pixel),
