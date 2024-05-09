@@ -48,7 +48,7 @@ bot = CanvasBot(
     description=description,
     intents=intents,
     chunk_guilds_at_startup=False,
-    member_cache_flags=MemberCacheFlags.all(),
+    # member_cache_flags=MemberCacheFlags.all(),
 )
 
 bot.shard_count = SHARD_COUNT
