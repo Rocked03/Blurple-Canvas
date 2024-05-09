@@ -456,7 +456,7 @@ class SQLManager:
 
                     # try:
                     async with session.post(
-                        endpoint, data=pixels_http, headers=headers
+                        endpoint, json=pixels_http, headers=headers
                     ) as response:
                         await response.text()
                     # except Exception:
