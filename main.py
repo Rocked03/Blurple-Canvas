@@ -36,9 +36,9 @@ class CanvasBot(AutoShardedBot):
 
 
 intents = Intents.default()
-intents.members = True
-intents.messages = True
-intents.message_content = True
+# intents.members = True
+# intents.messages = True
+# intents.message_content = True
 
 description = "Blurple Canvas for Project Blurple"
 
@@ -59,6 +59,7 @@ bot.help = bot.description
 bot.cache: dict[int, Cache] = {}
 
 bot.remove_command("help")
+
 
 @bot.event
 async def on_connect():
