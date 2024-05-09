@@ -148,6 +148,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 
         # Cache
         self.bot.loop.create_task(self.load_cache())
+        self.bot.loop.create_task(self.reload_caches())
 
         # Canvases
         self.canvases: list[Canvas] = []
@@ -166,7 +167,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.startup_events.startup.wait()
 
     async def startup_connect_sql(self):
-        self.pool = await create_pool(min_size=100, max_size=500, **POSTGRES_CREDENTIALS)
+        self.pool = await create_pool(
+            min_size=100, max_size=500, **POSTGRES_CREDENTIALS
+        )
         self.startup_events.sql.set()
         print("Connected to PostgreSQL database")
 
@@ -203,6 +206,19 @@ class CanvasCog(commands.Cog, name="Canvas"):
         for canvas in cache:
             if canvas.id not in self.bot.cache:
                 self.bot.cache[canvas.id] = Cache(await self.sql(), canvas=canvas)
+
+    async def reload_caches(self):
+        await self.startup_events.startup.wait()
+        wait_duration = 600  # 10 minutes
+        while True:
+            await asyncio.sleep(wait_duration)
+            sql = await self.sql()
+            for canvases in self.bot.cache.values():
+                try:
+                    if not canvases.canvas.is_locked:
+                        await canvases.force_refresh(sql)
+                except Exception:
+                    traceback.print_exc()
 
     async def load_canvases(self):
         sql = await self.sql()
