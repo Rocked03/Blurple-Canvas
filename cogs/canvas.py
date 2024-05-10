@@ -371,7 +371,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         interaction: Interaction,
         current: str,
         *,
-        current_guild_only: bool = False,
+        current_guild_only: bool = True,
     ):
         current = neutralise(current).upper()
 
