@@ -16,7 +16,7 @@ from objects.styles.default import DefaultStyle
 
 class CrunchyStyle(DefaultStyle):
     name = "Crunchy"
-    id = 31
+    id = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
