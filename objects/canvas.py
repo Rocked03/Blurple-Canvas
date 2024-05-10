@@ -53,7 +53,9 @@ class Canvas(DiscordObject):
             if width and height
             else None
         )
-        self.adjusted_bbox: Optional[BoundingBox] = self.bbox + self.start_coordinates
+        self.adjusted_bbox: Optional[BoundingBox] = (
+            (self.bbox + self.start_coordinates) if self.bbox else None
+        )
 
         from objects.event import Event
 
