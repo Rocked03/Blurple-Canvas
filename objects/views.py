@@ -573,7 +573,7 @@ class FrameEditView(ConfirmView):
                     **{
                         key: TextInput(
                             label=label,
-                            default=bbox.get(key[0]) if bbox else None,
+                            default=bbox.get(key) if bbox else None,
                             custom_id=key,
                             **common_params,
                         )
@@ -605,17 +605,17 @@ class FrameEditView(ConfirmView):
                     int(modal["x1"]),
                     int(modal["y1"]),
                 )
-                canvas_bbox = self.view.frame.canvas.bbox
+                canvas = self.view.frame.canvas
                 if (
-                    bbox not in canvas_bbox
+                    canvas.contains_adjusted_bbox(bbox)
                     or bbox.min_dimension < 5
                     or self.view.frame.canvas.bbox_percentage(bbox)
                     > self.view.max_size_percentage
                 ):
                     self.view.error = (
                         f"Invalid coordinates. "
-                        f"Please ensure the frame is within the canvas {canvas_bbox}."
-                        if bbox not in canvas_bbox
+                        f"Please ensure the frame is within the canvas {canvas.adjusted_bbox}."
+                        if canvas.contains_adjusted_bbox(bbox)
                         else (
                             "Invalid coordinates. Please ensure the frame is at least 5x5."
                             if bbox.min_dimension < 5
@@ -625,7 +625,7 @@ class FrameEditView(ConfirmView):
                     )
 
                 else:
-                    self.view.frame.bbox = bbox
+                    self.view.frame.bbox = bbox - canvas.start_coordinates
                     self.view.error = None
             except ValueError:
                 self.view.error = "Invalid coordinates. Please specify digits only."
