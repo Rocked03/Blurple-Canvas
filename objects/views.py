@@ -607,7 +607,7 @@ class FrameEditView(ConfirmView):
                 )
                 canvas = self.view.frame.canvas
                 if (
-                    canvas.contains_adjusted_bbox(bbox)
+                    not canvas.contains_adjusted_bbox(bbox)
                     or bbox.min_dimension < 5
                     or self.view.frame.canvas.bbox_percentage(bbox)
                     > self.view.max_size_percentage
@@ -615,7 +615,7 @@ class FrameEditView(ConfirmView):
                     self.view.error = (
                         f"Invalid coordinates. "
                         f"Please ensure the frame is within the canvas {canvas.adjusted_bbox}."
-                        if canvas.contains_adjusted_bbox(bbox)
+                        if not canvas.contains_adjusted_bbox(bbox)
                         else (
                             "Invalid coordinates. Please ensure the frame is at least 5x5."
                             if bbox.min_dimension < 5
