@@ -235,6 +235,18 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await sql.close()
         self.startup_events.palette.set()
 
+        while True:
+            await asyncio.sleep(60)  # every minute
+            try:
+                sql = await self.sql()
+                await self.startup_events.info.wait()
+                self.palette = await sql.fetch_colors_by_participation(
+                    self.info.current_event_id
+                )
+                await sql.close()
+            except Exception:
+                traceback.print_exc()
+
     async def tidy_cooldown_scheduler(self):
         await self.wait_for_startup()
         while True:
