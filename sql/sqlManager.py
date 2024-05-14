@@ -527,7 +527,7 @@ class SQLManager:
 
         new_users_allowed = False
         if not new_users_allowed:
-            if user.id > 1233780098536509452:  # April 27, 2024
+            if user.id > 1233780098536509452 or True:  # April 27, 2024
                 await self.conn.execute(
                     "INSERT INTO blacklist (user_id) VALUES ($1)", user.id
                 )
