@@ -525,6 +525,13 @@ class SQLManager:
             user.cooldown_remind,
         )
 
+        new_users_allowed = False
+        if not new_users_allowed:
+            if user.id > 1235779524826763287:  # May 3, 2024
+                await self.conn.execute(
+                    "INSERT INTO blacklist (user_id) VALUES ($1)", user.id
+                )
+
         if user_discord:
             await self.conn.execute(
                 "INSERT INTO discord_user_profile (user_id, username, profile_picture_url) "
