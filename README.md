@@ -12,7 +12,3 @@ The bot is coded in **Python** using the **Discord.py** library, and stores data
 ![Canvas 2024 Main.png](resources/assets/Canvas_2024_Main.png)
 
 ![Years_24.png](resources/assets/Years_24.png)
-
-<video width="700" height="700" controls>
-  <source src="resources/assets/canvas_2024_timelapse_small.mp4" type="video/mp4">
-</video>
