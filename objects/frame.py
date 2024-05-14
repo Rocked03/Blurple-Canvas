@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional, Type
 
 from PIL import Image
 
+from config import BASE_URL
 from objects.color import Color
 from objects.coordinates import BoundingBox, Coordinates
 from objects.discordObject import DiscordObject
@@ -117,7 +118,7 @@ class Frame(DiscordObject):
         return Frame(canvas=canvas, bbox=self.bbox, focus=self.focus)
 
     def justified_coordinates(self, xy: Coordinates) -> Coordinates:
-        return xy - self.bbox.x0
+        return xy - self.bbox.xy0
 
     @property
     def justified_pixels(self) -> dict[Coordinates, Pixel]:
@@ -183,6 +184,11 @@ class Frame(DiscordObject):
 
     def multiply_zoom(self, zoom: int) -> tuple[int, int]:
         return (self.bbox.size * zoom).to_tuple()
+
+    @property
+    def website_url(self) -> str:
+        centroid = self.centroid
+        return f"{BASE_URL}?c={self.canvas.id}&x={centroid.x}&y={centroid.y}&w={self.width}&h={self.height}"
 
     def __str__(self):
         return f"Frame {self.bbox} ({self.canvas})"

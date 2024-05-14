@@ -137,3 +137,5 @@ dmypy.json
 config.py
 
 old/backups/
+
+timelapse/generated

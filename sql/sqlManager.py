@@ -15,7 +15,7 @@ from objects.coordinates import BoundingBox
 if TYPE_CHECKING:
     from objects.canvas import Canvas
     from objects.color import Color, Palette
-    from objects.frame import CustomFrame
+    from objects.frame import CustomFrame, Frame
     from objects.guild import Participation, Guild
     from objects.historyRecord import HistoryRecord
     from objects.info import Info
@@ -258,6 +258,33 @@ class SQLManager:
         from objects.historyRecord import HistoryRecord
 
         return (HistoryRecord(bot=self.bot, **rename_invalid_keys(row)) for row in rows)
+
+    async def fetch_history_records_by_frame(
+        self,
+        frame: Frame,
+        *,
+        endTime: datetime = datetime(9999, 1, 1, tzinfo=timezone.utc),
+    ) -> list[HistoryRecord]:
+        rows = await self.conn.fetch(
+            """
+            SELECT * FROM history 
+            WHERE canvas_id = $1 
+            AND timestamp <= $2 
+            AND x >= $3 AND x <= $4 
+            AND y >= $5 AND y <= $6 
+            ORDER BY timestamp
+            """,
+            frame.canvas.id,
+            endTime,
+            frame.bbox.x0,
+            frame.bbox.x1,
+            frame.bbox.y0,
+            frame.bbox.y1,
+        )
+
+        from objects.historyRecord import HistoryRecord
+
+        return [HistoryRecord(bot=self.bot, **rename_invalid_keys(row)) for row in rows]
 
     async def insert_history_record(self, history_record: HistoryRecord):
         await self.conn.execute(

@@ -120,7 +120,10 @@ class Canvas(DiscordObject):
         await sql_manager.unlock_canvas(self)
 
     async def get_frame(
-        self, sql_manager: SQLManager, bbox: BoundingBox, focus: Coordinates = None
+        self,
+        sql_manager: Optional[SQLManager],
+        bbox: BoundingBox,
+        focus: Coordinates = None,
     ) -> Frame:
         if bbox not in self.bbox:
             raise ValueError("Coordinates out of bounds")
@@ -132,7 +135,8 @@ class Canvas(DiscordObject):
             bbox=bbox,
             focus=focus,
         )
-        await self.load_frame_pixels(sql_manager, frame)
+        if sql_manager:
+            await self.load_frame_pixels(sql_manager, frame)
         return frame
 
     async def regenerate_frame(self, sql_manager: SQLManager, frame: Frame) -> Frame:
