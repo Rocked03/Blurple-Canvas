@@ -124,6 +124,8 @@ def json_from_guild_stats(stats: Optional[GuildStats]) -> GuildStatsDTO.__dict__
 def save_to_json(data: dict | list, file_name: str):
     if not path.exists(CONFIG.data_folder):
         mkdir(CONFIG.data_folder)
+    if not path.exists(f"{CONFIG.data_folder}/stats"):
+        mkdir(f"{CONFIG.data_folder}/stats")
 
     with open(f"{CONFIG.data_folder}/{file_name}.json", "w") as f:
         json.dump(data, f, indent=2)
