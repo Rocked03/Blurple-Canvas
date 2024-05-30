@@ -139,3 +139,4 @@ config.py
 old/backups/
 
 timelapse/generated
+sql/generated
