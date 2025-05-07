@@ -23,14 +23,15 @@ TIMER = Timer()
 
 
 class TimelapseConfig:
-    canvas: int = 2024
-    bbox: BoundingBox = BoundingBox(Coordinates(0, 0), Coordinates(99, 99))
+    canvas: int | None = 2024
+    bbox: BoundingBox | None = BoundingBox(Coordinates(0, 0), Coordinates(699, 699))
+    frame_id: str | None = None
     start_time: datetime = DISTANT_PAST
     end_time: datetime = FAR_FUTURE
 
-    scale: int = 4
+    scale: int = 1
     fps: int = 60
-    frequency: int = 600  # in seconds
+    frequency: int = 450  # in seconds
     end_hang_time: int = 5  # in seconds
     end_card_transition_duration: int = 2  # in seconds
     end_card_length: int = 5  # in seconds
@@ -48,8 +49,11 @@ async def connect(credentials) -> Connection:
 
 
 async def fetch_frame(config: TimelapseConfig, sql: SQLManager) -> Frame:
-    canvas = await sql.fetch_canvas_by_id(config.canvas)
-    return await canvas.get_frame(None, config.bbox)
+    if config.canvas:
+        canvas = await sql.fetch_canvas_by_id(config.canvas)
+        return await canvas.get_frame(None, config.bbox)
+    else:
+        return await sql.fetch_frame(config.frame_id)
 
 
 async def fetch_history_records(

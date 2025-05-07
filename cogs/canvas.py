@@ -26,7 +26,7 @@ from discord.app_commands import Choice
 from discord.ext import commands
 from discord.utils import utcnow
 
-from config import POSTGRES_CREDENTIALS, ADMIN_GUILD_IDS, LOCK_BOT
+from config import POSTGRES_CREDENTIALS, ADMIN_GUILD_IDS, LOCK_BOT, LOCK_PLACING
 from objects.cache import Cache
 from objects.canvas import Canvas
 from objects.color import Palette, Color
@@ -129,6 +129,14 @@ async def locked_bot_check(interaction: Interaction):
         return True
 
 
+async def locked_placing_check(interaction: Interaction):
+    if LOCK_PLACING:
+        await interaction.response.send_message(
+            "Placing is not enabled on the bot. Head over to https://canvas.projectblurple.com/ to place pixels!",
+        )
+        return True
+
+
 class CanvasCog(commands.Cog, name="Canvas"):
     """Canvas Module"""
 
@@ -167,9 +175,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         await self.startup_events.startup.wait()
 
     async def startup_connect_sql(self):
-        self.pool = await create_pool(
-            min_size=100, max_size=500, **POSTGRES_CREDENTIALS
-        )
+        self.pool = await create_pool(min_size=5, max_size=5, **POSTGRES_CREDENTIALS)
         self.startup_events.sql.set()
         print("Connected to PostgreSQL database")
 
@@ -325,9 +331,13 @@ class CanvasCog(commands.Cog, name="Canvas"):
         title: str = None,
         color: int = None,
         footer: str = None,
+        url: str = None,
     ):
         embed = Embed(
-            title=title, timestamp=utcnow(), color=color or self.info.highlight_color
+            title=title,
+            timestamp=utcnow(),
+            color=color or self.info.highlight_color,
+            url=url,
         )
         footer_text = f"{f'{user} • ' if user else ''}" f"{self.bot.user.name}"
         embed.set_footer(
@@ -545,6 +555,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
                 if not frame.style.hide_embed_info
                 else None
             ),
+            url=frame.website_url,
             footer=f"Frame #{frame.id}" if frame.id is not None else f"{canvas.id}",
         )
         timer.mark_msg(f"Generated image ({format_bytes(size_bytes)})")
@@ -570,6 +581,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     async def place(self, interaction: Interaction, x: int, y: int, color: str = None):
         """Place a pixel on the canvas"""
         if await locked_bot_check(interaction):
+            return
+
+        if await locked_placing_check(interaction):
             return
 
         await interaction.response.defer()
@@ -736,6 +750,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
         frame = await canvas.regenerate_frame(sql, frame)
         await sql.close()
         embed.title = f"Placed pixel • {suffix}"
+        embed.url = frame.website_url
         embed.description = frame.to_emoji()
 
         if (
@@ -893,6 +908,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="toggle-skip")
     async def toggle_skip(self, interaction: Interaction):
         """Toggle skipping placing confirmation"""
+        if await locked_placing_check(interaction):
+            return
+
         await interaction.response.defer(ephemeral=True)
         sql = await self.sql()
         user = await sql.fetch_user(interaction.user)
@@ -906,6 +924,9 @@ class CanvasCog(commands.Cog, name="Canvas"):
     @app_commands.command(name="toggle-remind")
     async def toggle_remind(self, interaction: Interaction):
         """Toggle cooldown reminders"""
+        if await locked_placing_check(interaction):
+            return
+
         await interaction.response.defer()
         sql = await self.sql()
         user = await sql.fetch_user(interaction.user)
@@ -2122,6 +2143,7 @@ class CanvasCog(commands.Cog, name="Canvas"):
 #   - Memes
 #      - My beloved locket
 #      - Pinwheel spinny
+#      - Wolverine photo frame
 # Other stuff
 # - readme
 # Maybe

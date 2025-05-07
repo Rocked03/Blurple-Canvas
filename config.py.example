@@ -1,7 +1,10 @@
+import os
+
 TOKEN = 'tokenhere'
 BOT_PREFIX = 'p/'
 
 LOCK_BOT = False
+LOCK_PLACING = False
 
 POSTGRES_CREDENTIALS = {
     "user": "username",
