@@ -129,9 +129,13 @@ dmypy.json
 .pyre/
 
 
+.idea/
+
 
 
 # config
 config.py
 
-backups/
+old/backups/
+
+*/generated

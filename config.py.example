@@ -1,2 +1,29 @@
+import os
+
 TOKEN = 'tokenhere'
 BOT_PREFIX = 'p/'
+
+LOCK_BOT = False
+LOCK_PLACING = False
+
+POSTGRES_CREDENTIALS = {
+    "user": "username",
+    "password": "password",
+    "database": "database",
+    "host": "ip.address",
+}
+
+# List of guild IDs that are allowed to use the admin commands.
+# Leave blank for global.
+ADMIN_GUILD_IDS = {123, 456}
+
+# List of user IDs that are allowed to use the owner commands.
+OWNER_IDS = {135, 246}
+
+# For sharding using docker
+import os
+SHARD_COUNT = 1
+SHARD_IDS = list(map(int, os.getenv("SHARD_IDS", "0").split(",")))
+
+BASE_URL = "localhost:8000/api/v1"
+API_KEY = "API auth key here"
