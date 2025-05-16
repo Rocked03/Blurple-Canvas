@@ -23,20 +23,20 @@ TIMER = Timer()
 
 
 class TimelapseConfig:
-    canvas: int | None = 2024
-    bbox: BoundingBox | None = BoundingBox(Coordinates(0, 0), Coordinates(699, 699))
+    canvas: int | None = 2025
+    bbox: BoundingBox | None = BoundingBox(Coordinates(0, 0), Coordinates(799, 799))
     frame_id: str | None = None
     start_time: datetime = DISTANT_PAST
     end_time: datetime = FAR_FUTURE
 
-    scale: int = 1
+    scale: int = 4
     fps: int = 60
     frequency: int = 450  # in seconds
     end_hang_time: int = 5  # in seconds
     end_card_transition_duration: int = 2  # in seconds
     end_card_length: int = 5  # in seconds
 
-    end_card_path: str | None = "../resources/timelapse/end_card_2024.png"
+    end_card_path: str | None = "../resources/timelapse/end_card_2025.png"
     end_card_background_color: tuple[int, int, int, int] = (88, 101, 242, 255)
 
     @property

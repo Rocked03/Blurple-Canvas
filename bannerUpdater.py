@@ -6,7 +6,7 @@ from discord import Intents
 from discord.app_commands import CommandNotFound
 from discord.ext.commands import Bot
 
-from config import TOKEN, POSTGRES_CREDENTIALS
+from config import TOKEN, POSTGRES_CREDENTIALS, BOT_PREFIX
 from objects.imager import Imager
 from sql.sqlManager import SQLManager
 
@@ -15,7 +15,10 @@ class CanvasBannerBot(Bot):
     pass
 
 
-bot = CanvasBannerBot(command_prefix=None, intents=Intents.none())
+intents = Intents.none()
+intents.message_content = True
+intents.messages = True
+bot = CanvasBannerBot(command_prefix=BOT_PREFIX, intents=intents)
 
 
 @bot.event
@@ -32,6 +35,13 @@ async def on_ready():
     bot.pool = await create_pool(**POSTGRES_CREDENTIALS)
 
     bot.loop.create_task(update_banner_loop())
+
+
+@bot.command()
+async def guilds(ctx):
+    _guilds = "\n".join(f"{guild.name} - {guild.id}" for guild in bot.guilds)
+    print(_guilds)
+    await ctx.send(_guilds)
 
 
 async def update_banner_loop():
