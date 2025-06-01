@@ -113,10 +113,11 @@ class User(DiscordObject):
             if not cooldown.is_expired:
                 return False, cooldown
 
+        future_cooldown = datetime.now(tz=timezone.utc)
+            + timedelta(seconds=canvas.cooldown_length)
         new_cooldown = Cooldown(
             user_id=self.id,
-            cooldown_time=datetime.now(tz=timezone.utc)
-            + timedelta(seconds=canvas.cooldown_length),
+            cooldown_time=future_cooldown.replace(microsecond=(future_cooldown.microsecond // 1000) * 1000),
             canvas_id=canvas.id,
         )
         if cooldown is None:
